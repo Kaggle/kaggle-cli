@@ -12,7 +12,7 @@ The official CLI to interact with [Kaggle](https://www.kaggle.com).
 
 Some of the key features are:
 
-* List competitions, download competition data, submit to a competion.
+* List competitions, download competition data, submit to a competition.
 * List, create, update, download or delete datasets.
 * List, create, update, download or delete models & model variations.
 * List, update & run, download code & output or delete kernels (notebooks).
@@ -110,6 +110,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-The Kaggle API is released under the [Apache 2.0 license](LICENSE).
+The Kaggle API is released under the [Apache 2.0 license](LICENSE.txt).
 
 
