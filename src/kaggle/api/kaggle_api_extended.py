@@ -3021,7 +3021,7 @@ class KaggleApi:
             "dataset_sources": [],
             "competition_sources": [],
             "kernel_sources": [],
-            "model_sources": [], # add sources here as in issue #900 for testing
+            "model_sources": [],
         }
         meta_file = os.path.join(folder, self.KERNEL_METADATA_FILE)
         with open(meta_file, "w") as f:
