@@ -3021,7 +3021,7 @@ class KaggleApi:
             "dataset_sources": [],
             "competition_sources": [],
             "kernel_sources": [],
-            "model_sources": [],
+            "model_sources": [], # add sources here as in issue #900 for testing
         }
         meta_file = os.path.join(folder, self.KERNEL_METADATA_FILE)
         with open(meta_file, "w") as f:
@@ -3128,7 +3128,7 @@ class KaggleApi:
 
         model_sources = cast(List[str], self.get_or_default(meta_data, "model_sources", []))
         for source in model_sources:
-            self.validate_model_string(source)
+            self.validate_model_instance_version_string(source)
 
         docker_pinning_type = self.get_or_default(meta_data, "docker_image_pinning_type", None)
         if docker_pinning_type is not None and docker_pinning_type not in self.valid_push_pinning_types:
