@@ -736,7 +736,6 @@ class KaggleApi:
             self.CONFIG_NAME_AUTH_METHOD: AuthMethod.ACCESS_TOKEN,
         }
         self.logger.debug(f"Authenticated with access token in: {source}")
-        os.environ.pop("KAGGLE_API_TOKEN", None)
         return True
 
     def _authenticate_with_oauth_creds(self) -> bool:
