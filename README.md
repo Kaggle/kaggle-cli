@@ -102,7 +102,7 @@ hatch run test:integration
 
 ## Changelog
 
-See [CHANGELOG](./CHANGELOG).
+See [CHANGELOG](./CHANGELOG.md).
 
 ## Contributing
 
