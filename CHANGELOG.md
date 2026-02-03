@@ -3,8 +3,9 @@ Changelog
 
 ### 1.8.4
 
+* Allow auth to happen multiple times (#922)
 * Rename `kaggle-api` to `kaggle-cli`
-* Restore model validation check
+* Restore model validation check (#902)
 * Add --acc to set accelerator for: kaggle kernels push ... (#907)
 * Add automatic retry and resume to download_file (#905) Thanks katoue!
 * Add file pattern matching in output download (#901) Thanks piotr-ginal!
