@@ -74,7 +74,7 @@ We currently support the following metadata fields for model variations.
 
 * `ownerSlug`: the slug of the user or organization of the model
 * `modelSlug`: the existing model's slug
-* `variationSlug`: the slug of the variation
+* `instanceSlug`: the slug of the variation
 * `framework`: the variation's framework (possible options: `tensorFlow1`,`tensorFlow2`,`tfLite`,`tfJs`,`pyTorch`,`jax`,`coral`, ...)
 * `overview`: a short overview of the variation
 * `usage`: the variation's usage in markdown syntax (see the template below)
