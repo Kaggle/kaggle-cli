@@ -39,7 +39,7 @@ kaggle = "kaggle.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Kaggle/kaggle-cli"
-Issues = "https://github.com/Kaggle/kaggle-api/issues"
+Issues = "https://github.com/Kaggle/kaggle-cli/issues"
 
 [tool.hatch.version]
 path = "src/kaggle/__init__.py"
