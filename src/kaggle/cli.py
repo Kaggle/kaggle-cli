@@ -35,8 +35,8 @@ def main() -> None:
         "-v",
         "--version",
         action="version",
-        help="Print the Kaggle API version",
-        version="Kaggle API " + kaggle.__version__,
+        help="Print the Kaggle CLI version",
+        version="Kaggle CLI " + kaggle.__version__,
     )
     parser.add_argument(
         "-W",
@@ -1087,9 +1087,9 @@ class Help(object):
         + ", ".join(kernels_choices)
         + "}\nmodels {"
         + ", ".join(models_choices)
-        + "}\nmodels instances {"
+        + "}\nmodels variations {"
         + ", ".join(model_instances_choices)
-        + "}\nmodels instances versions {"
+        + "}\nmodels variations versions {"
         + ", ".join(model_instance_versions_choices)
         + "}\nconfig {"
         + ", ".join(config_choices)
@@ -1102,8 +1102,8 @@ class Help(object):
     group_datasets = "Commands related to Kaggle datasets"
     group_kernels = "Commands related to Kaggle kernels"
     group_models = "Commands related to Kaggle models"
-    group_model_instances = "Commands related to Kaggle model instances"
-    group_model_instance_versions = "Commands related to Kaggle model instance versions"
+    group_model_instances = "Commands related to Kaggle model variations"
+    group_model_instance_versions = "Commands related to Kaggle model variations versions"
     group_files = "Commands related files"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
@@ -1320,12 +1320,12 @@ class Help(object):
     )
 
     # Model Instances params
-    param_model_instance = "Model Instance URL suffix in format <owner>/<model-name>/<framework>/<instance-slug>"
-    command_model_instances_get = "Get a model instance"
-    command_model_instances_init = "Initialize metadata file for model instance creation"
-    command_model_instances_files = "List files for the current version of a model instance"
-    command_model_instances_list = "List instances of a model"
-    command_model_instances_new = "Create a new model instance"
+    param_model_instance = "Model variation URL suffix in format <owner>/<model-name>/<framework>/<instance-slug>"
+    command_model_instances_get = "Get a model variation"
+    command_model_instances_init = "Initialize metadata file for model variation creation"
+    command_model_instances_files = "List files for the current version of a model variation"
+    command_model_instances_list = "List variations of a model"
+    command_model_instances_new = "Create a new model variation"
     param_model_instance_downfile = (
         "Folder for downloading the special model-instance-metadata.json file "
         "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/models_metadata.md#model-instance). "
@@ -1336,22 +1336,22 @@ class Help(object):
         "(https://github.com/Kaggle/kaggle-cli/blob/main/docs/models_metadata.md#model-instance). "
         "Defaults to current working directory"
     )
-    command_model_instances_delete = "Delete a model instance"
-    command_model_instances_update = "Update a model instance"
+    command_model_instances_delete = "Delete a model variation"
+    command_model_instances_update = "Update a model variation"
 
     # Model Instance Versions params
     param_model_instance_version = (
-        "Model Instance Version URL suffix in format <owner>/<model-name>/<framework>/<instance-slug>/<version-number>"
+        "Model variation version URL suffix in format <owner>/<model-name>/<framework>/<variation-slug>/<version-number>"
     )
 
     # Model Instance Versions params
-    command_model_instance_versions_new = "Create a new model instance version"
+    command_model_instance_versions_new = "Create a new model variation version"
     param_model_instance_version_upfile = "Folder for upload. Defaults to current working directory"
-    command_model_instance_versions_delete = "Delete a model instance version"
-    command_model_instance_versions_download = "Download model instance version files"
-    command_model_instance_versions_files = "List model instance version files"
-    command_model_instance_versions_list = "List model instance versions"
-    param_model_instance_version_notes = "Version notes to record for the new model instance version"
+    command_model_instance_versions_delete = "Delete a model variation version"
+    command_model_instance_versions_download = "Download model variation version files"
+    command_model_instance_versions_files = "List model variation version files"
+    command_model_instance_versions_list = "List model variation versions"
+    param_model_instance_version_notes = "Version notes to record for the new model variation version"
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"

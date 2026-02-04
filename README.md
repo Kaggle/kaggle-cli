@@ -1,4 +1,4 @@
-# Kaggle API
+# Kaggle CLI
 
 The official CLI to interact with [Kaggle](https://www.kaggle.com).
 
@@ -90,7 +90,7 @@ hatch run test:local
 
 ### Integration Tests
 
-To run integration tests on your local machine, you need to set up your Kaggle API credentials. You can do this in one of these two ways described [this doc](docs/README.md). Refer to the sections: 
+To run integration tests on your local machine, you need to set up your Kaggle credentials. You can do this in one of these two ways described [this doc](docs/README.md). Refer to the sections: 
 - Using environment variables
 - Using credentials file
 
@@ -110,6 +110,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-The Kaggle API is released under the [Apache 2.0 license](LICENSE.txt).
+The Kaggle CLI is released under the [Apache 2.0 license](LICENSE.txt).
 
 

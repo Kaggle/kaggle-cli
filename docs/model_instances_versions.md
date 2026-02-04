@@ -9,12 +9,12 @@ Creates a new version of an existing model variation.
 **Usage:**
 
 ```bash
-kaggle models variations versions create <MODEL_INSTANCE> -p <FOLDER_PATH> [options]
+kaggle models variations versions create <MODEL_VARIATION> -p <FOLDER_PATH> [options]
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE>`: The target model variation URL suffix for the new version (format: `owner/model-slug/framework/instance-slug`, e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
+*   `<MODEL_VARIATION>`: The target model variation URL suffix for the new version (format: `owner/model-slug/framework/variation-slug`, e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
 
 **Options:**
 
@@ -45,12 +45,12 @@ Downloads files for a specific version of a model variation.
 **Usage:**
 
 ```bash
-kaggle models variations versions download <MODEL_INSTANCE_VERSION> [options]
+kaggle models variations versions download <MODEL_VARIATION_VERSION> [options]
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE_VERSION>`: Model variation version URL suffix in the format `owner/model-slug/framework/instance-slug/version-number` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main/1`).
+*   `<MODEL_VARIATION_VERSION>`: Model variation version URL suffix in the format `owner/model-slug/framework/variation-slug/version-number` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main/1`).
 
 **Options:**
 
@@ -79,12 +79,12 @@ Lists files for a specific version of a model variation.
 **Usage:**
 
 ```bash
-kaggle models variations versions files <MODEL_INSTANCE_VERSION> [options]
+kaggle models variations versions files <MODEL_VARIATION_VERSION> [options]
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE_VERSION>`: Model variation version URL suffix (e.g., `google/gemma/pytorch/7b/2`).
+*   `<MODEL_VARIATION_VERSION>`: Model variation version URL suffix (e.g., `google/gemma/pytorch/7b/2`).
 
 **Options:**
 
@@ -111,12 +111,12 @@ Deletes a specific version of a model variation from Kaggle.
 **Usage:**
 
 ```bash
-kaggle models variations versions delete <MODEL_INSTANCE_VERSION> [options]
+kaggle models variations versions delete <MODEL_VARIATION_VERSION> [options]
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE_VERSION>`: Model variation version URL suffix in the format `owner/model-slug/framework/instance-slug/version-number` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main/1`).
+*   `<MODEL_VARIATION_VERSION>`: Model variation version URL suffix in the format `owner/model-slug/framework/variation-slug/version-number` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main/1`).
 
 **Options:**
 

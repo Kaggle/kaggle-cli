@@ -5,6 +5,7 @@ Commands for interacting with variations of Kaggle Models. A model variation typ
 ## `kaggle models variations init`
 
 Initializes a metadata file (`model-instance-metadata.json`) for creating a new model variation.
+Note that the name of the file reflects the old name for a variation, which was "instance".
 
 **Usage:**
 
@@ -52,7 +53,7 @@ Create a new model variation using the metadata and files in the `tmp` folder, q
 # Example: Edit model-instance-metadata.json first
 # sed -i 's/INSERT_OWNER_SLUG_HERE/your-username/' tmp/model-instance-metadata.json
 # sed -i 's/INSERT_EXISTING_MODEL_SLUG_HERE/parent-model-slug/' tmp/model-instance-metadata.json
-# sed -i 's/INSERT_INSTANCE_SLUG_HERE/my-instance-slug/' tmp/model-instance-metadata.json
+# sed -i 's/INSERT_INSTANCE_SLUG_HERE/my-variation-slug/' tmp/model-instance-metadata.json
 # sed -i 's/INSERT_FRAMEWORK_HERE/jax/' tmp/model-instance-metadata.json
 # echo "a,b,c,d" > tmp/data.csv # Example model file
 
@@ -70,12 +71,12 @@ Downloads the `model-instance-metadata.json` file for an existing model variatio
 **Usage:**
 
 ```bash
-kaggle models variations get <MODEL_INSTANCE> -p <FOLDER_PATH>
+kaggle models variations get <MODEL_VARIATION> -p <FOLDER_PATH>
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE>`: Model variation URL suffix in the format `owner/model-slug/framework/instance-slug` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
+*   `<MODEL_VARIATION>`: Model variation URL suffix in the format `owner/model-slug/framework/variation-slug` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
 
 **Options:**
 
@@ -100,12 +101,12 @@ Lists files for the current version of a model variation.
 **Usage:**
 
 ```bash
-kaggle models variations files <MODEL_INSTANCE> [options]
+kaggle models variations files <MODEL_VARIATION> [options]
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE>`: Model variation URL suffix (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
+*   `<MODEL_VARIATION>`: Model variation URL suffix (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
 
 **Options:**
 
@@ -158,12 +159,12 @@ Deletes a model variation from Kaggle.
 **Usage:**
 
 ```bash
-kaggle models variations delete <MODEL_INSTANCE> [options]
+kaggle models variations delete <MODEL_VARIATION> [options]
 ```
 
 **Arguments:**
 
-*   `<MODEL_INSTANCE>`: Model variation URL suffix in the format `owner/model-slug/framework/instance-slug` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
+*   `<MODEL_VARIATION>`: Model variation URL suffix in the format `owner/model-slug/framework/variation-slug` (e.g., `$KAGGLE_DEVELOPER/test-model/jax/main`).
 
 **Options:**
 

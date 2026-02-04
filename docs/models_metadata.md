@@ -1,14 +1,14 @@
 A full model is composed of 3 types of entities:
 
 1. The model
-2. The instances
-3. The instance versions
+2. The variations
+3. The variation versions
 
 Let's take the example of [efficientnet](https://www.kaggle.com/models/tensorflow/efficientnet) to explain these entities.
 
-A model like `efficientnet` contains multiple instances.
+A model like `efficientnet` contains multiple variations.
 
-An instance is a specific variation of the model (e.g. B0, B1, ...) with a certain framework (e.g. TensorFlow2).
+A variation is a specific variation of the model (e.g. B0, B1, ...) with a certain framework (e.g. TensorFlow2).
 
 ## Model
 
@@ -44,9 +44,9 @@ We currently support the following metadata fields for models.
 * `publishTime`: the original publishing time of the model
 * `provenanceSources`: the provenance of the model
 
-## Model Instance
+## Model Variation
 
-To create a model instance, a special `model-instance-metadata.json` file must be specified. 
+To create a model variation, a special `model-instance-metadata.json` file must be specified. 
 
 Here's a basic example for `model-instance-metadata.json`:
 ```
@@ -66,22 +66,22 @@ Here's a basic example for `model-instance-metadata.json`:
 }
 ```
 
-You can also use the API command `kaggle models instances init -p /path/to/model-instance` to have the API create this file for you for a new model instance.
+You can also use the API command `kaggle models variations init -p /path/to/model-variation` to have the API create this file for you for a new model variation.
 
 ### Contents
 
-We currently support the following metadata fields for model instances.
+We currently support the following metadata fields for model variations.
 
 * `ownerSlug`: the slug of the user or organization of the model
 * `modelSlug`: the existing model's slug
-* `instanceSlug`: the slug of the instance
-* `framework`: the instance's framework (possible options: `tensorFlow1`,`tensorFlow2`,`tfLite`,`tfJs`,`pyTorch`,`jax`,`coral`, ...)
-* `overview`: a short overview of the instance
-* `usage`: the instance's usage in markdown syntax (see the template below)
-* `fineTunable`: whether the instance is fine tunable
+* `variationSlug`: the slug of the variation
+* `framework`: the variation's framework (possible options: `tensorFlow1`,`tensorFlow2`,`tfLite`,`tfJs`,`pyTorch`,`jax`,`coral`, ...)
+* `overview`: a short overview of the variation
+* `usage`: the variation's usage in markdown syntax (see the template below)
+* `fineTunable`: whether the variation is fine tunable
 * `trainingData`: a list of training data in the form of strings, URLs, Kaggle Datasets, etc...
-* `modelInstanceType`: whether the model instance is a base model, external variant, internal variant, or unspecified
-* `baseModelInstance`: if this is an internal variant, the `{owner-slug}/{model-slug}/{framework}/{instance-slug}` of the base model instance
+* `modelInstanceType`: whether the model variation is a base model, external variant, internal variant, or unspecified
+* `baseModelInstance`: if this is an internal variant, the `{owner-slug}/{model-slug}/{framework}/{variation-slug}` of the base model variation
 * `externalBaseModelUrl`: if this is an external variant, a URL to the base model
 
 ### Licenses
