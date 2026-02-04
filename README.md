@@ -90,7 +90,7 @@ hatch run test:local
 
 ### Integration Tests
 
-To run integration tests on your local machine, you need to set up your Kaggle credentials. You can do this by following the [authentication instructions](docs/README.md).
+To run integration tests on your local machine, you need to set up your Kaggle credentials. You can do this by following the [authentication instructions](docs#authentication).
 
 After setting up your credentials, you can run the integration tests as follows:
 
@@ -109,5 +109,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 ## License
 
 The Kaggle CLI is released under the [Apache 2.0 license](LICENSE.txt).
+
 
 
