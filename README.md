@@ -109,7 +109,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## License
 
 The Kaggle CLI is released under the [Apache 2.0 license](LICENSE.txt).
-
-
-
-
