@@ -25,7 +25,7 @@ Install the `kaggle` package with [pip](https://pypi.org/project/pip/):
 pip install kaggle
 ```
 
-Additional installation instructions can be found [here](./docs/README.md#installation).
+Additional installation instructions can be found [here](docs/README.md#installation).
 
 ## Quick start
 
@@ -90,7 +90,7 @@ hatch run test:local
 
 ### Integration Tests
 
-To run integration tests on your local machine, you need to set up your Kaggle credentials. You can do this by following the [authentication instructions](docs#authentication).
+To run integration tests on your local machine, you need to set up your Kaggle credentials. You can do this by following the [authentication instructions](docs/README.md#authentication).
 
 After setting up your credentials, you can run the integration tests as follows:
 
@@ -100,15 +100,16 @@ hatch run test:integration
 
 ## Changelog
 
-See [CHANGELOG](./CHANGELOG.md).
+See [CHANGELOG](CHANGELOG.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
 The Kaggle CLI is released under the [Apache 2.0 license](LICENSE.txt).
+
 
 
 
