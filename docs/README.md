@@ -48,8 +48,8 @@ The Kaggle CLI is organized into several command groups:
 *   [Datasets](./datasets.md): Search, download, and manage Kaggle datasets.
 *   [Kernels](./kernels.md): Interact with Kaggle Kernels (notebooks and scripts).
 *   [Models](./models.md): Manage your Kaggle Models.
-*   [Model Variations](./model_instances.md): Manage variations of your Kaggle Models.
-*   [Model Variation Versions](./model_instances_versions.md): Manage versions of your Kaggle Model Variations.
+*   [Model Variations](./model_variations.md): Manage variations of your Kaggle Models.
+*   [Model Variation Versions](./model_variations_versions.md): Manage versions of your Kaggle Model Variations.
 *   [Configuration](./configuration.md): Configure the Kaggle CLI.
 
 ## Tutorials
