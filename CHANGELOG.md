@@ -1,6 +1,13 @@
 Changelog
 ====
 
+### 2.0.0
+
+* General Availability release
+* Change more "instance" to "variation"
+* Update link for the integration test auth instructions (#926)
+* Fix string formatting in upgrade nudge message (#928) Thanks PythonicVarun!
+
 ### 1.8.4
 
 * Rename `kaggle-api` to `kaggle-cli`
