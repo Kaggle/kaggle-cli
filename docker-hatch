@@ -1,0 +1,72 @@
+#!/bin/bash
+set -e
+
+PYTHON_VERSION='3.11.6' # Default Python version to use.
+CACHE_FLAG=''
+
+usage() {
+cat << EOF
+Usage: $0 [OPTIONS] HATCH-OPTIONS-COMMAND-ARGS
+Run the given HATCH-OPTIONS-COMMAND-ARGS in a container.
+
+Options:
+    -h, --help                              Show documentation on how to use $0
+    -v, --python-version PYTHON-VERSION     Run in a container using this specfic Python version.
+                                            Valid versions are tags of the \`python\` Docker image: https://hub.docker.com/_/python
+    -f, --force-rebuild-docker-image        Force re-build the Docker image.
+EOF
+}
+
+while :; do
+    case "$1" in 
+        -h|--help)
+            usage
+            exit
+            ;;        
+        -v|--python-version)
+            if [[ -z $2 ]]; then
+                usage
+                printf 'ERROR: No PYTHON-VERSION specified after the %s flag.\n' "$1" >&2
+                exit
+            fi
+            PYTHON_VERSION=$2
+            shift # skip the flag value
+            ;;
+        -f|--force-rebuild-docker-image)
+            CACHE_FLAG='--no-cache'
+            ;;
+        # Use this marker to indicate that the rest of the command is for hatch
+        --)
+            shift # skip this one to pass the rest to hatch  
+            break
+            ;;
+        -?*)
+            usage
+            printf 'ERROR: Unknown option: %s\n' "$1" >&2
+            exit
+            ;;
+        *)            
+            break
+    esac
+
+    shift
+done
+
+DOCKER_IMAGE="kaggle-cli-docker-hatch:${PYTHON_VERSION}"
+
+readonly PYTHON_VERSION
+readonly DOCKER_IMAGE
+readonly CACHE_FLAG
+
+echo "Running 'hatch $@' inside a Docker container using Python ${PYTHON_VERSION}"
+
+docker build -f Dockerfile \
+    -t ${DOCKER_IMAGE} \
+    ${CACHE_FLAG} \
+    --cache-from ${DOCKER_IMAGE} \
+    --build-arg PYTHON_VERSION=${PYTHON_VERSION} \
+    --quiet \
+    .
+
+set -x
+docker run --rm -v $PWD:/working -v ~/.kaggle:/root/.kaggle -w /working ${DOCKER_IMAGE} "$@"
