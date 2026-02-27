@@ -24,7 +24,7 @@ keywords = ["Kaggle", "API"]
 requires-python = ">= 3.11"
 dependencies = [
     "bleach",
-    "kagglesdk >= 0.1.15, < 1.0", # sync with kagglehub
+    "kagglesdk >= 0.1.16, < 1.0", # sync with kagglehub
     "python-slugify",
     "requests",
     "python-dateutil",

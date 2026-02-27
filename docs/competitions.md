@@ -131,6 +131,7 @@ kaggle competitions submit <COMPETITION> -f <FILE_NAME> -m <MESSAGE> [options]
 *   `-k, --kernel <KERNEL>`: Name of the kernel (notebook) to submit (for code competitions).
 *   `-v, --version <VERSION>`: Version of the kernel to submit (e.g. `2`).
 *   `-q, --quiet`: Suppress verbose output.
+*   `--sandbox`: Mark submission as a sandbox submission (competition hosts/admins only).
 
 **Example: Standard (not code) competition:**
 

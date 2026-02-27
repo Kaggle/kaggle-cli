@@ -1306,7 +1306,7 @@ class KaggleApi:
                 return submit_response
 
     def competition_submit(
-        self, file_name: str, message: str, competition: str, quiet: bool = False
+        self, file_name: str, message: str, competition: str, quiet: bool = False, sandbox: bool = False
     ) -> ApiCreateSubmissionResponse:
         """Submits to a competition.
 
@@ -1315,6 +1315,7 @@ class KaggleApi:
             message (str): The submission description.
             competition (str): The competition name.
             quiet (bool): Suppress verbose output (default is False).
+            sandbox (bool): Mark as a sandbox submission (default is False).
 
         Returns:
             ApiCreateSubmissionResponse:
@@ -1355,6 +1356,8 @@ class KaggleApi:
                 submit_request.blob_file_tokens = response.token
                 if message:
                     submit_request.submission_description = message
+                if sandbox:
+                    submit_request.sandbox = True
                 submit_response: ApiCreateSubmissionResponse = (
                     kaggle.competitions.competition_api_client.create_submission(submit_request)
                 )
@@ -1369,6 +1372,7 @@ class KaggleApi:
         version: Optional[str] = None,
         competition_opt: Optional[str] = None,
         quiet: bool = False,
+        sandbox: bool = False,
     ) -> str:
         """Submits a competition using the client.
 
@@ -1380,6 +1384,7 @@ class KaggleApi:
             version (Optional[str]): The version of the kernel to submit to a code competition, e.g. '1'.
             competition_opt (Optional[str]): An alternative competition option provided by cli.
             quiet (bool): Suppress verbose output (default is False).
+            sandbox (bool): Mark as a sandbox submission (default is False).
 
         Returns:
             str:
@@ -1394,7 +1399,7 @@ class KaggleApi:
                 )
             else:
                 submit_result = self.competition_submit(
-                    cast(str, file_name), cast(str, message), cast(str, competition), quiet
+                    cast(str, file_name), cast(str, message), cast(str, competition), quiet, sandbox
                 )
         except RequestException as e:
             if e.response and e.response.status_code == 404:

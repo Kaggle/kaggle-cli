@@ -1,6 +1,10 @@
 Changelog
 ====
 
+### Next
+
+* Add `--sandbox` flag to `kaggle competitions submit` for sandbox submissions (competition hosts/admins only)
+
 ### 2.0.0
 
 * General Availability release

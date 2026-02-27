@@ -210,6 +210,9 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_submit_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
+    parser_competitions_submit_optional.add_argument(
+        "--sandbox", dest="sandbox", action="store_true", help=Help.param_sandbox
+    )
     parser_competitions_submit._action_groups.append(parser_competitions_submit_optional)
     parser_competitions_submit.set_defaults(func=api.competition_submit_cli)
 
@@ -1167,6 +1170,7 @@ class Help(object):
     param_wp = "Download files to current working path"
     param_proxy = "Proxy for HTTP requests"
     param_quiet = "Suppress printing information about the upload/download progress"
+    param_sandbox = "Mark submission as a sandbox submission (competition hosts/admins only)"
     param_public = "Create publicly (default is private)"
     param_keep_tabular = "Do not convert tabular files to CSV (default is to convert)"
     param_dir_mode = (
