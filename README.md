@@ -98,6 +98,17 @@ After setting up your credentials, you can run the integration tests as follows:
 hatch run test:integration
 ```
 
+### Running `hatch` commands inside Docker
+
+This is useful to run in a consistent environment and easily switch between Python versions.
+
+The following shows how to run `hatch run lint:all` but this also works for any other hatch commands:
+
+```
+# Use default Python version
+./docker-hatch run lint:all
+```
+
 ## Changelog
 
 See [CHANGELOG](CHANGELOG.md).
