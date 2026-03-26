@@ -115,6 +115,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiGetKernelRequest,
     ApiListKernelSessionOutputRequest,
     ApiGetKernelSessionStatusRequest,
+    ApiStopKernelSessionRequest,
     ApiSaveKernelResponse,
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
