@@ -93,8 +93,8 @@ from typing import Any
 def __parse_body(body) -> Any:
     try:
         return json.loads(body)
-    except Exception as e:
-        return {}
+    except json.JSONDecodeError as e:
+        raise ValueError("Failed to parse response body as JSON") from e
 
 
 def parse_competitions(subparsers) -> None:
