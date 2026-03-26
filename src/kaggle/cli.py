@@ -554,6 +554,20 @@ def parse_kernels(subparsers) -> None:
         "-t", "--timeout", type=int, dest="timeout", help=Help.param_kernel_timeout
     )
     parser_kernels_push_optional.add_argument("--accelerator", dest="acc", help=Help.param_kernel_acc)
+    parser_kernels_push_optional.add_argument(
+        "--secret",
+        dest="secrets",
+        action="append",
+        required=False,
+        help="Attach an existing account-level secret by name. Repeat to attach multiple secrets.",
+    )
+    parser_kernels_push_optional.add_argument(
+        "--input",
+        dest="inputs",
+        action="append",
+        required=False,
+        help="Set a non-secret runtime input as KEY=VALUE. Repeat to pass multiple inputs.",
+    )
     parser_kernels_push._action_groups.append(parser_kernels_push_optional)
     parser_kernels_push.set_defaults(func=api.kernels_push_cli)
 
