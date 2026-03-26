@@ -329,7 +329,13 @@ def parse_datasets(subparsers) -> None:
         "files", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_datasets_files
     )
     parser_datasets_files_optional = parser_datasets_files._action_groups.pop()
-    parser_datasets_files_optional.add_argument("dataset", nargs="?", default=None, help=Help.param_dataset)
+    parser_datasets_files_optional.add_argument(
+        "dataset",
+        nargs="?",
+        default=None,
+        metavar="owner/dataset-name[/version-number]",
+        help=Help.param_dataset,
+    )
     parser_datasets_files_optional.add_argument(
         "-d", "--dataset", dest="dataset_opt", required=False, help=argparse.SUPPRESS
     )
@@ -350,7 +356,13 @@ def parse_datasets(subparsers) -> None:
         "download", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_datasets_download
     )
     parser_datasets_download_optional = parser_datasets_download._action_groups.pop()
-    parser_datasets_download_optional.add_argument("dataset", nargs="?", default=None, help=Help.param_dataset)
+    parser_datasets_download_optional.add_argument(
+        "dataset",
+        nargs="?",
+        default=None,
+        metavar="owner/dataset-name[/version-number]",
+        help=Help.param_dataset,
+    )
     parser_datasets_download_optional.add_argument(
         "-d", "--dataset", dest="dataset_opt", required=False, help=argparse.SUPPRESS
     )
