@@ -806,5 +806,16 @@ class TestKaggleApi(unittest.TestCase):
             self.fail(f"model_delete failed: {e}")
 
 
+class TestKernelStop(unittest.TestCase):
+
+    def testKernelStop(self):
+        try:
+            api.kernel_stop(f"{test_user}/{kernel_name}", quiet=True)
+        except HTTPError as e:
+            status_code = e.response.status_code if e.response is not None else None
+            if status_code not in (400, 404, 409):
+                raise
+
+
 if __name__ == "__main__":
     unittest.main()
