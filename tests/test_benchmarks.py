@@ -22,7 +22,9 @@ class TestBenchmarks(unittest.TestCase):
             with open(dummy_ipynb, "w") as f:
                 f.write("{}")
 
-            result_dir = self.api.benchmarks_pull("testuser/my-benchmark", path=tmpdir, quiet=True)
+            result_dir = self.api.benchmarks_pull(
+                "testuser/my-benchmark", path=tmpdir, quiet=True
+            )
             self.assertEqual(result_dir, tmpdir)
 
             # 1. notebooks should be renamed to benchmark.ipynb
@@ -33,7 +35,9 @@ class TestBenchmarks(unittest.TestCase):
             # 2. jupytext read and write should be called
             mock_read.assert_called_once_with(benchmark_ipynb)
             mock_write.assert_called_once()
-            self.assertEqual(mock_write.call_args[0][1], os.path.join(tmpdir, "benchmark.py"))
+            self.assertEqual(
+                mock_write.call_args[0][1], os.path.join(tmpdir, "benchmark.py")
+            )
             self.assertEqual(mock_write.call_args[1]["fmt"], "py:percent")
             self.api.kernels_pull.assert_called_once_with(
                 "testuser/my-benchmark", path=tmpdir, metadata=True, quiet=True
@@ -51,7 +55,10 @@ class TestBenchmarks(unittest.TestCase):
             self.api.kernels_push = MagicMock(return_value="push_success")
 
             result = self.api.benchmarks_publish_and_run(
-                kernel="testuser/new-benchmark", path=tmpdir, file_name="benchmark.py", quiet=True
+                kernel="testuser/new-benchmark",
+                path=tmpdir,
+                file_name="benchmark.py",
+                quiet=True,
             )
 
             self.assertEqual(result, "push_success")
@@ -59,7 +66,9 @@ class TestBenchmarks(unittest.TestCase):
             # verify jupytext was used to read .py and write .ipynb
             mock_read.assert_called_once_with(py_file, fmt="py:percent")
             mock_write.assert_called_once()
-            self.assertEqual(mock_write.call_args[0][1], os.path.join(tmpdir, "benchmark.ipynb"))
+            self.assertEqual(
+                mock_write.call_args[0][1], os.path.join(tmpdir, "benchmark.ipynb")
+            )
 
             # verify metadata was created correctly
             metadata_file = os.path.join(tmpdir, "kernel-metadata.json")
@@ -85,7 +94,14 @@ class TestBenchmarks(unittest.TestCase):
             # Create existing metadata
             metadata_file = os.path.join(tmpdir, "kernel-metadata.json")
             with open(metadata_file, "w") as f:
-                json.dump({"id": "otheruser/existing-benchmark", "code_file": "old.ipynb", "keywords": ["tag1"]}, f)
+                json.dump(
+                    {
+                        "id": "otheruser/existing-benchmark",
+                        "code_file": "old.ipynb",
+                        "keywords": ["tag1"],
+                    },
+                    f,
+                )
 
             self.api.kernels_push = MagicMock(return_value="push_success")
 
@@ -118,7 +134,9 @@ class TestBenchmarks(unittest.TestCase):
             self.api.kernels_push = MagicMock(return_value="push_success")
 
             # Act with explicit kernel override
-            self.api.benchmarks_publish_and_run(kernel="newuser/new-benchmark", path=tmpdir, quiet=True)
+            self.api.benchmarks_publish_and_run(
+                kernel="newuser/new-benchmark", path=tmpdir, quiet=True
+            )
 
             # Assert
             self.api.kernels_push.assert_called_once_with(tmpdir)
@@ -130,7 +148,6 @@ class TestBenchmarks(unittest.TestCase):
             self.assertNotIn("id_no", metadata)
             self.assertIn("personal-benchmark", metadata["keywords"])
 
-
     @patch("time.sleep")
     def test_benchmarks_get_results(self, mock_sleep):
         # mock status to return 'running' once, then 'complete'
@@ -139,16 +156,24 @@ class TestBenchmarks(unittest.TestCase):
                 self.status = status
                 self.failure_message = ""
 
-        self.api.kernels_status = MagicMock(side_effect=[MockStatus("running"), MockStatus("complete")])
+        self.api.kernels_status = MagicMock(
+            side_effect=[MockStatus("running"), MockStatus("complete")]
+        )
         self.api.kernels_output = MagicMock(return_value="output_data")
 
-        result = self.api.benchmarks_get_results("testuser/my-bench", path="some_path", poll_interval=10)
+        result = self.api.benchmarks_get_results(
+            "testuser/my-bench", path="some_path", poll_interval=10
+        )
 
         self.assertEqual(result, "output_data")
         self.assertEqual(self.api.kernels_status.call_count, 2)
         mock_sleep.assert_called_once_with(10)
         self.api.kernels_output.assert_called_once_with(
-            kernel="testuser/my-bench", path="some_path", force=True, quiet=False
+            kernel="testuser/my-bench",
+            path="some_path",
+            file_pattern=None,
+            force=True,
+            quiet=False,
         )
 
     def test_benchmarks_get_results_error(self):
@@ -158,6 +183,7 @@ class TestBenchmarks(unittest.TestCase):
                 self.failure_message = "syntax error"
 
         self.api.kernels_status = MagicMock(return_value=MockStatusError())
+        self.api.kernels_output = MagicMock()
 
         with self.assertRaisesRegex(ValueError, "error state"):
             self.api.benchmarks_get_results("testuser/my-bench")
@@ -168,7 +194,7 @@ class TestBenchmarks(unittest.TestCase):
             def __init__(self, status):
                 self.status = status
                 self.failure_message = ""
-                
+
         self.api.kernels_status = MagicMock(return_value=MockStatus("complete"))
         self.api.kernels_output = MagicMock(return_value="output_data")
 
@@ -176,14 +202,17 @@ class TestBenchmarks(unittest.TestCase):
             # Create existing metadata
             metadata_file = os.path.join(tmpdir, "kernel-metadata.json")
             with open(metadata_file, "w") as f:
-                import json
                 json.dump({"id": "implicit/my-bench"}, f)
 
             result = self.api.benchmarks_get_results(kernel=None, path=tmpdir)
 
             self.assertEqual(result, "output_data")
             self.api.kernels_output.assert_called_once_with(
-                kernel="implicit/my-bench", path=tmpdir, force=True, quiet=False
+                kernel="implicit/my-bench",
+                path=tmpdir,
+                file_pattern=None,
+                force=True,
+                quiet=False,
             )
 
 

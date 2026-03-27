@@ -721,7 +721,7 @@ class KaggleApi:
         return True
 
     def _authenticate_with_access_token(self):
-        access_token, source = get_access_token_from_env()
+        (access_token, source) = get_access_token_from_env()
         if not access_token:
             return False
 
@@ -1901,7 +1901,7 @@ class KaggleApi:
             dataset: The dataset to update.
             path: The path to the metadata file.
         """
-        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
+        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
         meta_file = self.get_dataset_metadata_file(effective_path)
         with open(meta_file, "r") as f:
             metadata = json.load(f)
@@ -1954,7 +1954,7 @@ class KaggleApi:
         Returns:
             The path to the downloaded metadata file.
         """
-        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
+        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
 
         if not os.path.exists(effective_path):
             os.makedirs(effective_path)
@@ -3462,7 +3462,7 @@ class KaggleApi:
             file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
         """
         kernel = kernel or kernel_opt
-        _, token = self.kernels_output(kernel, path, file_pattern, force, quiet)
+        (_, token) = self.kernels_output(kernel, path, file_pattern, force, quiet)
         if token:
             print(f"Next page token: {token}")
 
@@ -3508,9 +3508,18 @@ class KaggleApi:
         else:
             print('%s has status "%s"' % (kernel, status))
 
+    def _resolve_kernel_slug(self, kernel):
+        """Parses a kernel string into (owner_slug, kernel_slug)."""
+        if "/" in kernel:
+            self.validate_kernel_string(kernel)
+            owner_slug, kernel_slug = kernel.split("/")
+        else:
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            kernel_slug = kernel
+        return owner_slug, kernel_slug
+
     def benchmarks_pull(self, kernel: str, path: str = None, quiet: bool = False):
         """Pulls a benchmark notebook and converts it to a .py script."""
-        import os
 
         try:
             import jupytext
@@ -3557,8 +3566,6 @@ class KaggleApi:
         self, kernel: str = None, path: str = None, file_name: str = None, quiet: bool = False
     ):
         """Converts a local .py benchmark to .ipynb and pushes it to Kaggle."""
-        import os
-        import json
 
         try:
             import jupytext
@@ -3594,12 +3601,7 @@ class KaggleApi:
             if not kernel:
                 raise ValueError("A kernel slug must be specified to create a new metadata file.")
 
-            if "/" in kernel:
-                self.validate_kernel_string(kernel)
-                owner_slug, kernel_slug = kernel.split("/")
-            else:
-                owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-                kernel_slug = kernel
+            owner_slug, kernel_slug = self._resolve_kernel_slug(kernel)
 
             title = kernel_slug.replace("-", " ").title()
             metadata = {
@@ -3627,12 +3629,7 @@ class KaggleApi:
                 metadata = json.load(f)
 
             if kernel:
-                if "/" in kernel:
-                    self.validate_kernel_string(kernel)
-                    owner_slug, kernel_slug = kernel.split("/")
-                else:
-                    owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-                    kernel_slug = kernel
+                owner_slug, kernel_slug = self._resolve_kernel_slug(kernel)
 
                 new_id = f"{owner_slug}/{kernel_slug}"
                 if metadata.get("id") != new_id:
@@ -3666,9 +3663,6 @@ class KaggleApi:
 
     def benchmarks_get_results(self, kernel: str = None, path: str = None, poll_interval: int = 60, timeout: int = None):
         """Polls the status of a benchmark until complete, then downloads the output."""
-        import os
-        import time
-        import json
 
         if kernel is None:
             check_path = path or os.getcwd()
@@ -3699,7 +3693,7 @@ class KaggleApi:
                 print(f"Benchmark {kernel} failed!{error_txt}")
                 print(f"Attempting to download partial logs for debugging...")
                 try:
-                    self.kernels_output(kernel, path=path, force=True, quiet=False)
+                    self.kernels_output(kernel, path=path, file_pattern=None, force=True, quiet=False)
                 except Exception as log_err:
                     print(f"Could not retrieve backend logs: {log_err}")
                 raise ValueError(f"Benchmark execution terminated with an error state.")
@@ -3712,7 +3706,7 @@ class KaggleApi:
 
         # Now download output
         print(f"Downloading results for {kernel}...")
-        return self.kernels_output(kernel=kernel, path=path, force=True, quiet=False)
+        return self.kernels_output(kernel=kernel, path=path, file_pattern=None, force=True, quiet=False)
 
     def benchmarks_get_results_cli(self, kernel, kernel_opt=None, path=None, poll_interval=60, timeout=None):
         kernel = kernel or kernel_opt
@@ -4798,7 +4792,7 @@ class KaggleApi:
         files_to_create = []
         with ResumableUploadContext(no_resume) as upload_context:
             for local_path in local_paths:
-                upload_file, file_name = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
+                (upload_file, file_name) = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
                 if upload_file is None:
                     continue
 
