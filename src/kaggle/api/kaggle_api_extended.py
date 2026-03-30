@@ -3418,11 +3418,21 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
-            response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
+            try:
+                response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
+            except HTTPError as e:
+                if e.response.status_code == 403:
+                    raise ValueError(
+                        f"Access denied for kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "This can happen if the notebook was created via 'Copy & Edit' — a known platform "
+                        "issue where copied notebooks lose API accessibility regardless of their visibility "
+                        "setting. It can also occur if the notebook is private."
+                    )
+                raise
             token = response.next_page_token
 
         outfiles = []
-        for item in response.files:
+        for item in (response.files or []):
             if compiled_pattern and not compiled_pattern.search(item.file_name):
                 continue
 
