@@ -3424,9 +3424,9 @@ class KaggleApi:
                 if e.response.status_code in (401, 403):
                     raise ValueError(
                         f"Access denied for kernel '{kernel}' (Permission 'kernels.get' was denied). "
-                        "This can happen if the notebook was created via 'Copy & Edit' — a known platform "
-                        "issue where copied notebooks lose API accessibility regardless of their visibility "
-                        "setting. It can also occur if the notebook is private."
+                        "If this is a benchmark task notebook created via 'Copy & Edit', this is a known platform issue — "
+                        "such notebooks lose API accessibility regardless of their visibility setting. "
+                        "It can also occur if the notebook is private, even if you are the owner."
                     )
                 raise
             token = response.next_page_token
@@ -3499,7 +3499,17 @@ class KaggleApi:
             request = ApiGetKernelSessionStatusRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
-            return kaggle.kernels.kernels_api_client.get_kernel_session_status(request)
+            try:
+                return kaggle.kernels.kernels_api_client.get_kernel_session_status(request)
+            except HTTPError as e:
+                if e.response.status_code in (401, 403):
+                    raise ValueError(
+                        f"Access denied for kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "If this is a benchmark task notebook created via 'Copy & Edit', this is a known platform issue — "
+                        "such notebooks lose API accessibility regardless of their visibility setting. "
+                        "It can also occur if the notebook is private, even if you are the owner."
+                    )
+                raise
 
     def kernels_status_cli(self, kernel, kernel_opt=None):
         """A client wrapper for kernel_status.
