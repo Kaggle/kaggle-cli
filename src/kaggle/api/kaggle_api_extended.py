@@ -3421,7 +3421,7 @@ class KaggleApi:
             try:
                 response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
             except HTTPError as e:
-                if e.response.status_code == 403:
+                if e.response.status_code in (401, 403):
                     raise ValueError(
                         f"Access denied for kernel '{kernel}' (Permission 'kernels.get' was denied). "
                         "This can happen if the notebook was created via 'Copy & Edit' — a known platform "
