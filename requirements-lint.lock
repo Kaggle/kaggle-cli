@@ -1,0 +1,33 @@
+# Regenerate with: pip-compile requirements-lint.in -o requirements-lint.lock
+black==26.3.1
+    # via -r requirements-lint.in
+click==8.3.1
+    # via black
+librt==0.8.1
+    # via mypy
+mypy==1.20.0
+    # via -r requirements-lint.in
+mypy-extensions==1.1.0
+    # via
+    #   black
+    #   mypy
+packaging==26.0
+    # via black
+pathspec==1.0.4
+    # via
+    #   black
+    #   mypy
+platformdirs==4.9.4
+    # via black
+pytokens==0.4.1
+    # via black
+types-requests==2.33.0.20260327
+    # via
+    #   -r requirements-lint.in
+    #   types-tqdm
+types-tqdm==4.67.3.20260303
+    # via -r requirements-lint.in
+typing-extensions==4.15.0
+    # via mypy
+urllib3==2.6.3
+    # via types-requests

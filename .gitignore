@@ -75,3 +75,7 @@ target/
 
 # Claude Code
 .claude/
+.claude/settings.local.json
+
+# Kagent
+.kagent-context/**

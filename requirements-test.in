@@ -1,0 +1,3 @@
+# Test dependencies from [tool.hatch.envs.test] in pyproject.toml
+-c requirements.lock
+pytest
