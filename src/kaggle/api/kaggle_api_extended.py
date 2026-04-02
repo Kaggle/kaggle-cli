@@ -3423,10 +3423,11 @@ class KaggleApi:
             except HTTPError as e:
                 if e.response.status_code in (401, 403):
                     raise ValueError(
-                        f"Access denied for kernel '{kernel}' (Permission 'kernels.get' was denied). "
-                        "If this is a benchmark task notebook created via 'Copy & Edit', this is a known platform issue — "
-                        "such notebooks lose API accessibility regardless of their visibility setting. "
-                        "It can also occur if the notebook is private, even if you are the owner."
+                        f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "The most likely cause is a wrong kernel slug. "
+                        "The benchmark_task_slug returned by get_benchmark_leaderboard differs from the actual kernel slug — "
+                        "use the slug from the notebook URL (kaggle.com/code/owner/KERNEL-SLUG), not from the leaderboard. "
+                        "It can also occur if the notebook is private."
                     )
                 raise
             token = response.next_page_token
@@ -3504,10 +3505,11 @@ class KaggleApi:
             except HTTPError as e:
                 if e.response.status_code in (401, 403):
                     raise ValueError(
-                        f"Access denied for kernel '{kernel}' (Permission 'kernels.get' was denied). "
-                        "If this is a benchmark task notebook created via 'Copy & Edit', this is a known platform issue — "
-                        "such notebooks lose API accessibility regardless of their visibility setting. "
-                        "It can also occur if the notebook is private, even if you are the owner."
+                        f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "The most likely cause is a wrong kernel slug. "
+                        "The benchmark_task_slug returned by get_benchmark_leaderboard differs from the actual kernel slug — "
+                        "use the slug from the notebook URL (kaggle.com/code/owner/KERNEL-SLUG), not from the leaderboard. "
+                        "It can also occur if the notebook is private."
                     )
                 raise
 
