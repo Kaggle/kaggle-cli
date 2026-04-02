@@ -55,6 +55,7 @@ def main() -> None:
     parse_models(subparsers)
     parse_files(subparsers)
     parse_config(subparsers)
+    parse_benchmarks(subparsers)
     if api.enable_oauth:
         parse_auth(subparsers)
     args = parser.parse_args()
@@ -627,6 +628,68 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_delete.set_defaults(func=api.kernels_delete_cli)
 
 
+def parse_benchmarks(subparsers) -> None:
+    parser_benchmarks = subparsers.add_parser(
+        "benchmarks", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_benchmarks, aliases=["b"]
+    )
+    subparsers_benchmarks = parser_benchmarks.add_subparsers(title="commands", dest="command")
+    subparsers_benchmarks.required = True
+    subparsers_benchmarks.choices = Help.benchmarks_choices
+
+    # Benchmarks tasks
+    parser_benchmarks_tasks = subparsers_benchmarks.add_parser(
+        "tasks", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_benchmark_tasks, aliases=["t"]
+    )
+    subparsers_benchmarks_tasks = parser_benchmarks_tasks.add_subparsers(title="commands", dest="command")
+    subparsers_benchmarks_tasks.required = True
+    subparsers_benchmarks_tasks.choices = Help.benchmark_tasks_choices
+
+    def add_task_command(name, help_text, func, extra_args=None):
+        cmd_parser = subparsers_benchmarks_tasks.add_parser(
+            name, formatter_class=argparse.RawTextHelpFormatter, help=help_text
+        )
+        opt_group = cmd_parser._action_groups.pop()
+        opt_group.add_argument("kernel", nargs="?", default=None, help=Help.param_benchmark_kernel)
+        opt_group.add_argument("-k", "--kernel", dest="kernel_opt", required=False, help=argparse.SUPPRESS)
+        
+        for args, kwargs in (extra_args or []):
+            opt_group.add_argument(*args, **kwargs)
+            
+        cmd_parser._action_groups.append(opt_group)
+        cmd_parser.set_defaults(func=func)
+
+    # Benchmarks Tasks pull
+    add_task_command(
+        "pull",
+        Help.command_benchmarks_pull,
+        api.benchmarks_pull_cli,
+        [(("-p", "--path"), {"dest": "path", "required": False, "help": Help.param_benchmark_pull_path})]
+    )
+
+    # Benchmarks publish_and_run
+    add_task_command(
+        "run",
+        Help.command_benchmarks_publish_and_run,
+        api.benchmarks_publish_and_run_cli,
+        [
+            (("-p", "--path"), {"dest": "path", "required": False, "help": Help.param_benchmark_push_path}),
+            (("-f", "--file"), {"dest": "file_name", "required": False, "help": Help.param_benchmark_file})
+        ]
+    )
+
+    # Benchmarks results
+    add_task_command(
+        "results",
+        Help.command_benchmarks_get_results,
+        api.benchmarks_get_results_cli,
+        [
+            (("-p", "--path"), {"dest": "path", "required": False, "help": Help.param_benchmark_results_path}),
+            (("--poll-interval",), {"dest": "poll_interval", "default": 60, "type": int, "help": Help.param_benchmark_poll_interval}),
+            (("--timeout",), {"dest": "timeout", "default": None, "type": int, "help": Help.param_benchmark_timeout})
+        ]
+    )
+
+
 def parse_models(subparsers) -> None:
     parser_models = subparsers.add_parser(
         "models", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_models, aliases=["m"]
@@ -1070,10 +1133,14 @@ class Help(object):
         "f",
         "config",
         "auth",
+        "benchmarks",
+        "b",
     ]
     competitions_choices = ["list", "files", "download", "submit", "submissions", "leaderboard"]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
     kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]
+    benchmarks_choices = ["tasks", "t"]
+    benchmark_tasks_choices = ["pull", "run", "results"]
     models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
@@ -1096,6 +1163,10 @@ class Help(object):
         + ", ".join(model_instance_versions_choices)
         + "}\nconfig {"
         + ", ".join(config_choices)
+        + "}\nbenchmarks {"
+        + ", ".join(benchmarks_choices)
+        + "}\nbenchmarks tasks {"
+        + ", ".join(benchmark_tasks_choices)
         + "}"
     )
     if api.enable_oauth:
@@ -1110,6 +1181,8 @@ class Help(object):
     group_files = "Commands related files"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
+    group_benchmarks = "Commands related to Kaggle benchmarks"
+    group_benchmark_tasks = "Manage benchmark tasks"
 
     # Competitions commands
     command_competitions_list = "List available competitions"
@@ -1139,6 +1212,11 @@ class Help(object):
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
     command_kernels_delete = "Delete a kernel"
+
+    # Benchmarks commands
+    command_benchmarks_pull = "Pull an existing benchmark notebook to a local workspace"
+    command_benchmarks_publish_and_run = "Convert local Python benchmark script to a Kaggle notebook and push it to run"
+    command_benchmarks_get_results = "Poll the execution status of a benchmark and download the output artifacts"
 
     # Models commands
     command_models_files = "List model files"
@@ -1305,6 +1383,17 @@ class Help(object):
         "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
     )
     param_kernel_acc = "Specify the type of accelerator to use for the kernel run"
+
+    # Benchmarks params
+    param_benchmark_kernel = (
+        'Kernel URL suffix in format <owner>/<kernel-name> (use "kaggle kernels list" to show options)'
+    )
+    param_benchmark_file = 'Path to the benchmark python file (e.g. "benchmark.py"). Defaults to looking for benchmark.py in the workspace if omitted.'
+    param_benchmark_pull_path = 'Folder to pull the benchmark into. Defaults to="./<kernel-name>" or the configured Kaggle download path (e.g., ~/.kaggle/kernels/<owner>/<kernel-name>) if omitted.'
+    param_benchmark_push_path = "Workspace folder containing the benchmark.py and optionally kernel-metadata.json. Defaults to current directory."
+    param_benchmark_results_path = 'Folder to download the outputs to. Defaults to the Kaggle configured download path appended with "output" (e.g., ~/.kaggle/kernels/<owner>/<kernel-name>/output), or the current directory.'
+    param_benchmark_poll_interval = "Number of seconds to wait between status checks. Default is 60"
+    param_benchmark_timeout = "Maximum seconds to wait for execution to complete. None means wait indefinitely"
 
     # Models params
     param_model = "Model URL suffix in format <owner>/<model-name>"
