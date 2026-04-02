@@ -5357,6 +5357,132 @@ class KaggleApi:
         return self._check_response_version
 
 
+    # ---- Benchmarks CLI ----
+
+    def benchmarks_tasks_push_cli(self, task, file):
+        """Register a benchmark task from a Python source file.
+
+        Steps:
+          1. Validate that `file` exists and is a .py file.
+          2. Read the file content.
+          3. Call the SDK to create/update the task (auto-versioning).
+             - If the task already exists, a new version is created (no error).
+             - If the task is currently being created (pending), raise an error.
+          4. Print success message with the task URL:
+               Task '<task>' pushed.
+               Task URL: https://www.kaggle.com/benchmarks/tasks/<task>
+
+        Error cases:
+          - File does not exist or is not a .py file → raise ValueError.
+          - Task definition not found in the Python file → server-side error.
+          - Task is in-flight (pending creation) → server-side error.
+        """
+        raise NotImplementedError("benchmarks_tasks_push_cli is not implemented yet.")
+
+    def benchmarks_tasks_list_cli(self, regex=None):
+        """List all benchmark tasks owned by the current user.
+
+        Steps:
+          1. Call the SDK to list all tasks for the authenticated user.
+          2. If `regex` is provided, filter the results client-side using
+             re.search(regex, task_name).
+          3. Print a table with columns: Task Name, Created.
+             Use self.print_table() following the existing codebase pattern.
+          4. If no tasks match, print an empty table (header only) or a
+             helpful message.
+
+        Output format:
+          Task         Created
+          ───────────  ──────────
+          math-eval    2024-01-15
+          code-gen     2024-01-14
+        """
+        raise NotImplementedError("benchmarks_tasks_list_cli is not implemented yet.")
+
+    def benchmarks_tasks_status_cli(self, task, model=None):
+        """Show task creation status and per-model run status.
+
+        Steps:
+          1. Call the SDK to get task details (status, created date, runs).
+          2. Print the task header:
+               Task:     <task>
+               Status:   created | pending
+               Created:  <date>
+          3. If no runs exist, print:
+               No runs yet. Use 'kaggle b t run <task>' to start one.
+          4. If runs exist:
+             a. If `model` is None, show ALL runs in a summary table.
+             b. If `model` is provided, filter to those models only.
+             Print the runs table:
+               Model      Status    Started             URL
+               ────────   ────────  ──────────────────  ──────────────
+               ...
+
+        Run-level statuses: queued, running, finished, errored.
+        Task-level statuses: created, pending.
+        """
+        raise NotImplementedError("benchmarks_tasks_status_cli is not implemented yet.")
+
+    def benchmarks_tasks_run_cli(self, task, model=None, wait=False):
+        """Run a task against one or more models.
+
+        Steps:
+          1. If `model` is None, run against the default model only.
+          2. Call the SDK to submit run(s) — one session per model.
+          3. Print tracking URLs:
+               Submitted N run(s) for task '<task>'.
+                 <model> → <session_url>
+                 ...
+          4. If `wait` is True, block until all runs reach a terminal
+             state (finished or errored). Consider polling with
+             benchmarks_tasks_status or a dedicated wait API.
+
+        Note: Without --wait, the command returns immediately (non-blocking).
+        """
+        raise NotImplementedError("benchmarks_tasks_run_cli is not implemented yet.")
+
+    def benchmarks_tasks_download_cli(self, task, model=None, output=None):
+        """Download output files for completed (or errored) runs.
+
+        Steps:
+          1. Default output directory: output = output or ./<task>/output
+          2. Call the SDK to get run statuses for the task.
+          3. If `model` is provided, filter to those models only.
+             If `model` is None, include ALL models with completed runs.
+          4. For each model:
+             a. If status is 'finished' or 'errored':
+                - Download output files to <output>/<model_name>/
+                - Print: <model>  <status>  → downloaded N files
+             b. If status is 'queued' or 'running':
+                - Print: <model>  <status>  → skipped (still <status>)
+          5. Print the full list of downloaded file paths.
+
+        Directory structure:
+          <output>/
+          ├── <model-1>/
+          │   ├── run.json
+          │   └── comparison.csv
+          └── <model-2>/
+              └── ...
+        """
+        output = output or os.path.join(".", task, "output")
+        raise NotImplementedError("benchmarks_tasks_download_cli is not implemented yet.")
+
+    def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
+        """Delete a task and all its associated runs and outputs.
+
+        Note: The server API does not yet support delete. This is planned
+        for a future release (see benchmarks_cli.md).
+
+        Steps:
+          1. If `no_confirm` is False, prompt with self.confirmation().
+             If the user declines, print "Deletion cancelled" and return.
+          2. Call the SDK to delete the task.
+          3. Print: Task '<task>' deleted.
+        """
+        raise NotImplementedError("benchmarks_tasks_delete_cli is not implemented yet.")
+
+
 class TqdmBufferedReader(io.BufferedReader):
 
     def __init__(self, raw, progress_bar):
