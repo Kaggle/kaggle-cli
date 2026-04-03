@@ -5357,6 +5357,114 @@ class KaggleApi:
         return self._check_response_version
 
 
+    # ---- Benchmarks CLI ----
+
+    def benchmarks_tasks_push_cli(self, task, file):
+        if not os.path.isfile(file):
+            raise ValueError(f"File {file} does not exist")
+        if not file.endswith(".py"):
+            raise ValueError(f"File {file} must be a .py file")
+        
+        with open(file, 'r') as f:
+            content = f.read()
+
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiCreateBenchmarkTaskRequest
+        request = ApiCreateBenchmarkTaskRequest(slug=task, text=content)
+
+        with self.build_kaggle_client() as kaggle:
+            response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
+            print(f"Task '{task}' pushed.")
+            print(f"Task URL: {response.url}")
+
+    def benchmarks_tasks_list_cli(self, regex=None):
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiListBenchmarkTasksRequest
+        request = ApiListBenchmarkTasksRequest()
+        
+        with self.build_kaggle_client() as kaggle:
+            response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+            
+            tasks = response.tasks
+            if regex:
+                import re
+                tasks = [t for t in tasks if re.search(regex, t.slug.task_slug)]
+            
+            headings = ["Task", "Created"]
+            data = []
+            for t in tasks:
+                data.append([t.slug.task_slug, t.create_time])
+            
+            self.print_table(headings, data)
+
+    def benchmarks_tasks_status_cli(self, task, model=None):
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiGetBenchmarkTaskRequest, ApiListBenchmarkTaskRunsRequest, ApiBenchmarkTaskSlug
+        
+        slug = ApiBenchmarkTaskSlug(task_slug=task) 
+        request = ApiGetBenchmarkTaskRequest(slug=slug)
+        
+        with self.build_kaggle_client() as kaggle:
+            task_info = kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task(request)
+            print(f"Task:     {task_info.slug.task_slug}")
+            print(f"Status:   {task_info.creation_state}")
+            print(f"Created:  {task_info.create_time}")
+            
+            runs_request = ApiListBenchmarkTaskRunsRequest(task_slugs=[task])
+            runs_response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
+            
+            runs = runs_response.runs
+            if model:
+                runs = [r for r in runs if r.model_slug == model]
+                
+            if not runs:
+                print(f"No runs yet. Use 'kaggle b t run {task}' to start one.")
+                return
+                
+            headings = ["Model", "Status", "Started", "URL"]
+            data = []
+            for r in runs:
+                data.append([r.model_slug, r.state, r.start_time, f"https://www.kaggle.com/benchmarks/runs/{r.id}"])
+                
+            self.print_table(headings, data)
+
+    def benchmarks_tasks_run_cli(self, task, model=None, wait=False):
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiBatchScheduleBenchmarkTaskRunsRequest
+        
+        models = [model] if model else []
+        request = ApiBatchScheduleBenchmarkTaskRunsRequest(task_slugs=[task], model_slugs=models)
+        
+        with self.build_kaggle_client() as kaggle:
+            response = kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs(request)
+            print(f"Submitted run(s) for task '{task}'.")
+            for res in response.results:
+                print(f"  {res.model_slug} -> Sent")
+
+    def benchmarks_tasks_download_cli(self, task, model=None, output=None):
+        from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiListBenchmarkTaskRunsRequest, ApiDownloadBenchmarkTaskRunOutputRequest
+        
+        output = output or os.path.join(".", task, "output")
+        
+        with self.build_kaggle_client() as kaggle:
+            runs_request = ApiListBenchmarkTaskRunsRequest(task_slugs=[task])
+            runs_response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
+            
+            runs = runs_response.runs
+            if model:
+                runs = [r for r in runs if r.model_slug == model]
+                
+            for r in runs:
+                if r.state in [3, 4]:
+                    dl_request = ApiDownloadBenchmarkTaskRunOutputRequest(run_id=r.id)
+                    print(f"Downloading output for run {r.id} ({r.model_slug})...")
+                    kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output(dl_request)
+                    print(f"Downloaded output for {r.model_slug} to {output}")
+
+    def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
+        if not no_confirm:
+            if not self.confirmation(f"delete benchmark task '{task}' and all its associated runs"):
+                print("Deletion cancelled")
+                return
+        print("Delete is not supported by the server yet.")
+
+
 class TqdmBufferedReader(io.BufferedReader):
 
     def __init__(self, raw, progress_bar):
