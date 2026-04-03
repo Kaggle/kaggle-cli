@@ -1015,6 +1015,7 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_list_optional = parser_list._action_groups.pop()
     parser_list_optional.add_argument("--regex", dest="regex", required=False, help=Help.param_benchmarks_regex)
+    parser_list_optional.add_argument("--status", dest="status", required=False, help=Help.param_benchmarks_status)
     parser_list._action_groups.append(parser_list_optional)
     parser_list.set_defaults(func=api.benchmarks_tasks_list_cli)
 
@@ -1035,7 +1036,8 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_run_optional = parser_run._action_groups.pop()
     parser_run_optional.add_argument("task", help=Help.param_benchmarks_task)
     parser_run_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
-    parser_run_optional.add_argument("--wait", dest="wait", action="store_true", required=False, help=Help.param_benchmarks_wait)
+    parser_run_optional.add_argument("--wait", dest="wait", type=int, nargs="?", const=0, default=None, required=False, help=Help.param_benchmarks_wait)
+    parser_run_optional.add_argument("--poll-interval", dest="poll_interval", type=int, default=10, required=False, help=Help.param_benchmarks_poll_interval)
     parser_run._action_groups.append(parser_run_optional)
     parser_run.set_defaults(func=api.benchmarks_tasks_run_cli)
 
@@ -1460,8 +1462,13 @@ class Help(object):
     param_benchmarks_file = "Path to the source Python file defining the task"
     param_benchmarks_regex = "Filter task names by regular expression"
     param_benchmarks_model = "Filter to specific model(s)"
-    param_benchmarks_wait = "Block until execution completes"
+    param_benchmarks_wait = "Wait for runs to complete. Optionally specify a timeout in seconds (0 or omit value = wait indefinitely)"
     param_benchmarks_output = "Directory to download output files into"
+    param_benchmarks_poll_interval = "Seconds between status polls when using --wait (default: 10)"
+    param_benchmarks_status = (
+        "Filter tasks by creation status. "
+        "Valid values: queued, running, completed, errored"
+    )
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"
