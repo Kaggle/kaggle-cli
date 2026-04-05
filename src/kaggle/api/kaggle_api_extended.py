@@ -18,7 +18,7 @@
 from __future__ import print_function
 
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import io
 
@@ -616,6 +616,8 @@ class KaggleApi:
         self.enable_oauth = enable_oauth
 
     def _is_retriable(self, e: HTTPError) -> bool:
+        if self._is_rate_limited(e):
+            return True
         return (
             issubclass(type(e), ConnectionError)
             or issubclass(type(e), urllib3_exceptions.ConnectionError)
@@ -624,6 +626,48 @@ class KaggleApi:
             or issubclass(type(e), requests.exceptions.ConnectionError)
             or issubclass(type(e), requests.exceptions.ConnectTimeout)
         )
+
+    @staticmethod
+    def _is_rate_limited(e: Exception) -> bool:
+        """Check if an HTTPError represents a 429 Too Many Requests response."""
+        return (
+            isinstance(e, HTTPError)
+            and hasattr(e, "response")
+            and e.response is not None
+            and e.response.status_code == 429
+        )
+
+    @staticmethod
+    def _get_retry_after_delay(response: Response) -> Optional[float]:
+        """Parse the Retry-After header from an HTTP response.
+
+        Supports both integer seconds and HTTP-date formats per RFC 9110 §10.2.3.
+
+        Args:
+            response: The HTTP response object.
+
+        Returns:
+            The delay in seconds, or None if the header is absent or unparseable.
+        """
+        retry_after = response.headers.get("Retry-After")
+        if retry_after is None:
+            return None
+
+        # Try integer seconds first
+        try:
+            return max(0.0, float(retry_after))
+        except ValueError:
+            pass
+
+        # Try HTTP-date format (e.g. "Wed, 26 Mar 2026 00:00:00 GMT")
+        try:
+            retry_date = datetime.strptime(retry_after, "%a, %d %b %Y %H:%M:%S %Z")
+            delay = (retry_date - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()
+            return max(0.0, delay)
+        except (ValueError, TypeError):
+            pass
+
+        return None
 
     def _calculate_backoff_delay(self, attempt, initial_delay_millis, retry_multiplier, randomness_factor):
         delay_ms = initial_delay_millis * (retry_multiplier**attempt)
@@ -647,9 +691,28 @@ class KaggleApi:
                 except Exception as e:
                     if type(e) is HTTPError:
                         if self._is_retriable(e) and i < max_retries:
-                            total_delay = self._calculate_backoff_delay(
-                                i, initial_delay_millis, retry_multiplier, randomness_factor
-                            )
+                            # Use Retry-After header for 429 responses when available
+                            if self._is_rate_limited(e):
+                                retry_delay = self._get_retry_after_delay(e.response)
+                                if retry_delay is not None:
+                                    total_delay = retry_delay
+                                    self.logger.info(
+                                        "Rate limited (429). Retry-After: %.1f seconds (attempt %d/%d)",
+                                        total_delay, i, max_retries,
+                                    )
+                                else:
+                                    total_delay = self._calculate_backoff_delay(
+                                        i, initial_delay_millis, retry_multiplier, randomness_factor
+                                    )
+                                    self.logger.info(
+                                        "Rate limited (429). No valid Retry-After header; "
+                                        "backing off %.1f seconds (attempt %d/%d)",
+                                        total_delay, i, max_retries,
+                                    )
+                            else:
+                                total_delay = self._calculate_backoff_delay(
+                                    i, initial_delay_millis, retry_multiplier, randomness_factor
+                                )
                             print("Request failed: %s. Will retry in %2.1f seconds" % (e, total_delay))
                             time.sleep(total_delay)
                             continue
@@ -2767,6 +2830,7 @@ class KaggleApi:
                 requests.exceptions.ConnectionError,
                 requests.exceptions.Timeout,
                 requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.HTTPError,
                 urllib3_exceptions.ProtocolError,
                 urllib3_exceptions.ReadTimeoutError,
                 OSError,
@@ -2782,12 +2846,31 @@ class KaggleApi:
                         print(f"You can resume by running the same command again.")
                     raise
 
-                # Calculate backoff time (exponential with jitter)
-                backoff_time = min(2**retry_count + random(), 60)  # Cap at 60 seconds
-
-                if not quiet:
-                    print(f"\nConnection error: {type(e).__name__}: {str(e)}")
-                    print(f"Retrying in {backoff_time:.1f} seconds... (attempt {retry_count}/{max_retries})")
+                # Use Retry-After header for 429 responses when available
+                if self._is_rate_limited(e):
+                    retry_delay = self._get_retry_after_delay(e.response)
+                    if retry_delay is not None:
+                        backoff_time = retry_delay
+                        self.logger.info(
+                            "Rate limited (429). Retry-After: %.1f seconds (attempt %d/%d)",
+                            backoff_time, retry_count, max_retries,
+                        )
+                    else:
+                        backoff_time = min(2**retry_count + random(), 60)
+                        self.logger.info(
+                            "Rate limited (429). No valid Retry-After header; "
+                            "backing off %.1f seconds (attempt %d/%d)",
+                            backoff_time, retry_count, max_retries,
+                        )
+                    if not quiet:
+                        print(f"\nRate limited (HTTP 429). Retrying in {backoff_time:.1f} seconds... "
+                              f"(attempt {retry_count}/{max_retries})")
+                else:
+                    # Calculate backoff time (exponential with jitter)
+                    backoff_time = min(2**retry_count + random(), 60)  # Cap at 60 seconds
+                    if not quiet:
+                        print(f"\nConnection error: {type(e).__name__}: {str(e)}")
+                        print(f"Retrying in {backoff_time:.1f} seconds... (attempt {retry_count}/{max_retries})")
 
                 time.sleep(backoff_time)
 
