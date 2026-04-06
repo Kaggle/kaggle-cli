@@ -1344,9 +1344,7 @@ class Help(object):
     command_model_instances_update = "Update a model variation"
 
     # Model Instance Versions params
-    param_model_instance_version = (
-        "Model variation version URL suffix in format <owner>/<model-name>/<framework>/<variation-slug>/<version-number>"
-    )
+    param_model_instance_version = "Model variation version URL suffix in format <owner>/<model-name>/<framework>/<variation-slug>/<version-number>"
 
     # Model Instance Versions params
     command_model_instance_versions_new = "Create a new model variation version"

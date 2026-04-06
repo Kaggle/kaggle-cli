@@ -721,7 +721,7 @@ class KaggleApi:
         return True
 
     def _authenticate_with_access_token(self):
-        (access_token, source) = get_access_token_from_env()
+        access_token, source = get_access_token_from_env()
         if not access_token:
             return False
 
@@ -1901,7 +1901,7 @@ class KaggleApi:
             dataset: The dataset to update.
             path: The path to the metadata file.
         """
-        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
+        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
         meta_file = self.get_dataset_metadata_file(effective_path)
         with open(meta_file, "r") as f:
             metadata = json.load(f)
@@ -1954,7 +1954,7 @@ class KaggleApi:
         Returns:
             The path to the downloaded metadata file.
         """
-        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
+        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
 
         if not os.path.exists(effective_path):
             os.makedirs(effective_path)
@@ -3433,7 +3433,7 @@ class KaggleApi:
             token = response.next_page_token
 
         outfiles = []
-        for item in (response.files or []):
+        for item in response.files or []:
             if compiled_pattern and not compiled_pattern.search(item.file_name):
                 continue
 
@@ -3473,7 +3473,7 @@ class KaggleApi:
             file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
         """
         kernel = kernel or kernel_opt
-        (_, token) = self.kernels_output(kernel, path, file_pattern, force, quiet)
+        _, token = self.kernels_output(kernel, path, file_pattern, force, quiet)
         if token:
             print(f"Next page token: {token}")
 
@@ -4609,7 +4609,7 @@ class KaggleApi:
         files_to_create = []
         with ResumableUploadContext(no_resume) as upload_context:
             for local_path in local_paths:
-                (upload_file, file_name) = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
+                upload_file, file_name = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
                 if upload_file is None:
                     continue
 
