@@ -1925,9 +1925,9 @@ class KaggleApi:
             # so we treat it as a different / special property than Data Package's "sources" for now:
             # https://specs.frictionlessdata.io//data-package/#sources
             update_settings.user_specified_sources = metadata.get("userSpecifiedSources") or ""
-            update_settings.expected_update_frequency = self._get_valid_dataset_metadata_expected_update_frequency(
-                metadata.get("expectedUpdateFrequency")
-            )
+            expected_update_frequency = metadata.get("expectedUpdateFrequency")
+            if expected_update_frequency:
+                update_settings.expected_update_frequency = expected_update_frequency
             request = ApiUpdateDatasetMetadataRequest()
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
@@ -1937,26 +1937,6 @@ class KaggleApi:
                 if len(response.errors) > 0:
                     [print(e["message"]) for e in response.errors]
                     exit(1)
-
-    @staticmethod
-    def _get_valid_dataset_metadata_expected_update_frequency(expected_update_frequency):
-        if not expected_update_frequency:
-            return "not specified"
-
-        if expected_update_frequency in [
-            "not specified",
-            "never",
-            "annually",
-            "quarterly",
-            "monthly",
-            "weekly",
-            "daily",
-            "hourly",
-            "unspecified",  # Some datasets have this still, but it is not canonical
-        ]:
-            return expected_update_frequency
-
-        return "not specified"
 
     @staticmethod
     def _new_license(name):
