@@ -1935,7 +1935,7 @@ class KaggleApi:
             with self.build_kaggle_client() as kaggle:
                 response = kaggle.datasets.dataset_api_client.update_dataset_metadata(request)
                 if len(response.errors) > 0:
-                    [print(e["message"]) for e in response.errors]
+                    [print(error_message) for error_message in response.errors]
                     exit(1)
 
     @staticmethod
