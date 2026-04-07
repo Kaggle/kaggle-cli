@@ -238,7 +238,7 @@ kaggle datasets metadata <DATASET> [options]
 **Options:**
 
 *   `-p, --path <PATH>`: Directory to download/update metadata file (`dataset-metadata.json`). Defaults to current working directory.
-*   `--update`: Updatethe existing dataset version's metadata using the contents of the local metadata JSON file. (e.g. "push" from local)
+*   `--update`: Update the existing dataset version's metadata using the contents of the local metadata JSON file. (e.g. "push" from local)
 
 **Example:**
 

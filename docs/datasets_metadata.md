@@ -51,7 +51,9 @@ Here's an example containing file metadata:
   "keywords": [
     "beginner",
     "tutorial"
-  ]
+  ],
+  "expectedUpdateFrequency": "monthly",
+  "userSpecifiedSources": "World Bank and OECD ([link](http://data.worldbank.org/indicator/NY.GDP.MKTP.CD))",
 }
 ```
 
@@ -156,3 +158,17 @@ You can specify the following data types
 * `integer`
 * `decimal`
 * `city`
+
+## Expected update frequencies
+You can specify the following values for `expectedUpdateFrequency`:
+* `not specified`
+* `never`
+* `annually`
+* `quarterly`
+* `monthly`
+* `weekly`
+* `daily`
+* `hourly`
+
+## Sources
+You can report your dataset sources in a markdown string for `userSpecifiedSources`. Most basic markdown features are supported.
