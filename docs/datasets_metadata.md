@@ -216,4 +216,4 @@ The same image file will be used for two different crops:
   - Crop rectangle: width: 280px, height: 280px, top: 0, left: 140px
   - For an image with dimensions 560px x 280px, this will be a centered 280px square.
 
-While you can upload a larger image than 560px x 280px, the crops as specified above will be applied, and this may not look good. These crops can always be edited in UI on kaggle.com on the settings page for your dataset.
+While you can upload a larger image than 560px x 280px, the crops as specified above will be applied, and this may not look good. These crops can always be edited in the UI on kaggle.com on the settings page for your dataset.
