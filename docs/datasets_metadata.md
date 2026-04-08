@@ -54,6 +54,7 @@ Here's an example containing file metadata:
   ],
   "expectedUpdateFrequency": "monthly",
   "userSpecifiedSources": "World Bank and OECD ([link](http://data.worldbank.org/indicator/NY.GDP.MKTP.CD))",
+  "image": "relative/path/to/new/image.png"
 }
 ```
 
@@ -90,6 +91,10 @@ The following metadata is currently supported:
         * `title`: Field description
         * `type`: Field type. A best-effort list of types will be kept at the bottom of this page, but new types may be added that are not documented here.
   * `keywords`: Contains an array of strings that correspond to an existing tag on Kaggle.  If a specified tag doesn't exist, the upload will continue, but that specific tag won't be added.  
+* `kaggle datasets metadata --update` (update metadata for an existing Dataset) supports all fields mentioned above for `kaggle datasets version`, and additionally:
+  * `expectedUpdateFrequency`: How often you expect to update your dataset with new versions. See [section below](#expected-update-frequencies) for possible values.
+  * `userSpecifiedSources`: An explanation of the source(s) of your dataset. Most basic markdown features are supported for this string.
+  * `image`: A relative file path to a new image file you want to use for your dataset. The path should be relative to the location of the dataset-metadata.json file. See [section below](#images) for more specifics about file types and expected image size.
 
 We will add further metadata processing in upcoming versions of the API.
 
@@ -170,5 +175,48 @@ You can specify the following values for `expectedUpdateFrequency`:
 * `daily`
 * `hourly`
 
-## Sources
-You can report your dataset sources in a markdown string for `userSpecifiedSources`. Most basic markdown features are supported.
+## Images
+You can update your dataset image by providing a relative path to an image file in the `image` property.
+
+The path should be relative to the dataset-metadata.json file, using POSIX path syntax (with `/` separators).
+It should not contain parent directy syntax (`..`).
+
+For example, if your metadata file and image are located at:
+- `/some/path/dataset-metadata.json`
+- `/some/path/image.png`
+
+This property should be specified as:
+```
+"image": "image.png"
+```
+
+If instead, your files were located at:
+- `/some/path/dataset-metadata.json`
+- `/some/path/alternative/path/to/other-image.jpg`
+
+This property should be specified as:
+```
+"image": "alternative/path/to/other-image.jpg"
+```
+
+### Supported image file types and expected dimensions
+
+The following file types are supported:
+
+* `.png`
+* `.jpg`
+* `.jpeg`
+* `.webp`
+
+The image needs to have a minimum width of 560px and a minimum height of 280px.
+
+The same image file will be used for two different crops:
+
+- Header, 2:1 ratio
+  - Crop rectangle: width: 560px, height: 280px, top: 0, left: 0
+  - For an image with dimensions 560px x 280px, this will be the entire rectangular image.
+- Thumbnail, 1:1 ratio
+  - Crop rectangle: width: 280px, height: 280px, top: 0, left: 140px
+  - For an image with dimensions 560px x 280px, this will be a centered 280px square.
+
+While you can upload a larger image than 560px x 280px, the crops as specified above will be applied, and this may not look good. These crops can always be edited in UI on kaggle.com on the settings page for your dataset.

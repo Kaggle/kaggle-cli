@@ -25,6 +25,7 @@ import io
 import json  # Needed by mypy.
 import logging
 import os
+from pathlib import Path
 
 import re  # Needed by mypy.
 import shutil
@@ -38,6 +39,7 @@ from os.path import expanduser
 from random import random
 
 import bleach
+import mimetypes
 import requests
 import urllib3.exceptions as urllib3_exceptions
 from requests import RequestException
@@ -81,6 +83,8 @@ from kagglesdk.competitions.types.competition_enums import (
     SubmissionGroup,
     SubmissionSortBy,
 )
+
+from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
 
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
@@ -639,7 +643,6 @@ class KaggleApi:
         retry_multiplier: float = 1.7,
         randomness_factor: float = 0.5,
     ) -> Callable[[KaggleObject], KaggleObject]:
-
         def retriable_func(*args):
             for i in range(1, max_retries + 1):
                 try:
@@ -1928,6 +1931,13 @@ class KaggleApi:
             expected_update_frequency = metadata.get("expectedUpdateFrequency")
             if expected_update_frequency:
                 update_settings.expected_update_frequency = expected_update_frequency
+
+            effective_relative_path_to_image = metadata.get("image")
+            if effective_relative_path_to_image:
+                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image)
+                if cropped_image_upload:
+                    update_settings.image = cropped_image_upload
+
             request = ApiUpdateDatasetMetadataRequest()
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
@@ -1937,6 +1947,51 @@ class KaggleApi:
                 if len(response.errors) > 0:
                     [print(error_message) for error_message in response.errors]
                     exit(1)
+
+    def _upload_dataset_image_file(self, metadata_file_path, relative_image_file_path) -> CroppedImageUpload:
+        image_full_path = os.path.join(metadata_file_path, relative_image_file_path)
+        ext = Path(image_full_path).suffix
+        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+            raise ValueError("Image file requires an extension of .jpg, .jpeg, .png, or .webp: %s" % image_full_path)
+
+        if not os.path.isfile(image_full_path):
+            raise ValueError("Image file was not found: %s" % image_full_path)
+
+        file_name = os.path.basename(image_full_path)
+        # Best guess for MIME type based on filename is ok, given we don't trust MIME type in the backend.
+        content_type, _ = mimetypes.guess_type(file_name)
+        with ResumableUploadContext() as upload_context:
+            upload_file = self._upload_file(
+                file_name,
+                image_full_path,
+                ApiBlobType.API_BLOB_TYPE_USER_CONTENT,
+                upload_context,
+                quiet=True,
+                resources=None,
+                content_type=content_type,
+            )
+            if not upload_file:
+                raise ValueError("Error uploading image file: %s" % image_full_path)
+
+            header_image_rect = CroppedImageRectangle()
+            header_image_rect.title = "cover image"
+            header_image_rect.top = 0
+            header_image_rect.left = 0
+            header_image_rect.width = 560
+            header_image_rect.height = 280
+
+            thumbnail_rect = CroppedImageRectangle()
+            thumbnail_rect.title = "thumbnail"
+            thumbnail_rect.top = 0
+            thumbnail_rect.left = 140
+            thumbnail_rect.width = 280
+            thumbnail_rect.height = 280
+
+            cropped_image_upload = CroppedImageUpload()
+            cropped_image_upload.token = upload_file.token
+            cropped_image_upload.crop_rectangles = [header_image_rect, thumbnail_rect]
+
+            return cropped_image_upload
 
     @staticmethod
     def _new_license(name):
@@ -2244,7 +2299,12 @@ class KaggleApi:
             self.dataset_download_file(dataset, file_name, path=path, force=force, quiet=quiet, licenses=licenses)
 
     def _upload_blob(
-        self, path: str, quiet: bool, blob_type: ApiBlobType, upload_context: ResumableUploadContext
+        self,
+        path: str,
+        quiet: bool,
+        blob_type: ApiBlobType,
+        upload_context: ResumableUploadContext,
+        content_type: Optional[str] = None,
     ) -> ResumableFileUpload | str | None:
         """Uploads a file.
 
@@ -2253,6 +2313,7 @@ class KaggleApi:
             quiet (bool): Suppress verbose output (default is False).
             blob_type (ApiBlobType): The entity to which the file/blob refers.
             upload_context (ResumableUploadContext): The context for resumable uploads.
+            content_type (str): Optional MIME content type, e.g. "text/plain", "image/png"
 
         Returns:
             Union[ResumableFileUpload, str, None]: A ResumableFileUpload object, a string, or None.
@@ -2266,9 +2327,10 @@ class KaggleApi:
         start_blob_upload_request.name = file_name
         start_blob_upload_request.content_length = content_length
         start_blob_upload_request.last_modified_epoch_seconds = last_modified_epoch_seconds
+        if content_type:
+            start_blob_upload_request.content_type = content_type
 
         file_upload = upload_context.new_resumable_file_upload(path, start_blob_upload_request)
-
         for i in range(0, self.MAX_UPLOAD_RESUME_ATTEMPTS):
             if file_upload.upload_complete:
                 return file_upload
@@ -4902,6 +4964,7 @@ class KaggleApi:
         upload_context: ResumableUploadContext,
         quiet: bool,
         resources: Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]],
+        content_type: Optional[str] = None,
     ) -> Union[UploadFile, None]:
         """A helper function to upload a single file.
 
@@ -4912,6 +4975,7 @@ class KaggleApi:
             upload_context (ResumableUploadContext): The context for resumable uploads.
             quiet (bool): Suppress verbose output.
             resources (Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]]): Optional file metadata.
+            content_type (str): Optional MIME content type, e.g. "text/plain", "image/png"
 
         Returns:
             Union[UploadFile, None]: An UploadFile object if the upload was successful, otherwise None.
@@ -4921,7 +4985,7 @@ class KaggleApi:
             print("Starting upload for file " + file_name)
 
         content_length = os.path.getsize(full_path)
-        token = self._upload_blob(full_path, quiet, blob_type, upload_context)
+        token = self._upload_blob(full_path, quiet, blob_type, upload_context, content_type)
         if token is None:
             if not quiet:
                 print("Upload unsuccessful: " + file_name)
