@@ -54,6 +54,7 @@ def main() -> None:
     parse_kernels(subparsers)
     parse_models(subparsers)
     parse_files(subparsers)
+    parse_benchmarks(subparsers)
     parse_config(subparsers)
     if api.enable_oauth:
         parse_auth(subparsers)
@@ -979,6 +980,89 @@ def parse_files(subparsers) -> None:
     parser_files_upload.set_defaults(func=api.files_upload_cli)
 
 
+def parse_benchmarks(subparsers) -> None:
+    parser_benchmarks = subparsers.add_parser(
+        "benchmarks", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_benchmarks, aliases=["b"]
+    )
+    subparsers_benchmarks = parser_benchmarks.add_subparsers(title="commands", dest="command")
+    subparsers_benchmarks.required = True
+    subparsers_benchmarks.choices = Help.benchmarks_choices
+
+    parse_benchmark_tasks(subparsers_benchmarks)
+
+
+def parse_benchmark_tasks(subparsers) -> None:
+    parser_tasks = subparsers.add_parser(
+        "tasks", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_benchmarks_tasks, aliases=["t"]
+    )
+    subparsers_tasks = parser_tasks.add_subparsers(title="commands", dest="command")
+    subparsers_tasks.required = True
+    subparsers_tasks.choices = Help.benchmarks_tasks_choices
+
+    # push
+    parser_push = subparsers_tasks.add_parser(
+        "push", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_push
+    )
+    parser_push_optional = parser_push._action_groups.pop()
+    parser_push_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_push_optional.add_argument("-f", "--file", dest="file", required=True, help=Help.param_benchmarks_file)
+    parser_push._action_groups.append(parser_push_optional)
+    parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
+
+    # list
+    parser_list = subparsers_tasks.add_parser(
+        "list", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_list
+    )
+    parser_list_optional = parser_list._action_groups.pop()
+    parser_list_optional.add_argument("--regex", dest="regex", required=False, help=Help.param_benchmarks_regex)
+    parser_list_optional.add_argument("--status", dest="status", required=False, help=Help.param_benchmarks_status)
+    parser_list._action_groups.append(parser_list_optional)
+    parser_list.set_defaults(func=api.benchmarks_tasks_list_cli)
+
+    # status
+    parser_status = subparsers_tasks.add_parser(
+        "status", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_status
+    )
+    parser_status_optional = parser_status._action_groups.pop()
+    parser_status_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_status_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
+    parser_status._action_groups.append(parser_status_optional)
+    parser_status.set_defaults(func=api.benchmarks_tasks_status_cli)
+
+    # run
+    parser_run = subparsers_tasks.add_parser(
+        "run", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_run
+    )
+    parser_run_optional = parser_run._action_groups.pop()
+    parser_run_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_run_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
+    parser_run_optional.add_argument("--wait", dest="wait", type=int, nargs="?", const=0, default=None, required=False, help=Help.param_benchmarks_wait)
+    parser_run_optional.add_argument("--poll-interval", dest="poll_interval", type=int, default=10, required=False, help=Help.param_benchmarks_poll_interval)
+    parser_run._action_groups.append(parser_run_optional)
+    parser_run.set_defaults(func=api.benchmarks_tasks_run_cli)
+
+    # download
+    parser_download = subparsers_tasks.add_parser(
+        "download", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_download
+    )
+    parser_download_optional = parser_download._action_groups.pop()
+    parser_download_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_download_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
+    parser_download_optional.add_argument("-o", "--output", dest="output", required=False, help=Help.param_benchmarks_output)
+    parser_download._action_groups.append(parser_download_optional)
+    parser_download.set_defaults(func=api.benchmarks_tasks_download_cli)
+
+    # delete
+    parser_delete = subparsers_tasks.add_parser(
+        "delete", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_delete
+    )
+    parser_delete_optional = parser_delete._action_groups.pop()
+    parser_delete_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_delete_optional.add_argument("-y", "--yes", dest="no_confirm", action="store_true", required=False, help=Help.param_yes)
+    parser_delete._action_groups.append(parser_delete_optional)
+    parser_delete.set_defaults(func=api.benchmarks_tasks_delete_cli)
+
+
 def parse_config(subparsers) -> None:
     parser_config = subparsers.add_parser(
         "config", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_config
@@ -1068,10 +1152,14 @@ class Help(object):
         "m",
         "files",
         "f",
+        "benchmarks",
+        "b",
         "config",
         "auth",
     ]
     competitions_choices = ["list", "files", "download", "submit", "submissions", "leaderboard"]
+    benchmarks_choices = ["tasks", "t"]
+    benchmarks_tasks_choices = ["push", "list", "status", "run", "download", "delete"]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
     kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]
     models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
@@ -1094,6 +1182,8 @@ class Help(object):
         + ", ".join(model_instances_choices)
         + "}\nmodels variations versions {"
         + ", ".join(model_instance_versions_choices)
+        + "}\nbenchmarks {"
+        + ", ".join(benchmarks_choices)
         + "}\nconfig {"
         + ", ".join(config_choices)
         + "}"
@@ -1108,6 +1198,8 @@ class Help(object):
     group_model_instances = "Commands related to Kaggle model variations"
     group_model_instance_versions = "Commands related to Kaggle model variations versions"
     group_files = "Commands related files"
+    group_benchmarks = "Commands related to Kaggle benchmarks"
+    group_benchmarks_tasks = "Commands related to benchmark tasks"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
 
@@ -1151,6 +1243,14 @@ class Help(object):
 
     # Files commands
     command_files_upload = "Upload files"
+
+    # Benchmarks commands
+    command_benchmarks_tasks_push = "Register a task from a Python source file"
+    command_benchmarks_tasks_list = "List all tasks"
+    command_benchmarks_tasks_status = "Show task details and per-model run status"
+    command_benchmarks_tasks_run = "Run a task against model(s)"
+    command_benchmarks_tasks_download = "Download output files for completed runs"
+    command_benchmarks_tasks_delete = "Remove a task"
 
     # Config commands
     command_config_path = "Set folder where competition or dataset files will be " "downloaded"
@@ -1354,6 +1454,19 @@ class Help(object):
     command_model_instance_versions_files = "List model variation version files"
     command_model_instance_versions_list = "List model variation versions"
     param_model_instance_version_notes = "Version notes to record for the new model variation version"
+
+    # Benchmarks params
+    param_benchmarks_task = "Task name (e.g. math-eval)"
+    param_benchmarks_file = "Path to the source Python file defining the task"
+    param_benchmarks_regex = "Filter task names by regular expression"
+    param_benchmarks_model = "Filter to specific model(s)"
+    param_benchmarks_wait = "Wait for runs to complete. Optionally specify a timeout in seconds (0 or omit value = wait indefinitely)"
+    param_benchmarks_output = "Directory to download output files into"
+    param_benchmarks_poll_interval = "Seconds between status polls when using --wait (default: 10)"
+    param_benchmarks_status = (
+        "Filter tasks by creation status. "
+        "Valid values: queued, running, completed, errored"
+    )
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"
