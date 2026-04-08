@@ -176,10 +176,7 @@ You can specify the following values for `expectedUpdateFrequency`:
 * `hourly`
 
 ## Images
-You can update your dataset image by providing a relative path to an image file in the `image` property.
-
-The path should be relative to the dataset-metadata.json file, using POSIX path syntax (with `/` separators).
-It should not contain parent directy syntax (`..`).
+You can update your dataset image by providing a relative path from your `datasets-metadata.json` to an image file, using the `image` property.
 
 For example, if your metadata file and image are located at:
 - `/some/path/dataset-metadata.json`

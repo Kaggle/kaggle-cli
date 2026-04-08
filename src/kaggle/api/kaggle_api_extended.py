@@ -1934,7 +1934,7 @@ class KaggleApi:
 
             effective_relative_path_to_image = metadata.get("image")
             if effective_relative_path_to_image:
-                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image)
+                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image, quiet)
                 if cropped_image_upload:
                     update_settings.image = cropped_image_upload
 
@@ -1948,7 +1948,7 @@ class KaggleApi:
                     [print(error_message) for error_message in response.errors]
                     exit(1)
 
-    def _upload_dataset_image_file(self, metadata_file_path, relative_image_file_path) -> CroppedImageUpload:
+    def _upload_dataset_image_file(self, metadata_file_path, relative_image_file_path, quiet=False) -> CroppedImageUpload:
         image_full_path = os.path.join(metadata_file_path, relative_image_file_path)
         ext = Path(image_full_path).suffix
         if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
@@ -1964,9 +1964,9 @@ class KaggleApi:
             upload_file = self._upload_file(
                 file_name,
                 image_full_path,
-                ApiBlobType.API_BLOB_TYPE_USER_CONTENT,
+                ApiBlobType.INBOX,
                 upload_context,
-                quiet=True,
+                quiet,
                 resources=None,
                 content_type=content_type,
             )
