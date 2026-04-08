@@ -1948,7 +1948,9 @@ class KaggleApi:
                     [print(error_message) for error_message in response.errors]
                     exit(1)
 
-    def _upload_dataset_image_file(self, metadata_file_path, relative_image_file_path, quiet=False) -> CroppedImageUpload:
+    def _upload_dataset_image_file(
+        self, metadata_file_path, relative_image_file_path, quiet=False
+    ) -> CroppedImageUpload:
         image_full_path = os.path.join(metadata_file_path, relative_image_file_path)
         ext = Path(image_full_path).suffix
         if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
