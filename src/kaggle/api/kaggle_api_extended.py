@@ -1934,7 +1934,7 @@ class KaggleApi:
 
             effective_relative_path_to_image = metadata.get("image")
             if effective_relative_path_to_image:
-                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image, quiet)
+                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image)
                 if cropped_image_upload:
                     update_settings.image = cropped_image_upload
 
