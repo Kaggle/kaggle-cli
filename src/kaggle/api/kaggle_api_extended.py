@@ -58,12 +58,10 @@ from kagglesdk.blobs.types.blob_api_service import ApiStartBlobUploadRequest, Ap
 from kagglesdk.benchmarks.types.benchmark_enums import BenchmarkTaskRunState, BenchmarkTaskVersionCreationState
 from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiCreateBenchmarkTaskRequest,
-    ApiListBenchmarkTasksRequest,
     ApiGetBenchmarkTaskRequest,
     ApiListBenchmarkTaskRunsRequest,
     ApiBenchmarkTaskSlug,
     ApiBatchScheduleBenchmarkTaskRunsRequest,
-    ApiDownloadBenchmarkTaskRunOutputRequest,
 )
 from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
 from kagglesdk.competitions.types.competition_api_service import (
@@ -5444,6 +5442,12 @@ class KaggleApi:
         # Convert .py file with percent delimiters to .ipynb
         import jupytext
         notebook = jupytext.reads(content, fmt="py:percent")
+        # Add kernelspec metadata so papermill can execute it on the server
+        notebook.metadata["kernelspec"] = {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3",
+        }
         notebook_content = jupytext.writes(notebook, fmt="ipynb")
 
         with self.build_kaggle_client() as kaggle:
@@ -5465,13 +5469,25 @@ class KaggleApi:
 
             response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
             print(f"Task '{task}' pushed.")
-            print(f"Task URL: {response.url}")
+            url = response.url
+            if url.startswith("/"):
+                url = "https://www.kaggle.com" + url
+            print(f"Task URL: {url}")
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
         models = self._normalize_model_list(model)
         task_slug_obj = self._make_task_slug(task)
 
         with self.build_kaggle_client() as kaggle:
+            # Verify the task exists and is ready to run
+            task_info = self._get_benchmark_task(task, kaggle)
+            if task_info.creation_state != BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
+                error_msg = f"Task '{task}' is not ready to run (status: {task_info.creation_state})."
+                if task_info.creation_state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED:
+                    error_msg += f" Task Info: {task_info}."
+                error_msg += " Only completed tasks can be run."
+                raise ValueError(error_msg)
+
             # If no models specified, prompt the user to select from available models
             if not models:
                 models_request = ApiListBenchmarkModelsRequest()
@@ -5481,20 +5497,21 @@ class KaggleApi:
                     raise ValueError("No benchmark models available. Cannot schedule runs.")
                 print("No model specified. Available models:")
                 for i, m in enumerate(available, 1):
-                    print(f"  {i}. {m.slug} ({m.display_name})")
+                    print(f"  {i}. {m.version.slug} ({m.display_name})")
                 selection = input("Enter model numbers (comma-separated), or 'all': ").strip()
                 if selection.lower() == "all":
-                    models = [m.slug for m in available]
+                    models = [m.version.slug for m in available]
                 else:
                     try:
                         indices = [int(s.strip()) for s in selection.split(",")]
-                        models = [available[i - 1].slug for i in indices]
+                        models = [available[i - 1].version.slug for i in indices]
                     except (ValueError, IndexError):
                         raise ValueError(f"Invalid selection: {selection}")
+                print(f"Selected models: {models}")
 
             request = ApiBatchScheduleBenchmarkTaskRunsRequest()
             request.task_slugs = [task_slug_obj]
-            request.model_slugs = models
+            request.model_version_slugs = models
 
             response = kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs(request)
             print(f"Submitted run(s) for task '{task}'.")
@@ -5510,16 +5527,16 @@ class KaggleApi:
                 start_time = time.time()
                 while True:
                     runs_request = ApiListBenchmarkTaskRunsRequest()
-                    runs_request.task_slugs = [task_slug_obj]
+                    runs_request.task_slug = task_slug_obj
                     if models:
-                        runs_request.model_slugs = models
+                        runs_request.model_version_slugs = models
                     runs_resp = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
                     all_done = runs_resp.runs and all(r.state in self._TERMINAL_RUN_STATES for r in runs_resp.runs)
                     if all_done:
                         print("All runs completed:")
                         for r in runs_resp.runs:
                             state_label = "COMPLETED" if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED else "ERRORED"
-                            print(f"  {r.model_slug}: {state_label}")
+                            print(f"  {r.model_version_slug}: {state_label}")
                         break
 
                     pending = sum(1 for r in runs_resp.runs if r.state not in self._TERMINAL_RUN_STATES)
