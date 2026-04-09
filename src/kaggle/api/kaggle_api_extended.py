@@ -5490,23 +5490,62 @@ class KaggleApi:
 
             # If no models specified, prompt the user to select from available models
             if not models:
-                models_request = ApiListBenchmarkModelsRequest()
-                models_response = kaggle.benchmarks.benchmarks_api_client.list_benchmark_models(models_request)
-                available = models_response.benchmark_models
+                available = []
+                page_token = ""
+                while True:
+                    models_request = ApiListBenchmarkModelsRequest()
+                    if page_token:
+                        models_request.page_token = page_token
+                    models_response = kaggle.benchmarks.benchmarks_api_client.list_benchmark_models(models_request)
+                    available.extend(models_response.benchmark_models)
+                    if not models_response.next_page_token:
+                        break
+                    page_token = models_response.next_page_token
                 if not available:
                     raise ValueError("No benchmark models available. Cannot schedule runs.")
-                print("No model specified. Available models:")
-                for i, m in enumerate(available, 1):
-                    print(f"  {i}. {m.version.slug} ({m.display_name})")
-                selection = input("Enter model numbers (comma-separated), or 'all': ").strip()
-                if selection.lower() == "all":
-                    models = [m.version.slug for m in available]
-                else:
-                    try:
-                        indices = [int(s.strip()) for s in selection.split(",")]
-                        models = [available[i - 1].version.slug for i in indices]
-                    except (ValueError, IndexError):
-                        raise ValueError(f"Invalid selection: {selection}")
+
+                PAGE_SIZE = 20
+                total = len(available)
+                total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+                current_page = 0
+
+                print(f"No model specified. {total} model(s) available:")
+                while True:
+                    start = current_page * PAGE_SIZE
+                    end = min(start + PAGE_SIZE, total)
+                    for i in range(start, end):
+                        m = available[i]
+                        print(f"  {i + 1}. {m.version.slug} ({m.display_name})")
+
+                    nav_hints = []
+                    if total_pages > 1:
+                        print(f"  [Page {current_page + 1}/{total_pages}]")
+                        if current_page < total_pages - 1:
+                            nav_hints.append("'n'=next")
+                        if current_page > 0:
+                            nav_hints.append("'p'=prev")
+
+                    prompt = "Enter model numbers (comma-separated), 'all'"
+                    if nav_hints:
+                        prompt += ", " + ", ".join(nav_hints)
+                    selection = input(prompt + ": ").strip()
+
+                    if selection.lower() == "n" and current_page < total_pages - 1:
+                        current_page += 1
+                        continue
+                    elif selection.lower() == "p" and current_page > 0:
+                        current_page -= 1
+                        continue
+                    elif selection.lower() == "all":
+                        models = [m.version.slug for m in available]
+                        break
+                    else:
+                        try:
+                            indices = [int(s.strip()) for s in selection.split(",")]
+                            models = [available[i - 1].version.slug for i in indices]
+                            break
+                        except (ValueError, IndexError):
+                            raise ValueError(f"Invalid selection: {selection}")
                 print(f"Selected models: {models}")
 
             request = ApiBatchScheduleBenchmarkTaskRunsRequest()

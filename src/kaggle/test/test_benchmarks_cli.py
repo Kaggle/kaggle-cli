@@ -130,6 +130,7 @@ def _setup_available_models(api, slugs):
         models.append(m)
     resp = MagicMock()
     resp.benchmark_models = models
+    resp.next_page_token = ""
     api._mock_client.benchmarks.benchmarks_api_client.list_benchmark_models.return_value = resp
 
 
