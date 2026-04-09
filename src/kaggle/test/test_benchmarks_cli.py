@@ -107,6 +107,8 @@ def _setup_create_response(api, task_slug="my-task"):
     resp = MagicMock()
     resp.slug.task_slug = task_slug
     resp.url = f"https://kaggle.com/benchmarks/{task_slug}"
+    resp.error_message = None
+    resp.errorMessage = None
     api._mock_benchmarks.create_benchmark_task.return_value = resp
 
 
@@ -216,6 +218,18 @@ class TestPush:
             response=MagicMock(status_code=500)
         )
         with pytest.raises(HTTPError):
+            _push(api, "my-task", filepath)
+
+    def test_push_handles_api_error(self, api, tmp_path):
+        """Push raises ValueError when response contains error_message."""
+        filepath = _write_task_file(tmp_path)
+        _setup_completed_task(api)
+        
+        resp = MagicMock()
+        resp.error_message = "Some backend error"
+        api._mock_benchmarks.create_benchmark_task.return_value = resp
+        
+        with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
             _push(api, "my-task", filepath)
 
 
