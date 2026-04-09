@@ -61,7 +61,9 @@ def _write_task_file(tmp_path, content=DEFAULT_TASK_CONTENT, name="task.py"):
 def _mock_jupytext():
     """Return ``(mock_jupytext_module, context_manager)``."""
     jt = MagicMock()
-    jt.reads.return_value = "mock_notebook"
+    notebook = MagicMock()
+    notebook.metadata = {}
+    jt.reads.return_value = notebook
     jt.writes.return_value = '{"cells": []}'
     return jt, patch.dict("sys.modules", {"jupytext": jt})
 
@@ -301,8 +303,8 @@ class TestRun:
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result()])
         api._mock_benchmarks.list_benchmark_task_runs.side_effect = [
-            MagicMock(runs=[_make_run(state=RUN_RUNNING)]),
-            MagicMock(runs=[_make_run(state=RUN_COMPLETED)]),
+            MagicMock(runs=[_make_run(state=RUN_RUNNING)], next_page_token=""),
+            MagicMock(runs=[_make_run(state=RUN_COMPLETED)], next_page_token=""),
         ]
         with patch("time.sleep"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)
@@ -315,7 +317,7 @@ class TestRun:
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result()])
         api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(
-            runs=[_make_run(state=RUN_RUNNING)]
+            runs=[_make_run(state=RUN_RUNNING)], next_page_token=""
         )
         with patch("time.sleep"), patch("time.time", side_effect=[1000, 1060]):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=30)
@@ -327,7 +329,7 @@ class TestRun:
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result()])
         api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(
-            runs=[_make_run(state=RUN_ERRORED)]
+            runs=[_make_run(state=RUN_ERRORED)], next_page_token=""
         )
         with patch("time.sleep"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)

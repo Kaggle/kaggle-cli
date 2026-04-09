@@ -5526,20 +5526,31 @@ class KaggleApi:
                 print("Waiting for run(s) to complete...")
                 start_time = time.time()
                 while True:
-                    runs_request = ApiListBenchmarkTaskRunsRequest()
-                    runs_request.task_slug = task_slug_obj
-                    if models:
-                        runs_request.model_version_slugs = models
-                    runs_resp = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
-                    all_done = runs_resp.runs and all(r.state in self._TERMINAL_RUN_STATES for r in runs_resp.runs)
+                    # Paginate through all runs
+                    all_runs = []
+                    page_token = ""
+                    while True:
+                        runs_request = ApiListBenchmarkTaskRunsRequest()
+                        runs_request.task_slug = task_slug_obj
+                        if models:
+                            runs_request.model_version_slugs = models
+                        if page_token:
+                            runs_request.page_token = page_token
+                        runs_resp = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
+                        all_runs.extend(runs_resp.runs)
+                        if not runs_resp.next_page_token:
+                            break
+                        page_token = runs_resp.next_page_token
+
+                    all_done = all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs)
                     if all_done:
                         print("All runs completed:")
-                        for r in runs_resp.runs:
+                        for r in all_runs:
                             state_label = "COMPLETED" if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED else "ERRORED"
                             print(f"  {r.model_version_slug}: {state_label}")
                         break
 
-                    pending = sum(1 for r in runs_resp.runs if r.state not in self._TERMINAL_RUN_STATES)
+                    pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
                     print(f"  {pending} run(s) still in progress...")
 
                     if wait > 0 and (time.time() - start_time) > wait:
