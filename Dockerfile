@@ -2,7 +2,9 @@ ARG PYTHON_VERSION
 
 FROM python:${PYTHON_VERSION}
 
-RUN pip install hatch==1.14.0
+# virtualenv 21 moves some functions that 1.14 hatch depended on. For now, just
+# pin to 20.X so hatch env continues working.
+RUN pip install hatch==1.14.0 "virtualenv<21"
 
 # Add only the minimal files required to be able to pre-create the hatch environments.
 # If any of these files changes, a new Docker build is necessary. This is why we need

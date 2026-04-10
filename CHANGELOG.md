@@ -3,7 +3,14 @@ Changelog
 
 ### Next
 
-* Add `--sandbox` flag to `kaggle competitions submit` for sandbox submissions (competition hosts/admins only)
+### 2.0.1
+
+* Add `--sandbox` flag to `kaggle competitions submit` for sandbox submissions (competition hosts/admins only) (#932)
+* Optimize large dataset download functionality (#936, s/o katoue)
+* Fix 403s and null file handling when listing kernel session output (#951, s/o 4kaws)
+* Support updating more types of dataset metadata through `datasets metadata --update`:
+  * Expected update frequency, user specified sources (#958)
+  * Dataset images (#959)
 
 ### 2.0.0
 
