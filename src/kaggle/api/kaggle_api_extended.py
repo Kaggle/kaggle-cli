@@ -730,7 +730,7 @@ class KaggleApi:
         return True
 
     def _authenticate_with_access_token(self):
-        (access_token, source) = get_access_token_from_env()
+        access_token, source = get_access_token_from_env()
         if not access_token:
             return False
 
@@ -1910,7 +1910,7 @@ class KaggleApi:
             dataset: The dataset to update.
             path: The path to the metadata file.
         """
-        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
+        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
         meta_file = self.get_dataset_metadata_file(effective_path)
         with open(meta_file, "r") as f:
             metadata = json.load(f)
@@ -1963,7 +1963,7 @@ class KaggleApi:
         Returns:
             The path to the downloaded metadata file.
         """
-        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
+        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
 
         if not os.path.exists(effective_path):
             os.makedirs(effective_path)
@@ -3442,7 +3442,7 @@ class KaggleApi:
             token = response.next_page_token
 
         outfiles = []
-        for item in (response.files or []):
+        for item in response.files or []:
             if compiled_pattern and not compiled_pattern.search(item.file_name):
                 continue
 
@@ -3482,7 +3482,7 @@ class KaggleApi:
             file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
         """
         kernel = kernel or kernel_opt
-        (_, token) = self.kernels_output(kernel, path, file_pattern, force, quiet)
+        _, token = self.kernels_output(kernel, path, file_pattern, force, quiet)
         if token:
             print(f"Next page token: {token}")
 
@@ -4618,7 +4618,7 @@ class KaggleApi:
         files_to_create = []
         with ResumableUploadContext(no_resume) as upload_context:
             for local_path in local_paths:
-                (upload_file, file_name) = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
+                upload_file, file_name = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
                 if upload_file is None:
                     continue
 
@@ -5407,6 +5407,7 @@ class KaggleApi:
     def _get_task_names_from_file(self, file_content: str) -> List[str]:
         """Extract task names from a Python file."""
         import ast
+
         task_names = []
         try:
             tree = ast.parse(file_content)
@@ -5420,13 +5421,22 @@ class KaggleApi:
             for decorator in node.decorator_list:
                 func = decorator.func if isinstance(decorator, ast.Call) else decorator
 
-                if not ((isinstance(func, ast.Name) and func.id == 'task') or
-                        (isinstance(func, ast.Attribute) and func.attr == 'task')):
+                if not (
+                    (isinstance(func, ast.Name) and func.id == "task")
+                    or (isinstance(func, ast.Attribute) and func.attr == "task")
+                ):
                     continue
 
                 name = None
                 if isinstance(decorator, ast.Call):
-                    name = next((k.value.value for k in decorator.keywords if k.arg == 'name' and isinstance(k.value, ast.Constant)), None)
+                    name = next(
+                        (
+                            k.value.value
+                            for k in decorator.keywords
+                            if k.arg == "name" and isinstance(k.value, ast.Constant)
+                        ),
+                        None,
+                    )
 
                 task_names.append(name if name else node.name.title().replace("_", " "))
 
@@ -5459,6 +5469,7 @@ class KaggleApi:
 
         # Convert .py file with percent delimiters to .ipynb
         import jupytext
+
         notebook = jupytext.reads(content, fmt="py:percent")
         # Add kernelspec metadata so papermill can execute it on the server
         notebook.metadata["kernelspec"] = {
@@ -5493,6 +5504,7 @@ class KaggleApi:
 
     def _select_models_interactively(self, kaggle, page_size=20):
         """Prompt the user to pick benchmark models from a paginated list."""
+
         def _fetch_models(page_token):
             req = ApiListBenchmarkModelsRequest()
             if page_token:
@@ -5541,6 +5553,7 @@ class KaggleApi:
 
     def _poll_runs(self, kaggle, task_slug_obj, models, wait, poll_interval):
         """Poll run status until all runs are terminal or timeout."""
+
         def _fetch_runs(page_token):
             req = ApiListBenchmarkTaskRunsRequest()
             req.task_slug = task_slug_obj
@@ -5558,7 +5571,11 @@ class KaggleApi:
             if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
                 print("All runs completed:")
                 for r in all_runs:
-                    label = "COMPLETED" if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED else "ERRORED"
+                    label = (
+                        "COMPLETED"
+                        if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
+                        else "ERRORED"
+                    )
                     print(f"  {r.model_version_slug}: {label}")
                 return
 
@@ -5578,9 +5595,15 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
             task_info = self._get_benchmark_task(task, kaggle)
-            if task_info.creation_state != BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
+            if (
+                task_info.creation_state
+                != BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+            ):
                 error_msg = f"Task '{task}' is not ready to run (status: {task_info.creation_state})."
-                if task_info.creation_state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED:
+                if (
+                    task_info.creation_state
+                    == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
+                ):
                     error_msg += f" Task Info: {task_info}."
                 error_msg += " Only completed tasks can be run."
                 raise ValueError(error_msg)

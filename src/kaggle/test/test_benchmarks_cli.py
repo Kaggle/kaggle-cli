@@ -194,9 +194,7 @@ class TestPush:
     def test_push_creates_new_task_on_404(self, api, tmp_path, capsys):
         """A 404 from get_benchmark_task means new task — still creates successfully."""
         filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
-            response=MagicMock(status_code=404)
-        )
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=404))
         _setup_create_response(api)
         _push(api, "my-task", filepath)
         assert "Task 'my-task' pushed." in capsys.readouterr().out
@@ -214,9 +212,7 @@ class TestPush:
     def test_push_propagates_server_error(self, api, tmp_path):
         """Non-404 HTTP errors (e.g. 500) are re-raised, not swallowed."""
         filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
-            response=MagicMock(status_code=500)
-        )
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=500))
         with pytest.raises(HTTPError):
             _push(api, "my-task", filepath)
 
@@ -224,11 +220,11 @@ class TestPush:
         """Push raises ValueError when response contains error_message."""
         filepath = _write_task_file(tmp_path)
         _setup_completed_task(api)
-        
+
         resp = MagicMock()
         resp.error_message = "Some backend error"
         api._mock_benchmarks.create_benchmark_task.return_value = resp
-        
+
         with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
             _push(api, "my-task", filepath)
 
@@ -268,9 +264,7 @@ class TestRun:
 
     def test_run_reports_skipped_with_reason(self, api, capsys):
         _setup_completed_task(api)
-        _setup_batch_schedule(
-            api, [_make_run_result(scheduled=False, skipped_reason="Already running")]
-        )
+        _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason="Already running")])
         api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         output = capsys.readouterr().out
         assert "gemini-pro: Skipped" in output
