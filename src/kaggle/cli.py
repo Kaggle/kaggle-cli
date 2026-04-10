@@ -1201,7 +1201,7 @@ class Help(object):
     command_models_update = "Update a model"
 
     # Benchmarks commands
-    command_benchmarks_tasks_push = "Register a task from a Python source file"
+    command_benchmarks_tasks_push = "Create or update a task from a Python source file"
     command_benchmarks_tasks_run = "Run a task against model(s)"
 
     # Files commands
