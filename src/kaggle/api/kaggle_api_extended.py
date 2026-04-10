@@ -123,7 +123,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
 )
-from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType
+from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus, KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
     ApiListModelsRequest,
     ApiCreateModelRequest,
@@ -3647,7 +3647,11 @@ class KaggleApi:
             interval: Polling interval in seconds for follow mode (default 5).
         """
         kernel = kernel or kernel_opt
-        terminal_statuses = {"complete", "error", "cancelAcknowledged"}
+        terminal_statuses = {
+            KernelWorkerStatus.COMPLETE,
+            KernelWorkerStatus.ERROR,
+            KernelWorkerStatus.CANCEL_ACKNOWLEDGED,
+        }
         printed_lines = 0
 
         while True:

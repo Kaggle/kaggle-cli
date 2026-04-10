@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, "..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
+from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus
 
 
 class TestKernelsLogs(unittest.TestCase):
@@ -112,9 +113,9 @@ class TestKernelsLogs(unittest.TestCase):
         ]
 
         status_running = MagicMock()
-        status_running.status = "running"
+        status_running.status = KernelWorkerStatus.RUNNING
         status_complete = MagicMock()
-        status_complete.status = "complete"
+        status_complete.status = KernelWorkerStatus.COMPLETE
         mock_status.side_effect = [status_running, status_complete]
 
         captured = io.StringIO()
@@ -139,14 +140,14 @@ class TestKernelsLogs(unittest.TestCase):
     @patch.object(KaggleApi, "kernels_status")
     @patch.object(KaggleApi, "kernels_logs")
     def test_kernels_logs_cli_follow_stops_on_error(self, mock_logs, mock_status, mock_sleep):
-        """Test follow mode stops when kernel status is 'error'."""
+        """Test follow mode stops when kernel status is ERROR."""
         mock_logs.side_effect = [
             "Line 1",
             "Line 1",  # final fetch
         ]
 
         status_error = MagicMock()
-        status_error.status = "error"
+        status_error.status = KernelWorkerStatus.ERROR
         mock_status.return_value = status_error
 
         captured = io.StringIO()
@@ -163,14 +164,14 @@ class TestKernelsLogs(unittest.TestCase):
     @patch.object(KaggleApi, "kernels_status")
     @patch.object(KaggleApi, "kernels_logs")
     def test_kernels_logs_cli_follow_stops_on_cancel(self, mock_logs, mock_status, mock_sleep):
-        """Test follow mode stops when kernel status is 'cancelAcknowledged'."""
+        """Test follow mode stops when kernel status is CANCEL_ACKNOWLEDGED."""
         mock_logs.side_effect = [
             "Cancelled",
             "Cancelled",  # final fetch
         ]
 
         status_cancel = MagicMock()
-        status_cancel.status = "cancelAcknowledged"
+        status_cancel.status = KernelWorkerStatus.CANCEL_ACKNOWLEDGED
         mock_status.return_value = status_cancel
 
         captured = io.StringIO()
