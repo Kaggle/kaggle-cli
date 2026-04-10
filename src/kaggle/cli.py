@@ -614,6 +614,18 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_status._action_groups.append(parser_kernels_status_optional)
     parser_kernels_status.set_defaults(func=api.kernels_status_cli)
 
+    # Kernels cancel
+    parser_kernels_cancel = subparsers_kernels.add_parser(
+        "cancel", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_cancel
+    )
+    parser_kernels_cancel_optional = parser_kernels_cancel._action_groups.pop()
+    parser_kernels_cancel_optional.add_argument("kernel", nargs="?", default=None, help=Help.param_kernel)
+    parser_kernels_cancel_optional.add_argument(
+        "-k", "--kernel", dest="kernel_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_kernels_cancel._action_groups.append(parser_kernels_cancel_optional)
+    parser_kernels_cancel.set_defaults(func=api.kernels_cancel_cli)
+
     # Kernels delete
     parser_kernels_delete = subparsers_kernels.add_parser(
         "delete", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_delete
@@ -1073,7 +1085,7 @@ class Help(object):
     ]
     competitions_choices = ["list", "files", "download", "submit", "submissions", "leaderboard"]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
-    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]
+    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete", "cancel"]
     models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
@@ -1138,6 +1150,7 @@ class Help(object):
     command_kernels_pull = "Pull down code from a kernel"
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
+    command_kernels_cancel = "Cancel the latest running kernel session"
     command_kernels_delete = "Delete a kernel"
 
     # Models commands

@@ -122,6 +122,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiSaveKernelResponse,
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
+    ApiCancelKernelSessionRequest,
 )
 from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
@@ -2536,6 +2537,69 @@ class KaggleApi:
             None:
         """
         self.kernels_delete(kernel, no_confirm)
+
+    def kernels_cancel(self, kernel):
+        """Cancels the latest running session for a kernel.
+
+        Args:
+            kernel: The kernel identifier in the format [owner]/[kernel-name].
+
+        Returns:
+            The cancel response from the API.
+        """
+        if kernel is None:
+            raise ValueError("A kernel must be specified")
+        if "/" in kernel:
+            self.validate_kernel_string(kernel)
+            kernel_url_list = kernel.split("/")
+            owner_slug = kernel_url_list[0]
+            kernel_slug = kernel_url_list[1]
+        else:
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            kernel_slug = kernel
+
+        with self.build_kaggle_client() as kaggle:
+            # First, get the session status to obtain the kernel_session_id.
+            # The SDK response type doesn't expose the session ID, so we make
+            # a raw HTTP call and parse the full JSON response.
+            http_client = kaggle.http_client()
+            status_request = ApiGetKernelSessionStatusRequest()
+            status_request.user_name = owner_slug
+            status_request.kernel_slug = kernel_slug
+            http_request = http_client._prepare_request(
+                "kernels.KernelsApiService", "GetKernelSessionStatus", status_request
+            )
+            settings = http_client._session.merge_environment_settings(
+                http_request.url, {}, None, None, None
+            )
+            http_response = http_client._session.send(http_request, **settings)
+            http_response.raise_for_status()
+            response_data = http_response.json()
+
+            kernel_session_id = response_data.get("kernelSessionId")
+            if not kernel_session_id:
+                raise ValueError(
+                    f"No active session found for kernel '{kernel}'. "
+                    "The kernel may not have been run or may have already completed."
+                )
+
+            cancel_request = ApiCancelKernelSessionRequest()
+            cancel_request.kernel_session_id = kernel_session_id
+            return kaggle.kernels.kernels_api_client.cancel_kernel_session(cancel_request)
+
+    def kernels_cancel_cli(self, kernel, kernel_opt=None):
+        """A client wrapper for cancelling a kernel session.
+
+        Args:
+            kernel: The kernel for which to cancel the session.
+            kernel_opt: An additional option from the client, if the kernel is not defined.
+        """
+        kernel = kernel or kernel_opt
+        response = self.kernels_cancel(kernel)
+        if response.error_message:
+            print(f"Cancel failed: {response.error_message}")
+        else:
+            print(f"Kernel session for '{kernel}' was cancelled successfully.")
 
     def dataset_delete_cli(self, dataset: str, no_confirm: bool = False) -> None:
         """A client wrapper for deleting a dataset.
