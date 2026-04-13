@@ -46,10 +46,25 @@ kaggle competitions download lux-ai-season-3
 
 ## 4. Submit Your Agent
 
-Simulation competitions use code submissions. First, create and push a notebook with your agent code, then submit it:
+Simulation competitions require you to submit agent code. You can upload files directly from your local machine.
+
+**Single file agent** — if your agent is a single `main.py`:
 
 ```bash
-kaggle competitions submit lux-ai-season-3 -k YOUR_USERNAME/lux-ai-agent -f submission.tar.gz -v 1 -m "First agent submission"
+kaggle competitions submit lux-ai-season-3 -f main.py -m "Single file agent v1"
+```
+
+**Multi-file agent** — if your agent spans multiple files, bundle them into a `submission.tar.gz` with `main.py` at the root:
+
+```bash
+tar -czf submission.tar.gz main.py helper.py model_weights.pkl
+kaggle competitions submit lux-ai-season-3 -f submission.tar.gz -m "Multi-file agent v1"
+```
+
+**Notebook submission** — alternatively, you can submit via an existing Kaggle notebook:
+
+```bash
+kaggle competitions submit lux-ai-season-3 -k YOUR_USERNAME/lux-ai-agent -f submission.tar.gz -v 1 -m "Notebook agent v1"
 ```
 
 ## 5. Monitor Your Submission
@@ -115,8 +130,8 @@ Here's a typical workflow for iterating on a simulation competition agent:
 mkdir my-sim-comp && cd my-sim-comp
 kaggle competitions download lux-ai-season-3
 
-# Submit your agent
-kaggle competitions submit lux-ai-season-3 -k YOUR_USERNAME/my-agent -f submission.tar.gz -v 1 -m "v1"
+# Submit your agent (single file)
+kaggle competitions submit lux-ai-season-3 -f main.py -m "v1"
 
 # Check submission status
 kaggle competitions submissions lux-ai-season-3
