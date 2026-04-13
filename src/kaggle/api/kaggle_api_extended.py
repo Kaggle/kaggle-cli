@@ -1855,11 +1855,12 @@ class KaggleApi:
         """
         self.competition_episode_agent_logs(episode_id, agent_index, path, quiet)
 
-    def competition_list_pages(self, competition: str):
+    def competition_list_pages(self, competition: str, page_name: Optional[str] = None):
         """List pages for a competition.
 
         Args:
             competition (str): The competition name.
+            page_name (Optional[str]): Filter to a specific page by name.
 
         Returns:
             list: A list of ApiCompetitionPage objects.
@@ -1867,11 +1868,14 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListCompetitionPagesRequest()
             request.competition_name = competition
+            if page_name:
+                request.page_name = page_name
             response = kaggle.competitions.competition_api_client.list_competition_pages(request)
             return response.pages
 
     def competition_list_pages_cli(
-        self, competition=None, competition_opt=None, csv_display=False, quiet=False, content=False
+        self, competition=None, competition_opt=None, csv_display=False, quiet=False, content=False,
+        page_name=None
     ):
         """CLI wrapper for competition_list_pages.
 
@@ -1881,6 +1885,7 @@ class KaggleApi:
             csv_display (bool): If True, print CSV instead of table.
             quiet (bool): Suppress verbose output.
             content (bool): If True, show full page content.
+            page_name (Optional[str]): Filter to a specific page by name.
         """
         competition = competition or competition_opt
         if competition is None:
@@ -1891,7 +1896,7 @@ class KaggleApi:
         if competition is None:
             raise ValueError("No competition specified")
 
-        pages = self.competition_list_pages(competition)
+        pages = self.competition_list_pages(competition, page_name=page_name)
         if pages:
             fields = ["name", "content"] if content else self.competition_page_fields
             if csv_display:

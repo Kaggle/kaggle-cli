@@ -352,6 +352,10 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_optional.add_argument(
         "--content", dest="content", action="store_true", help="Show full page content"
     )
+    parser_competitions_pages_optional.add_argument(
+        "--page-name", dest="page_name", required=False,
+        help='Filter to a specific page (e.g. "description", "rules", "evaluation")'
+    )
     parser_competitions_pages._action_groups.append(parser_competitions_pages_optional)
     parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
 
