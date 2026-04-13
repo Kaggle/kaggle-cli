@@ -84,6 +84,12 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiDataFile,
     ApiCreateCodeSubmissionResponse,
     ApiListCompetitionsResponse,
+    ApiListSubmissionEpisodesRequest,
+    ApiListSubmissionEpisodesResponse,
+    ApiGetEpisodeReplayRequest,
+    ApiGetEpisodeAgentLogsRequest,
+    ApiListCompetitionPagesRequest,
+    ApiListCompetitionPagesResponse,
 )
 from kagglesdk.competitions.types.competition_enums import (
     CompetitionListTab,
@@ -624,6 +630,9 @@ class KaggleApi:
     model_instance_labels = ["version", "notes", "created", "size"]
     model_instance_version_fields = ["versionNumber", "variationSlug", "modelTitle", "isPrivate"]
     model_instance_version_labels = ["version", "variation", "title", "private"]
+    episode_fields = ["id", "createTime", "endTime", "state", "type"]
+    episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
+    competition_page_fields = ["name"]
 
     def __init__(self, enable_oauth: bool = False):
         self.enable_oauth = enable_oauth
@@ -1741,6 +1750,147 @@ class KaggleApi:
                     self.print_table(results, self.competition_leaderboard_fields)
             else:
                 print("No results found")
+
+    def competition_list_episodes(self, submission_id: int):
+        """List episodes for a submission in a simulation competition.
+
+        Args:
+            submission_id (int): The submission ID to list episodes for.
+
+        Returns:
+            list: A list of ApiEpisode objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListSubmissionEpisodesRequest()
+            request.submission_id = submission_id
+            response = kaggle.competitions.competition_api_client.list_submission_episodes(request)
+            return response.episodes
+
+    def competition_list_episodes_cli(self, submission_id, csv_display=False, quiet=False):
+        """CLI wrapper for competition_list_episodes.
+
+        Args:
+            submission_id (int): The submission ID.
+            csv_display (bool): If True, print CSV instead of table.
+            quiet (bool): Suppress verbose output.
+        """
+        episodes = self.competition_list_episodes(submission_id)
+        if episodes:
+            if csv_display:
+                self.print_csv(episodes, self.episode_fields)
+            else:
+                self.print_table(episodes, self.episode_fields)
+        else:
+            print("No episodes found")
+
+    def competition_episode_replay(self, episode_id: int, path: Optional[str] = None, quiet: bool = True):
+        """Download the replay for an episode.
+
+        Args:
+            episode_id (int): The episode ID.
+            path (Optional[str]): A path to download the file to.
+            quiet (bool): Suppress verbose output.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetEpisodeReplayRequest()
+            request.episode_id = episode_id
+            response = kaggle.competitions.competition_api_client.get_episode_replay(request)
+        if path is None:
+            effective_path = os.getcwd()
+        else:
+            effective_path = path
+        outfile = os.path.join(effective_path, f"episode-{episode_id}-replay.json")
+        self.download_file(response, outfile, kaggle.http_client(), quiet)
+
+    def competition_episode_replay_cli(self, episode_id, path=None, quiet=False):
+        """CLI wrapper for competition_episode_replay.
+
+        Args:
+            episode_id (int): The episode ID.
+            path (Optional[str]): A path to download the file to.
+            quiet (bool): Suppress verbose output.
+        """
+        self.competition_episode_replay(episode_id, path, quiet)
+
+    def competition_episode_agent_logs(
+        self, episode_id: int, agent_index: int, path: Optional[str] = None, quiet: bool = True
+    ):
+        """Download logs for a specific agent in an episode.
+
+        Args:
+            episode_id (int): The episode ID.
+            agent_index (int): The agent index.
+            path (Optional[str]): A path to download the file to.
+            quiet (bool): Suppress verbose output.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetEpisodeAgentLogsRequest()
+            request.episode_id = episode_id
+            request.agent_index = agent_index
+            response = kaggle.competitions.competition_api_client.get_episode_agent_logs(request)
+        if path is None:
+            effective_path = os.getcwd()
+        else:
+            effective_path = path
+        outfile = os.path.join(effective_path, f"episode-{episode_id}-agent-{agent_index}-logs.json")
+        self.download_file(response, outfile, kaggle.http_client(), quiet)
+
+    def competition_episode_agent_logs_cli(self, episode_id, agent_index, path=None, quiet=False):
+        """CLI wrapper for competition_episode_agent_logs.
+
+        Args:
+            episode_id (int): The episode ID.
+            agent_index (int): The agent index.
+            path (Optional[str]): A path to download the file to.
+            quiet (bool): Suppress verbose output.
+        """
+        self.competition_episode_agent_logs(episode_id, agent_index, path, quiet)
+
+    def competition_list_pages(self, competition: str):
+        """List pages for a competition.
+
+        Args:
+            competition (str): The competition name.
+
+        Returns:
+            list: A list of ApiCompetitionPage objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListCompetitionPagesRequest()
+            request.competition_name = competition
+            response = kaggle.competitions.competition_api_client.list_competition_pages(request)
+            return response.pages
+
+    def competition_list_pages_cli(
+        self, competition=None, competition_opt=None, csv_display=False, quiet=False, content=False
+    ):
+        """CLI wrapper for competition_list_pages.
+
+        Args:
+            competition: The competition name.
+            competition_opt: An alternative competition option provided by cli.
+            csv_display (bool): If True, print CSV instead of table.
+            quiet (bool): Suppress verbose output.
+            content (bool): If True, show full page content.
+        """
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+
+        if competition is None:
+            raise ValueError("No competition specified")
+
+        pages = self.competition_list_pages(competition)
+        if pages:
+            fields = ["name", "content"] if content else self.competition_page_fields
+            if csv_display:
+                self.print_csv(pages, fields)
+            else:
+                self.print_table(pages, fields)
+        else:
+            print("No pages found")
 
     def dataset_list(
         self,

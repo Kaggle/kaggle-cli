@@ -276,6 +276,73 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_leaderboard._action_groups.append(parser_competitions_leaderboard_optional)
     parser_competitions_leaderboard.set_defaults(func=api.competition_leaderboard_cli)
 
+    # Competitions list episodes
+    parser_competitions_episodes = subparsers_competitions.add_parser(
+        "episodes", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episodes
+    )
+    parser_competitions_episodes_optional = parser_competitions_episodes._action_groups.pop()
+    parser_competitions_episodes_optional.add_argument("submission_id", type=int, help="Submission ID")
+    parser_competitions_episodes_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_episodes_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_episodes._action_groups.append(parser_competitions_episodes_optional)
+    parser_competitions_episodes.set_defaults(func=api.competition_list_episodes_cli)
+
+    # Competitions episode replay
+    parser_competitions_episode_replay = subparsers_competitions.add_parser(
+        "episode-replay", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_replay
+    )
+    parser_competitions_episode_replay_optional = parser_competitions_episode_replay._action_groups.pop()
+    parser_competitions_episode_replay_optional.add_argument("episode_id", type=int, help="Episode ID")
+    parser_competitions_episode_replay_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_downfolder
+    )
+    parser_competitions_episode_replay_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_episode_replay._action_groups.append(parser_competitions_episode_replay_optional)
+    parser_competitions_episode_replay.set_defaults(func=api.competition_episode_replay_cli)
+
+    # Competitions episode agent logs
+    parser_competitions_episode_logs = subparsers_competitions.add_parser(
+        "episode-logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_logs
+    )
+    parser_competitions_episode_logs_optional = parser_competitions_episode_logs._action_groups.pop()
+    parser_competitions_episode_logs_optional.add_argument("episode_id", type=int, help="Episode ID")
+    parser_competitions_episode_logs_optional.add_argument("agent_index", type=int, help="Agent index")
+    parser_competitions_episode_logs_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_downfolder
+    )
+    parser_competitions_episode_logs_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_episode_logs._action_groups.append(parser_competitions_episode_logs_optional)
+    parser_competitions_episode_logs.set_defaults(func=api.competition_episode_agent_logs_cli)
+
+    # Competitions list pages
+    parser_competitions_pages = subparsers_competitions.add_parser(
+        "pages", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_pages
+    )
+    parser_competitions_pages_optional = parser_competitions_pages._action_groups.pop()
+    parser_competitions_pages_optional.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
+    parser_competitions_pages_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_pages_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_pages_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_pages_optional.add_argument(
+        "--content", dest="content", action="store_true", help="Show full page content"
+    )
+    parser_competitions_pages._action_groups.append(parser_competitions_pages_optional)
+    parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
+
 
 def parse_datasets(subparsers) -> None:
     parser_datasets = subparsers.add_parser(
@@ -1116,7 +1183,10 @@ class Help(object):
         "config",
         "auth",
     ]
-    competitions_choices = ["list", "files", "download", "submit", "submissions", "leaderboard"]
+    competitions_choices = [
+        "list", "files", "download", "submit", "submissions", "leaderboard",
+        "episodes", "episode-replay", "episode-logs", "pages",
+    ]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
     kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]
     models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
@@ -1169,6 +1239,10 @@ class Help(object):
     command_competitions_submit = "Make a new competition submission"
     command_competitions_submissions = "Show your competition submissions"
     command_competitions_leaderboard = "Get competition leaderboard information"
+    command_competitions_episodes = "List episodes for a submission in a simulation competition"
+    command_competitions_episode_replay = "Download the replay for a simulation episode"
+    command_competitions_episode_logs = "Download agent logs for a simulation episode"
+    command_competitions_pages = "List pages for a competition"
 
     # Datasets commands
     command_datasets_list = "List available datasets"
