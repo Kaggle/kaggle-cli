@@ -176,9 +176,13 @@ You can specify the following values for `expectedUpdateFrequency`:
 * `hourly`
 
 ## Images
-You can update your dataset image by providing a relative path from your `datasets-metadata.json` to an image file, using the `image` property.
+You can update your dataset image using the `image` property. The value for this property should be either:
+- A relative path from your `datasets-metadata.json` to an image file
+- An absolute path to an image file
+  - Ensure that `kaggle-cli` has access to the directory and image file
 
-For example, if your metadata file and image are located at:
+### Specifying an image with a relative path:
+If your metadata file and image are located at:
 - `/some/path/dataset-metadata.json`
 - `/some/path/image.png`
 
@@ -194,6 +198,14 @@ If instead, your files were located at:
 This property should be specified as:
 ```
 "image": "alternative/path/to/other-image.jpg"
+```
+
+### Specifying an image with an absolute path:
+Note that this particular syntax deviates from the [Data Package spec](https://specs.frictionlessdata.io/data-package/#image). It can be used to avoid a scenario where your image would be included in your dataset files when using `kaggle datasets create --dir-mode` with a value of `zip` or `tar`.
+
+Simply use an absolute path to the image in your `datasets-metadata.json`:
+```
+"image": "/absolute/file/path/to/image.png"
 ```
 
 ### Supported image file types and expected dimensions

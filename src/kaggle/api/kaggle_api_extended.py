@@ -1941,9 +1941,11 @@ class KaggleApi:
             if expected_update_frequency:
                 update_settings.expected_update_frequency = expected_update_frequency
 
-            effective_relative_path_to_image = metadata.get("image")
-            if effective_relative_path_to_image:
-                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image)
+            relative_or_absolute_image_file_path = metadata.get("image")
+            if relative_or_absolute_image_file_path:
+                cropped_image_upload = self._upload_dataset_image_file(
+                    effective_path, relative_or_absolute_image_file_path
+                )
                 if cropped_image_upload:
                     update_settings.image = cropped_image_upload
 
@@ -1958,9 +1960,12 @@ class KaggleApi:
                     exit(1)
 
     def _upload_dataset_image_file(
-        self, metadata_file_path, relative_image_file_path, quiet=False
+        self, metadata_file_path, relative_or_absolute_image_file_path, quiet=False
     ) -> CroppedImageUpload:
-        image_full_path = os.path.join(metadata_file_path, relative_image_file_path)
+        if os.path.isabs(relative_or_absolute_image_file_path):
+            image_full_path = relative_or_absolute_image_file_path
+        else:
+            image_full_path = os.path.join(metadata_file_path, relative_or_absolute_image_file_path)
         ext = Path(image_full_path).suffix
         if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
             raise ValueError("Image file requires an extension of .jpg, .jpeg, .png, or .webp: %s" % image_full_path)

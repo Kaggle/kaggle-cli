@@ -1015,9 +1015,27 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_run_optional = parser_run._action_groups.pop()
     parser_run_optional.add_argument("task", help=Help.param_benchmarks_task)
-    parser_run_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
-    parser_run_optional.add_argument("--wait", dest="wait", type=int, nargs="?", const=0, default=None, required=False, help=Help.param_benchmarks_wait)
-    parser_run_optional.add_argument("--poll-interval", dest="poll_interval", type=int, default=10, required=False, help=Help.param_benchmarks_poll_interval)
+    parser_run_optional.add_argument(
+        "-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model
+    )
+    parser_run_optional.add_argument(
+        "--wait",
+        dest="wait",
+        type=int,
+        nargs="?",
+        const=0,
+        default=None,
+        required=False,
+        help=Help.param_benchmarks_wait,
+    )
+    parser_run_optional.add_argument(
+        "--poll-interval",
+        dest="poll_interval",
+        type=int,
+        default=10,
+        required=False,
+        help=Help.param_benchmarks_poll_interval,
+    )
     parser_run._action_groups.append(parser_run_optional)
     parser_run.set_defaults(func=api.benchmarks_tasks_run_cli)
 
