@@ -1780,6 +1780,11 @@ class KaggleApi:
                 self.print_csv(episodes, self.episode_fields)
             else:
                 self.print_table(episodes, self.episode_fields)
+            if not quiet:
+                print(
+                    '\nUse "kaggle competitions episode-replay <episode_id>" to download a replay, '
+                    'or "kaggle competitions episode-logs <episode_id> <agent_index>" for agent logs.'
+                )
         else:
             print("No episodes found")
 
@@ -1801,6 +1806,8 @@ class KaggleApi:
             effective_path = path
         outfile = os.path.join(effective_path, f"episode-{episode_id}-replay.json")
         self.download_file(response, outfile, kaggle.http_client(), quiet)
+        if not quiet:
+            print(f"Replay downloaded to: {outfile}")
 
     def competition_episode_replay_cli(self, episode_id, path=None, quiet=False):
         """CLI wrapper for competition_episode_replay.
@@ -1834,6 +1841,8 @@ class KaggleApi:
             effective_path = path
         outfile = os.path.join(effective_path, f"episode-{episode_id}-agent-{agent_index}-logs.json")
         self.download_file(response, outfile, kaggle.http_client(), quiet)
+        if not quiet:
+            print(f"Agent logs downloaded to: {outfile}")
 
     def competition_episode_agent_logs_cli(self, episode_id, agent_index, path=None, quiet=False):
         """CLI wrapper for competition_episode_agent_logs.

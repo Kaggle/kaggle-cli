@@ -281,7 +281,10 @@ def parse_competitions(subparsers) -> None:
         "episodes", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episodes
     )
     parser_competitions_episodes_optional = parser_competitions_episodes._action_groups.pop()
-    parser_competitions_episodes_optional.add_argument("submission_id", type=int, help="Submission ID")
+    parser_competitions_episodes_optional.add_argument(
+        "submission_id", type=int,
+        help='Submission ID (find yours with "kaggle competitions submissions <competition>")'
+    )
     parser_competitions_episodes_optional.add_argument(
         "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
     )
@@ -296,7 +299,10 @@ def parse_competitions(subparsers) -> None:
         "episode-replay", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_replay
     )
     parser_competitions_episode_replay_optional = parser_competitions_episode_replay._action_groups.pop()
-    parser_competitions_episode_replay_optional.add_argument("episode_id", type=int, help="Episode ID")
+    parser_competitions_episode_replay_optional.add_argument(
+        "episode_id", type=int,
+        help='Episode ID (find these with "kaggle competitions episodes <submission_id>")'
+    )
     parser_competitions_episode_replay_optional.add_argument(
         "-p", "--path", dest="path", required=False, help=Help.param_downfolder
     )
@@ -311,8 +317,14 @@ def parse_competitions(subparsers) -> None:
         "episode-logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_logs
     )
     parser_competitions_episode_logs_optional = parser_competitions_episode_logs._action_groups.pop()
-    parser_competitions_episode_logs_optional.add_argument("episode_id", type=int, help="Episode ID")
-    parser_competitions_episode_logs_optional.add_argument("agent_index", type=int, help="Agent index")
+    parser_competitions_episode_logs_optional.add_argument(
+        "episode_id", type=int,
+        help='Episode ID (find these with "kaggle competitions episodes <submission_id>")'
+    )
+    parser_competitions_episode_logs_optional.add_argument(
+        "agent_index", type=int,
+        help="Agent index (0-based position of the agent in the episode)"
+    )
     parser_competitions_episode_logs_optional.add_argument(
         "-p", "--path", dest="path", required=False, help=Help.param_downfolder
     )
