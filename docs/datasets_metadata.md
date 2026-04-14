@@ -176,36 +176,24 @@ You can specify the following values for `expectedUpdateFrequency`:
 * `hourly`
 
 ## Images
-You can update your dataset image using the `image` property. The value for this property should be either:
-- A relative path from your `datasets-metadata.json` to an image file
-- An absolute path to an image file
-  - Ensure that `kaggle-cli` has access to the directory and image file
+The recommended way to update your dataset's image is by placing a file named `dataset-cover-image.png` (or `.jpg`, `.jpeg`, `.webp`), as a sibling file to your `datasets-metadata.json`.
 
-### Specifying an image with a relative path:
-If your metadata file and image are located at:
+Example:
 - `/some/path/dataset-metadata.json`
-- `/some/path/image.png`
+- `/some/path/dataset-cover-image.png`
+
+The image file will only be used for dataset metadata, and not be uploaded as a file within your dataset.
+
+### Specifying an image with a relative path
+As an alternative, you can update your dataset image by providing a relative path from your `datasets-metadata.json` to an image file, using the `image` property.
+
+If your files were located at:
+- `/some/path/dataset-metadata.json`
+- `/some/path/to/my-image.jpg`
 
 This property should be specified as:
 ```
-"image": "image.png"
-```
-
-If instead, your files were located at:
-- `/some/path/dataset-metadata.json`
-- `/some/path/alternative/path/to/other-image.jpg`
-
-This property should be specified as:
-```
-"image": "alternative/path/to/other-image.jpg"
-```
-
-### Specifying an image with an absolute path:
-Note that this particular syntax deviates from the [Data Package spec](https://specs.frictionlessdata.io/data-package/#image). It can be used to avoid a scenario where your image would be included in your dataset files when using `kaggle datasets create --dir-mode` with a value of `zip` or `tar`.
-
-Simply use an absolute path to the image in your `datasets-metadata.json`:
-```
-"image": "/absolute/file/path/to/image.png"
+"image": "to/my-image.jpg"
 ```
 
 ### Supported image file types and expected dimensions

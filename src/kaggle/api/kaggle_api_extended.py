@@ -522,6 +522,8 @@ class KaggleApi:
     HEADER_API_VERSION = "X-Kaggle-ApiVersion"
     DATASET_METADATA_FILE = "dataset-metadata.json"
     OLD_DATASET_METADATA_FILE = "datapackage.json"
+    DATASET_COVER_IMAGE_SUPPORTED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"]
+    DATASET_COVER_IMAGE_FILES = ["dataset-cover-image" + ext for ext in DATASET_COVER_IMAGE_SUPPORTED_EXTENSIONS]
     KERNEL_METADATA_FILE = "kernel-metadata.json"
     MODEL_METADATA_FILE = "model-metadata.json"
     MODEL_INSTANCE_METADATA_FILE = "model-instance-metadata.json"
@@ -1941,11 +1943,15 @@ class KaggleApi:
             if expected_update_frequency:
                 update_settings.expected_update_frequency = expected_update_frequency
 
-            relative_or_absolute_image_file_path = metadata.get("image")
-            if relative_or_absolute_image_file_path:
-                cropped_image_upload = self._upload_dataset_image_file(
-                    effective_path, relative_or_absolute_image_file_path
-                )
+            effective_relative_path_to_image = metadata.get("image")
+            if not effective_relative_path_to_image:
+                # If user did not specify an image path explicitly, check if canonical images exist as siblings to dataset-metadata.json.
+                for canonical_image_filename in self.DATASET_COVER_IMAGE_FILES:
+                    canonical_image_full_path = os.path.join(effective_path, canonical_image_filename)
+                    if os.path.exists(canonical_image_full_path):
+                        effective_relative_path_to_image = canonical_image_filename
+            if effective_relative_path_to_image:
+                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image)
                 if cropped_image_upload:
                     update_settings.image = cropped_image_upload
 
@@ -1960,14 +1966,11 @@ class KaggleApi:
                     exit(1)
 
     def _upload_dataset_image_file(
-        self, metadata_file_path, relative_or_absolute_image_file_path, quiet=False
+        self, metadata_file_path, relative_image_file_path, quiet=False
     ) -> CroppedImageUpload:
-        if os.path.isabs(relative_or_absolute_image_file_path):
-            image_full_path = relative_or_absolute_image_file_path
-        else:
-            image_full_path = os.path.join(metadata_file_path, relative_or_absolute_image_file_path)
+        image_full_path = os.path.join(metadata_file_path, relative_image_file_path)
         ext = Path(image_full_path).suffix
-        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        if ext not in self.DATASET_COVER_IMAGE_SUPPORTED_EXTENSIONS:
             raise ValueError("Image file requires an extension of .jpg, .jpeg, .png, or .webp: %s" % image_full_path)
 
         if not os.path.isfile(image_full_path):
@@ -4924,6 +4927,7 @@ class KaggleApi:
             if file_name in [
                 self.DATASET_METADATA_FILE,
                 self.OLD_DATASET_METADATA_FILE,
+                *self.DATASET_COVER_IMAGE_FILES,
                 self.KERNEL_METADATA_FILE,
                 self.MODEL_METADATA_FILE,
                 self.MODEL_INSTANCE_METADATA_FILE,
