@@ -2,7 +2,7 @@
 
 This tutorial walks you through interacting with a Kaggle simulation competition using the CLI — from finding the competition to downloading episode replays and agent logs.
 
-Simulation competitions (e.g., [Lux AI](https://www.kaggle.com/competitions/lux-ai-season-3), [Santa](https://www.kaggle.com/competitions/santa-2024)) differ from standard competitions. Instead of submitting a CSV of predictions, you submit an agent (code) that plays against other agents in episodes. Each episode contains multiple agents competing against each other. You can identify simulation competitions on the [competitions page](https://www.kaggle.com/competitions) by their "Simulation" tag, or by looking for competitions that mention agents, bots, or game environments in their description.
+Simulation competitions (e.g., [Connect X](https://www.kaggle.com/competitions/connectx), [Lux AI](https://www.kaggle.com/competitions/lux-ai-season-3)) differ from standard competitions. Instead of submitting a CSV of predictions, you submit an agent (code) that plays against other agents in episodes. Each episode contains multiple agents competing against each other. You can identify simulation competitions on the [competitions page](https://www.kaggle.com/competitions) by their "Simulation" tag, or by looking for competitions that mention agents, bots, or game environments in their description.
 
 ## 1. Find and Inspect the Competition
 
@@ -12,21 +12,21 @@ Search for simulation competitions by keyword:
 kaggle competitions list -s simulation
 ```
 
-Once you've identified a competition (e.g., `lux-ai-season-3`), view its pages to read the rules, evaluation criteria, and other details:
+Once you've identified a competition (e.g., `connectx`), view its pages to read the rules, evaluation criteria, and other details:
 
 ```bash
-kaggle competitions pages lux-ai-season-3
+kaggle competitions pages connectx
 ```
 
 This lists the available pages (e.g., `description`, `rules`, `evaluation`, `data-description`). To read the full content of a page:
 
 ```bash
-kaggle competitions pages lux-ai-season-3 --content
+kaggle competitions pages connectx --content
 ```
 
 ## 2. Accept the Competition Rules
 
-Before you can submit or download data, you **must** accept the competition rules on the Kaggle website. Navigate to the competition page (e.g., `https://www.kaggle.com/competitions/lux-ai-season-3`) and click "Join Competition" or "I Understand and Accept".
+Before you can submit or download data, you **must** accept the competition rules on the Kaggle website. Navigate to the competition page (e.g., `https://www.kaggle.com/competitions/connectx`) and click "Join Competition" or "I Understand and Accept".
 
 You can verify you've joined by checking your entered competitions:
 
@@ -39,7 +39,7 @@ kaggle competitions list --group entered
 Download the competition's starter kit and any provided data:
 
 ```bash
-kaggle competitions download lux-ai-season-3 -p lux-ai
+kaggle competitions download connectx -p connectx-data
 ```
 
 ## 4. Submit Your Agent
@@ -49,20 +49,20 @@ Simulation competitions require you to submit agent code. You can upload files d
 **Single file agent** — if your agent is a single `main.py`:
 
 ```bash
-kaggle competitions submit lux-ai-season-3 -f main.py -m "Single file agent v1"
+kaggle competitions submit connectx -f main.py -m "Single file agent v1"
 ```
 
 **Multi-file agent** — if your agent spans multiple files, bundle them into a `submission.tar.gz` with `main.py` at the root:
 
 ```bash
 tar -czf submission.tar.gz main.py helper.py model_weights.pkl
-kaggle competitions submit lux-ai-season-3 -f submission.tar.gz -m "Multi-file agent v1"
+kaggle competitions submit connectx -f submission.tar.gz -m "Multi-file agent v1"
 ```
 
 **Notebook submission** — alternatively, you can submit via an existing Kaggle notebook:
 
 ```bash
-kaggle competitions submit lux-ai-season-3 -k YOUR_USERNAME/lux-ai-agent -f submission.tar.gz -v 1 -m "Notebook agent v1"
+kaggle competitions submit connectx -k YOUR_USERNAME/connectx-agent -f submission.tar.gz -v 1 -m "Notebook agent v1"
 ```
 
 ## 5. Monitor Your Submission
@@ -70,7 +70,7 @@ kaggle competitions submit lux-ai-season-3 -k YOUR_USERNAME/lux-ai-agent -f subm
 Check the status of your submissions:
 
 ```bash
-kaggle competitions submissions lux-ai-season-3
+kaggle competitions submissions connectx
 ```
 
 Note the submission ID from the output — you'll need it to view episodes.
@@ -125,13 +125,13 @@ Here's a typical workflow for iterating on a simulation competition agent:
 
 ```bash
 # Download competition data
-kaggle competitions download lux-ai-season-3 -p lux-ai
+kaggle competitions download connectx -p connectx-data
 
 # Submit your agent (single file)
-kaggle competitions submit lux-ai-season-3 -f main.py -m "v1"
+kaggle competitions submit connectx -f main.py -m "v1"
 
 # Check submission status
-kaggle competitions submissions lux-ai-season-3
+kaggle competitions submissions connectx
 
 # List episodes (replace with your submission ID)
 kaggle competitions episodes 12345678
@@ -141,5 +141,5 @@ kaggle competitions replay 98765432
 kaggle competitions logs 98765432 0
 
 # Check the leaderboard
-kaggle competitions leaderboard lux-ai-season-3 -s
+kaggle competitions leaderboard connectx -s
 ```
