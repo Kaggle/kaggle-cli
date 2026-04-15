@@ -296,7 +296,7 @@ def parse_competitions(subparsers) -> None:
 
     # Competitions episode replay
     parser_competitions_episode_replay = subparsers_competitions.add_parser(
-        "episode-replay", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_replay
+        "replay", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_replay
     )
     parser_competitions_episode_replay_optional = parser_competitions_episode_replay._action_groups.pop()
     parser_competitions_episode_replay_optional.add_argument(
@@ -314,7 +314,7 @@ def parse_competitions(subparsers) -> None:
 
     # Competitions episode agent logs
     parser_competitions_episode_logs = subparsers_competitions.add_parser(
-        "episode-logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_logs
+        "logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_logs
     )
     parser_competitions_episode_logs_optional = parser_competitions_episode_logs._action_groups.pop()
     parser_competitions_episode_logs_optional.add_argument(
@@ -1201,7 +1201,7 @@ class Help(object):
     ]
     competitions_choices = [
         "list", "files", "download", "submit", "submissions", "leaderboard",
-        "episodes", "episode-replay", "episode-logs", "pages",
+        "episodes", "replay", "logs", "pages",
     ]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
     kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]

@@ -1782,8 +1782,8 @@ class KaggleApi:
                 self.print_table(episodes, self.episode_fields)
             if not quiet:
                 print(
-                    '\nUse "kaggle competitions episode-replay <episode_id>" to download a replay, '
-                    'or "kaggle competitions episode-logs <episode_id> <agent_index>" for agent logs.'
+                    '\nUse "kaggle competitions replay <episode_id>" to download a replay, '
+                    'or "kaggle competitions logs <episode_id> <agent_index>" for agent logs.'
                 )
         else:
             print("No episodes found")

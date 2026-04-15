@@ -2,14 +2,14 @@
 
 This tutorial walks you through interacting with a Kaggle simulation competition using the CLI — from finding the competition to downloading episode replays and agent logs.
 
-Simulation competitions (e.g., [Lux AI](https://www.kaggle.com/competitions/lux-ai-season-3), [Santa](https://www.kaggle.com/competitions/santa-2024)) differ from standard competitions. Instead of submitting a CSV of predictions, you submit an agent (code) that plays against other agents in episodes. Each episode contains multiple agents competing against each other.
+Simulation competitions (e.g., [Lux AI](https://www.kaggle.com/competitions/lux-ai-season-3), [Santa](https://www.kaggle.com/competitions/santa-2024)) differ from standard competitions. Instead of submitting a CSV of predictions, you submit an agent (code) that plays against other agents in episodes. Each episode contains multiple agents competing against each other. You can identify simulation competitions on the [competitions page](https://www.kaggle.com/competitions) by their "Simulation" tag, or by looking for competitions that mention agents, bots, or game environments in their description.
 
 ## 1. Find and Inspect the Competition
 
-List available competitions and look for simulation competitions:
+Search for simulation competitions by keyword:
 
 ```bash
-kaggle competitions list --sort-by latestDeadline
+kaggle competitions list -s simulation
 ```
 
 Once you've identified a competition (e.g., `lux-ai-season-3`), view its pages to read the rules, evaluation criteria, and other details:
@@ -39,9 +39,7 @@ kaggle competitions list --group entered
 Download the competition's starter kit and any provided data:
 
 ```bash
-mkdir lux-ai
-cd lux-ai
-kaggle competitions download lux-ai-season-3
+kaggle competitions download lux-ai-season-3 -p lux-ai
 ```
 
 ## 4. Submit Your Agent
@@ -98,13 +96,13 @@ kaggle competitions episodes 12345678 -v
 To download the replay data for a specific episode (useful for visualizing what happened):
 
 ```bash
-kaggle competitions episode-replay 98765432
+kaggle competitions replay 98765432
 ```
 
 This downloads the replay JSON to your current directory as `episode-98765432-replay.json`. To specify a download location:
 
 ```bash
-kaggle competitions episode-replay 98765432 -p ./replays
+kaggle competitions replay 98765432 -p ./replays
 ```
 
 ## 8. Download Agent Logs
@@ -113,10 +111,10 @@ To debug your agent's behavior, download the logs for a specific agent in an epi
 
 ```bash
 # Download logs for the first agent (index 0)
-kaggle competitions episode-logs 98765432 0
+kaggle competitions logs 98765432 0
 
 # Download logs for the second agent (index 1)
-kaggle competitions episode-logs 98765432 1 -p ./logs
+kaggle competitions logs 98765432 1 -p ./logs
 ```
 
 This downloads the log file as `episode-98765432-agent-0-logs.json`.
@@ -126,9 +124,8 @@ This downloads the log file as `episode-98765432-agent-0-logs.json`.
 Here's a typical workflow for iterating on a simulation competition agent:
 
 ```bash
-# Set up
-mkdir my-sim-comp && cd my-sim-comp
-kaggle competitions download lux-ai-season-3
+# Download competition data
+kaggle competitions download lux-ai-season-3 -p lux-ai
 
 # Submit your agent (single file)
 kaggle competitions submit lux-ai-season-3 -f main.py -m "v1"
@@ -140,8 +137,8 @@ kaggle competitions submissions lux-ai-season-3
 kaggle competitions episodes 12345678
 
 # Download replay and logs for an episode
-kaggle competitions episode-replay 98765432
-kaggle competitions episode-logs 98765432 0
+kaggle competitions replay 98765432
+kaggle competitions logs 98765432 0
 
 # Check the leaderboard
 kaggle competitions leaderboard lux-ai-season-3 -s
