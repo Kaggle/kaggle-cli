@@ -698,6 +698,24 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_status._action_groups.append(parser_kernels_status_optional)
     parser_kernels_status.set_defaults(func=api.kernels_status_cli)
 
+    # Kernels logs
+    parser_kernels_logs = subparsers_kernels.add_parser(
+        "logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_logs
+    )
+    parser_kernels_logs_optional = parser_kernels_logs._action_groups.pop()
+    parser_kernels_logs_optional.add_argument("kernel", nargs="?", default=None, help=Help.param_kernel)
+    parser_kernels_logs_optional.add_argument(
+        "-k", "--kernel", dest="kernel_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_kernels_logs_optional.add_argument(
+        "-f", "--follow", dest="follow", action="store_true", required=False, help=Help.param_kernel_logs_follow
+    )
+    parser_kernels_logs_optional.add_argument(
+        "--interval", dest="interval", default=5, type=int, required=False, help=Help.param_kernel_logs_interval
+    )
+    parser_kernels_logs._action_groups.append(parser_kernels_logs_optional)
+    parser_kernels_logs.set_defaults(func=api.kernels_logs_cli)
+
     # Kernels delete
     parser_kernels_delete = subparsers_kernels.add_parser(
         "delete", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_delete
@@ -1222,7 +1240,7 @@ class Help(object):
         "episodes", "replay", "logs", "pages",
     ]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
-    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]
+    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "logs", "update", "delete"]
     models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
@@ -1297,6 +1315,7 @@ class Help(object):
     command_kernels_pull = "Pull down code from a kernel"
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
+    command_kernels_logs = "Print the execution logs from the latest kernel run"
     command_kernels_delete = "Delete a kernel"
 
     # Models commands
@@ -1468,6 +1487,8 @@ class Help(object):
         "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
     )
     param_kernel_acc = "Specify the type of accelerator to use for the kernel run"
+    param_kernel_logs_follow = "Continuously poll and print new log lines (like tail -f)"
+    param_kernel_logs_interval = "Polling interval in seconds for follow mode (default 5)"
 
     # Models params
     param_model = "Model URL suffix in format <owner>/<model-name>"

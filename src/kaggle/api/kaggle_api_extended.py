@@ -138,7 +138,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
 )
-from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType
+from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus, KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
     ApiListModelsRequest,
     ApiCreateModelRequest,
@@ -3781,6 +3781,89 @@ class KaggleApi:
             print('Failure message: "%s"' % message)
         else:
             print('%s has status "%s"' % (kernel, status))
+
+    def kernels_logs(self, kernel: str) -> str:
+        """Retrieves the execution log for a specified kernel.
+
+        Args:
+            kernel (str): The kernel identifier in the format owner/kernel-slug.
+
+        Returns:
+            str: The log content from the kernel's latest session.
+        """
+        if kernel is None:
+            raise ValueError("A kernel must be specified")
+        if "/" in kernel:
+            self.validate_kernel_string(kernel)
+            kernel_url_list = kernel.split("/")
+            owner_slug = kernel_url_list[0]
+            kernel_slug = kernel_url_list[1]
+        else:
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            kernel_slug = kernel
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListKernelSessionOutputRequest()
+            request.user_name = owner_slug
+            request.kernel_slug = kernel_slug
+            try:
+                response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
+            except HTTPError as e:
+                if e.response.status_code in (401, 403):
+                    raise ValueError(
+                        f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "The most likely cause is a wrong kernel slug. "
+                        "Use the slug from the notebook URL (kaggle.com/code/owner/KERNEL-SLUG)."
+                    )
+                raise
+        return response.log or ""
+
+    def kernels_logs_cli(self, kernel, kernel_opt=None, follow=False, interval=5):
+        """Print kernel execution logs to stdout.
+
+        Args:
+            kernel: The kernel for which to retrieve the logs.
+            kernel_opt: An alternative option to providing a kernel.
+            follow: If True, continuously poll and print new log lines.
+            interval: Polling interval in seconds for follow mode (default 5).
+        """
+        kernel = kernel or kernel_opt
+        terminal_statuses = {
+            KernelWorkerStatus.COMPLETE,
+            KernelWorkerStatus.ERROR,
+            KernelWorkerStatus.CANCEL_ACKNOWLEDGED,
+        }
+        printed_lines = 0
+
+        while True:
+            log = self.kernels_logs(kernel)
+            lines = log.split("\n") if log else []
+
+            if follow:
+                new_lines = lines[printed_lines:]
+                if new_lines:
+                    print("\n".join(new_lines), flush=True)
+                    printed_lines = len(lines)
+
+                # Check if the kernel has reached a terminal status
+                try:
+                    status_response = self.kernels_status(kernel)
+                    status = status_response.status
+                except Exception:
+                    break
+                if status in terminal_statuses:
+                    # Fetch final logs one more time
+                    log = self.kernels_logs(kernel)
+                    lines = log.split("\n") if log else []
+                    final_new_lines = lines[printed_lines:]
+                    if final_new_lines:
+                        print("\n".join(final_new_lines), flush=True)
+                    break
+
+                time.sleep(interval)
+            else:
+                print(log)
+                break
 
     def model_get(self, model: str) -> ApiModel:
         """Gets a model.
