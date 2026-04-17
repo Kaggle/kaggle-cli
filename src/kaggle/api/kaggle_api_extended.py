@@ -104,6 +104,7 @@ from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, Crop
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
     ApiListDatasetFilesRequest,
+    ApiGetDatasetRequest,
     ApiGetDatasetStatusRequest,
     ApiDownloadDatasetRequest,
     ApiCreateDatasetRequest,
@@ -2312,7 +2313,15 @@ class KaggleApi:
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
             response = kaggle.datasets.dataset_api_client.get_dataset_status(request)
-            return response.status.name.lower()
+            status = response.status.name.lower()
+
+            dataset_request = ApiGetDatasetRequest()
+            dataset_request.owner_slug = owner_slug
+            dataset_request.dataset_slug = dataset_slug
+            dataset_response = kaggle.datasets.dataset_api_client.get_dataset(dataset_request)
+            current_version_number = dataset_response.current_version_number
+
+            return status, current_version_number
 
     def dataset_status_cli(self, dataset, dataset_opt=None):
         """A wrapper for client for dataset_status, with additional dataset_opt to
@@ -2322,7 +2331,10 @@ class KaggleApi:
             dataset_opt: an alternative to dataset
         """
         dataset = dataset or dataset_opt
-        return self.dataset_status(dataset)
+        status, current_version_number = self.dataset_status(dataset)
+        if current_version_number is not None:
+            return f"{status} (version {current_version_number})"
+        return status
 
     def dataset_download_file(self, dataset, file_name, path=None, force=False, quiet=True, licenses=[]):
         """Download a single file for a dataset.

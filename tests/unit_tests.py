@@ -466,8 +466,10 @@ class TestKaggleApi(unittest.TestCase):
         if self.dataset == "":
             self.test_dataset_a_list()
         try:
-            status = api.dataset_status(self.dataset)
+            status, current_version_number = api.dataset_status(self.dataset)
             self.assertIn(status, ["ready", "pending", "error"])
+            self.assertIsInstance(current_version_number, int)
+            self.assertGreaterEqual(current_version_number, 1)
         except ApiException as e:
             self.fail(f"dataset_status failed: {e}")
 
