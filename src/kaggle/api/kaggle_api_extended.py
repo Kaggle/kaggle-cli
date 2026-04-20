@@ -5785,7 +5785,7 @@ class KaggleApi:
         if task not in task_names:
             raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
 
-    def benchmarks_tasks_push_cli(self, task, file):
+    def benchmarks_tasks_push_cli(self, task, file, yes=False):
         if not os.path.isfile(file):
             raise ValueError(f"File {file} does not exist")
         if not file.endswith(".py"):
@@ -5809,13 +5809,20 @@ class KaggleApi:
         notebook_content = jupytext.writes(notebook, fmt="ipynb")
 
         with self.build_kaggle_client() as kaggle:
+            is_new_task = False
             try:
                 task_info = self._get_benchmark_task(task, kaggle)
                 if task_info.creation_state in self._PENDING_CREATION_STATES:
                     raise ValueError(f"Task '{task}' is currently being created (pending). Cannot push now.")
             except HTTPError as e:
-                if e.response.status_code != 404:
+                if e.response.status_code not in (403, 404):
                     raise
+                is_new_task = True
+
+            if is_new_task and not yes:
+                if not self.confirmation(f"create new task '{task}'"):
+                    print("Push cancelled.")
+                    return
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task
