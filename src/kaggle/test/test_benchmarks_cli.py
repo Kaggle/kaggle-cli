@@ -192,37 +192,13 @@ class TestPush:
         assert f"Task '{task_name}' pushed." in capsys.readouterr().out
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
-    def test_push_creates_new_task_with_yes_flag(self, api, tmp_path, capsys, status_code):
-        """With -y flag, a 403/404 creates the task without prompting."""
+    def test_push_creates_new_task_without_prompting(self, api, tmp_path, capsys, status_code):
+        """A 403/404 means a new task — push proceeds without confirmation."""
         filepath = _write_task_file(tmp_path)
         api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
         _setup_create_response(api)
-        jt, ctx = _mock_jupytext()
-        with ctx:
-            api.benchmarks_tasks_push_cli("my-task", filepath, yes=True)
+        _push(api, "my-task", filepath)
         assert "Task 'my-task' pushed." in capsys.readouterr().out
-
-    @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
-    def test_push_prompts_on_new_task_and_user_confirms(self, api, tmp_path, capsys, status_code):
-        """Without -y, user is prompted and confirms — task is created."""
-        filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
-        _setup_create_response(api)
-        jt, ctx = _mock_jupytext()
-        with ctx, patch("builtins.input", return_value="yes"):
-            api.benchmarks_tasks_push_cli("my-task", filepath)
-        assert "Task 'my-task' pushed." in capsys.readouterr().out
-
-    def test_push_prompts_on_new_task_and_user_declines(self, api, tmp_path, capsys):
-        """Without -y, user declines — push is cancelled."""
-        filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=404))
-        jt, ctx = _mock_jupytext()
-        with ctx, patch("builtins.input", return_value="no"):
-            api.benchmarks_tasks_push_cli("my-task", filepath)
-        output = capsys.readouterr().out
-        assert "Push cancelled." in output
-        api._mock_benchmarks.create_benchmark_task.assert_not_called()
 
     # -- Server edge cases --
 
@@ -398,10 +374,8 @@ class TestCliArgParsing:
     @pytest.mark.parametrize(
         "cmd, expected",
         [
-            ("benchmarks tasks push my-task -f ./task.py", {"task": "my-task", "file": "./task.py", "yes": False}),
-            ("benchmarks tasks push my-task -f ./task.py -y", {"task": "my-task", "file": "./task.py", "yes": True}),
-            ("b t push my-task -f ./task.py --yes", {"task": "my-task", "file": "./task.py", "yes": True}),
-            ("b t push my-task -f ./task.py", {"task": "my-task", "file": "./task.py", "yes": False}),
+            ("benchmarks tasks push my-task -f ./task.py", {"task": "my-task", "file": "./task.py"}),
+            ("b t push my-task -f ./task.py", {"task": "my-task", "file": "./task.py"}),
             ("benchmarks tasks run my-task", {"task": "my-task", "model": None, "wait": None}),
             ("benchmarks tasks run my-task -m gemini-3 --wait", {"model": ["gemini-3"], "wait": 0}),
             (

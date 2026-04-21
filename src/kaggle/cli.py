@@ -1089,7 +1089,6 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_push_optional = parser_push._action_groups.pop()
     parser_push_optional.add_argument("task", help=Help.param_benchmarks_task)
     parser_push_optional.add_argument("-f", "--file", dest="file", required=True, help=Help.param_benchmarks_file)
-    parser_push_optional.add_argument("-y", "--yes", dest="yes", action="store_true", help=Help.param_yes)
     parser_push._action_groups.append(parser_push_optional)
     parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
 
