@@ -1,17 +1,18 @@
 """Tests for ``kaggle benchmarks tasks`` CLI commands.
 
-Organized by user journey:
-  TestPush          – ``kaggle benchmarks tasks push <task> -f <file>``
-  TestRun           – ``kaggle benchmarks tasks run <task> [-m ...] [--wait]``
-  TestCliArgParsing – argparse wiring verification
-
-Uses pure pytest (capsys, tmp_path) instead of unittest.TestCase so that
-stdout capture and temp-file creation are handled by built-in fixtures
-rather than manual patching.
+Organized by command (matching the spec):
+  TestPush      – ``kaggle benchmarks tasks push <task> -f <file>``
+  TestRun       – ``kaggle benchmarks tasks run <task> [-m ...] [--wait]``
+  TestList      – ``kaggle benchmarks tasks list [--regex] [--status]``
+  TestStatus    – ``kaggle benchmarks tasks status <task> [-m ...]``
+  TestDownload  – ``kaggle benchmarks tasks download <task> [-m ...] [-o ...]``
+  TestDelete    – ``kaggle benchmarks tasks delete <task> [-y]``
+  TestCliArgParsing – argparse wiring for all subcommands
 """
 
 import argparse
-from unittest.mock import patch, MagicMock
+import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 from requests.exceptions import HTTPError
@@ -19,15 +20,23 @@ from requests.exceptions import HTTPError
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kagglesdk.models.types.model_proxy_api_service import ApiCreateDefaultModelProxyTokenResponse
 from kagglesdk.benchmarks.types.benchmark_enums import (
-    BenchmarkTaskVersionCreationState,
     BenchmarkTaskRunState,
+    BenchmarkTaskVersionCreationState,
 )
 
-# Short aliases for the verbose enum members used throughout the tests.
+# Short aliases for verbose enum members used throughout the tests.
 QUEUED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED
-RUNNING = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING
-COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+RUNNING = (
+    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING
+)
+COMPLETED = (
+    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+)
+ERRORED = (
+    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
+)
 
+RUN_QUEUED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_QUEUED
 RUN_RUNNING = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_RUNNING
 RUN_COMPLETED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
 RUN_ERRORED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED
@@ -80,11 +89,11 @@ def _push(api, task, filepath):
     return jt
 
 
-def _make_task(slug="my-task", state=COMPLETED):
+def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00"):
     t = MagicMock()
     t.slug.task_slug = slug
     t.creation_state = state
-    t.create_time = "2026-04-06"
+    t.create_time = create_time
     return t
 
 
@@ -97,10 +106,21 @@ def _make_run_result(scheduled=True, skipped_reason=None):
     return r
 
 
-def _make_run(model="gemini-pro", state=RUN_COMPLETED):
+def _make_run(
+    model="gemini-pro",
+    state=RUN_COMPLETED,
+    run_id=1,
+    start_time=None,
+    end_time=None,
+    error_message=None,
+):
     r = MagicMock()
     r.model_version_slug = model
     r.state = state
+    r.id = run_id
+    r.start_time = start_time
+    r.end_time = end_time
+    r.error_message = error_message
     return r
 
 
@@ -137,8 +157,36 @@ def _setup_available_models(api, slugs):
     api._mock_client.benchmarks.benchmarks_api_client.list_benchmark_models.return_value = resp
 
 
+def _setup_list_response(api, tasks):
+    resp = MagicMock()
+    resp.tasks = tasks
+    api._mock_benchmarks.list_benchmark_tasks.return_value = resp
+
+
+def _setup_runs_response(api, runs, paginated_responses=None):
+    """Set up runs response.
+
+    If *paginated_responses* is provided, it should be a list of
+    (runs_list, next_page_token) tuples for multi-page scenarios.
+    Otherwise a single-page response is created from *runs*.
+    """
+    if paginated_responses:
+        side_effects = []
+        for page_runs, token in paginated_responses:
+            resp = MagicMock()
+            resp.runs = page_runs
+            resp.next_page_token = token
+            side_effects.append(resp)
+        api._mock_benchmarks.list_benchmark_task_runs.side_effect = side_effects
+    else:
+        resp = MagicMock()
+        resp.runs = runs
+        resp.next_page_token = ""
+        api._mock_benchmarks.list_benchmark_task_runs.return_value = resp
+
+
 # ============================================================
-# Push Journey
+# Push
 # ============================================================
 
 
@@ -156,9 +204,17 @@ class TestPush:
             ("wrong", "task.py", '@task(name="real")\ndef f(llm): pass\n', "not found"),
             ("any-task", "task.py", "def broken(\n", "No @task decorators"),
         ],
-        ids=["missing_file", "wrong_extension", "no_decorators", "wrong_name", "syntax_error"],
+        ids=[
+            "missing_file",
+            "wrong_extension",
+            "no_decorators",
+            "wrong_name",
+            "syntax_error",
+        ],
     )
-    def test_push_rejects_invalid_input(self, api, tmp_path, task, filename, content, expected_error):
+    def test_push_rejects_invalid_input(
+        self, api, tmp_path, task, filename, content, expected_error
+    ):
         if filename is None:
             filepath = "/nonexistent/task.py"
         else:
@@ -178,7 +234,7 @@ class TestPush:
         ids=["explicit_name", "title_cased", "async_function"],
     )
     def test_push_creates_task(self, api, tmp_path, capsys, content, task_name):
-        """Push converts .py → ipynb via jupytext and creates the task."""
+        """Push converts .py -> ipynb via jupytext and creates the task."""
         filepath = _write_task_file(tmp_path, content)
         _setup_create_response(api, task_name)
 
@@ -190,16 +246,35 @@ class TestPush:
         request = api._mock_benchmarks.create_benchmark_task.call_args[0][0]
         assert request.text == '{"cells": []}'
 
-        assert f"Task '{task_name}' pushed." in capsys.readouterr().out
+        output = capsys.readouterr().out
+        assert f"Task '{task_name}' pushed." in output
+        assert "Task URL:" in output
+        assert "To run this task against models, use: kaggle b t run" in output
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
-    def test_push_creates_new_task_without_prompting(self, api, tmp_path, capsys, status_code):
-        """A 403/404 means a new task — push proceeds without confirmation."""
+    def test_push_creates_new_task_without_prompting(
+        self, api, tmp_path, capsys, status_code
+    ):
+        """A 403/404 means a new task -- push proceeds without confirmation."""
         filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
         _setup_create_response(api)
         _push(api, "my-task", filepath)
         assert "Task 'my-task' pushed." in capsys.readouterr().out
+
+    def test_push_prefixes_relative_url(self, api, tmp_path, capsys):
+        """If url starts with '/', prefix https://www.kaggle.com."""
+        filepath = _write_task_file(tmp_path)
+        resp = MagicMock()
+        resp.url = "/benchmarks/my-task"
+        resp.error_message = None
+        resp.errorMessage = None
+        api._mock_benchmarks.create_benchmark_task.return_value = resp
+        _setup_completed_task(api)
+        _push(api, "my-task", filepath)
+        assert "https://www.kaggle.com/benchmarks/my-task" in capsys.readouterr().out
 
     # -- Server edge cases --
 
@@ -214,7 +289,9 @@ class TestPush:
     def test_push_propagates_server_error(self, api, tmp_path):
         """Non-403/404 HTTP errors (e.g. 500) are re-raised, not swallowed."""
         filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=500))
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
+            response=MagicMock(status_code=500)
+        )
         with pytest.raises(HTTPError):
             _push(api, "my-task", filepath)
 
@@ -232,7 +309,7 @@ class TestPush:
 
 
 # ============================================================
-# Run Journey
+# Run
 # ============================================================
 
 
@@ -248,6 +325,12 @@ class TestRun:
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         api._mock_benchmarks.batch_schedule_benchmark_task_runs.assert_not_called()
 
+    def test_run_errored_task_includes_task_info(self, api):
+        """ERRORED task error message includes task info."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=ERRORED)
+        with pytest.raises(ValueError, match="Task Info:"):
+            api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
+
     # -- Model scheduling --
 
     @pytest.mark.parametrize(
@@ -261,27 +344,44 @@ class TestRun:
         api.benchmarks_tasks_run_cli("my-task", models)
         output = capsys.readouterr().out
         assert "Submitted run(s) for task 'my-task'" in output
+        assert "To check status later, use: kaggle b t status" in output
         for m in models:
             assert f"{m}: Scheduled" in output
 
     def test_run_reports_skipped_with_reason(self, api, capsys):
         _setup_completed_task(api)
-        _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason="Already running")])
+        _setup_batch_schedule(
+            api, [_make_run_result(scheduled=False, skipped_reason="Already running")]
+        )
         api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         output = capsys.readouterr().out
         assert "gemini-pro: Skipped" in output
         assert "Already running" in output
 
+    def test_run_no_status_hint_when_waiting(self, api, capsys):
+        """When --wait is used, the status hint should not appear."""
+        _setup_completed_task(api)
+        _setup_batch_schedule(api, [_make_run_result()])
+        api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(
+            runs=[_make_run(state=RUN_COMPLETED)], next_page_token=""
+        )
+        with patch("time.sleep"):
+            api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)
+        output = capsys.readouterr().out
+        assert "To check status later" not in output
+
     # -- Interactive model selection --
 
     def test_run_prompts_model_selection(self, api):
-        """No model specified → user picks from a numbered list."""
+        """No model specified -> user picks from a numbered list."""
         _setup_completed_task(api)
         _setup_available_models(api, ["gemini-pro", "gemma-2b"])
         _setup_batch_schedule(api, [_make_run_result()])
         with patch("builtins.input", return_value="1"):
             api.benchmarks_tasks_run_cli("my-task")
-        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][
+            0
+        ]
         assert request.model_version_slugs == ["gemini-pro"]
 
     def test_run_selects_all_models(self, api):
@@ -290,18 +390,20 @@ class TestRun:
         _setup_batch_schedule(api, [])
         with patch("builtins.input", return_value="all"):
             api.benchmarks_tasks_run_cli("my-task")
-        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][
+            0
+        ]
         assert request.model_version_slugs == ["gemini-pro", "gemma-2b"]
 
     def test_run_rejects_empty_model_list(self, api):
-        """No models available on server → ValueError."""
+        """No models available on server -> ValueError."""
         _setup_completed_task(api)
         _setup_available_models(api, [])
         with pytest.raises(ValueError, match="No benchmark models available"):
             api.benchmarks_tasks_run_cli("my-task")
 
     def test_run_rejects_invalid_model_selection(self, api):
-        """Bad input during interactive model selection → ValueError."""
+        """Bad input during interactive model selection -> ValueError."""
         _setup_completed_task(api)
         _setup_available_models(api, ["gemini-pro"])
         with patch("builtins.input", return_value="abc"):
@@ -348,20 +450,256 @@ class TestRun:
 
 
 # ============================================================
+# List
+# ============================================================
+
+
+class TestList:
+    """``kaggle benchmarks tasks list [--regex <pattern>] [--status <status>]``"""
+
+    def test_list_all(self, api, capsys):
+        _setup_list_response(api, [_make_task()])
+        api.benchmarks_tasks_list_cli()
+        output = capsys.readouterr().out
+        assert "Task" in output
+        assert "my-task" in output
+
+    def test_list_with_regex_filter(self, api, capsys):
+        _setup_list_response(api, [_make_task(slug="math-task")])
+        api.benchmarks_tasks_list_cli(regex="math.*")
+        request = api._mock_benchmarks.list_benchmark_tasks.call_args[0][0]
+        assert request.regex_filter == "math.*"
+        assert "math-task" in capsys.readouterr().out
+
+    def test_list_with_status_filter(self, api, capsys):
+        _setup_list_response(api, [_make_task()])
+        api.benchmarks_tasks_list_cli(status="completed")
+        request = api._mock_benchmarks.list_benchmark_tasks.call_args[0][0]
+        assert request.status_filter == "completed"
+
+    def test_list_empty(self, api, capsys):
+        """Empty task list still prints the header."""
+        _setup_list_response(api, [])
+        api.benchmarks_tasks_list_cli()
+        output = capsys.readouterr().out
+        assert "Task" in output
+        # No task rows
+        assert "my-task" not in output
+
+    def test_list_table_format(self, api, capsys):
+        """Table uses 40/20/20 column widths and 80-char separator."""
+        _setup_list_response(api, [_make_task()])
+        api.benchmarks_tasks_list_cli()
+        output = capsys.readouterr().out
+        assert "-" * 80 in output
+
+
+# ============================================================
+# Status
+# ============================================================
+
+
+class TestStatus:
+    """``kaggle benchmarks tasks status <task> [-m <model> ...]``"""
+
+    def test_status_header(self, api, capsys):
+        """Status prints Task/Status/Created header."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Task:" in output
+        assert "Status:" in output
+        assert "Created:" in output
+
+    def test_status_no_runs_message(self, api, capsys):
+        """No runs -> helpful message with run command hint."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "No runs yet" in output
+        assert "kaggle b t run my-task" in output
+
+    def test_status_with_model_filter(self, api, capsys):
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task", model="gemini-3")
+        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["gemini-3"]
+
+    def test_status_with_multiple_models_filter(self, api, capsys):
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task", model=["gemini-3", "gpt-5"])
+        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["gemini-3", "gpt-5"]
+
+    def test_status_run_table(self, api, capsys):
+        """Completed run renders with correct columns and URL."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [_make_run(model="gemini-pro", run_id=42)])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "gemini-pro" in output
+        assert "https://www.kaggle.com/benchmarks/runs/42" in output
+        assert "-" * 135 in output
+
+    def test_status_errored_run_shows_error_message(self, api, capsys):
+        """ERRORED runs with error_message append ' | Error: ...'."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(
+            api,
+            [
+                _make_run(
+                    model="gemma-2b", state=RUN_ERRORED, run_id=43, error_message="OOM"
+                )
+            ],
+        )
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "| Error: OOM" in output
+
+    def test_status_pagination(self, api, capsys):
+        """Status fetches all pages of runs."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(
+            api,
+            runs=[],
+            paginated_responses=[
+                ([_make_run(model="gemini-1", run_id=1)], "page2"),
+                ([_make_run(model="gemini-2", run_id=2)], ""),
+            ],
+        )
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "gemini-1" in output
+        assert "gemini-2" in output
+
+
+# ============================================================
+# Download
+# ============================================================
+
+
+class TestDownload:
+    """``kaggle benchmarks tasks download <task> [-m <model> ...] [-o <dir>]``"""
+
+    def test_download_to_specific_output(self, api, capsys):
+        _setup_runs_response(api, [_make_run()])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
+            MagicMock()
+        )
+        api.download_file = MagicMock()
+        api.benchmarks_tasks_download_cli("my-task", output="my_output_dir")
+        output = capsys.readouterr().out
+        assert "Downloading output for run" in output
+        assert "Downloaded output for gemini-pro to" in output
+        assert "my_output_dir" in output
+
+    def test_download_default_output_path(self, api, capsys):
+        """Default output directory is ./<task>/output."""
+        _setup_runs_response(api, [_make_run(run_id=1)])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
+            MagicMock()
+        )
+        api.download_file = MagicMock()
+        api.benchmarks_tasks_download_cli("my-task")
+        # Check the outfile passed to download_file
+        call_args = api.download_file.call_args
+        outfile = call_args[0][1]
+        expected = os.path.join(".", "my-task", "output", "gemini-pro_1")
+        assert outfile == expected
+
+    def test_download_with_model_filter(self, api, capsys):
+        _setup_runs_response(api, [_make_run()])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
+            MagicMock()
+        )
+        api.download_file = MagicMock()
+        api.benchmarks_tasks_download_cli("my-task", model="gemini-pro")
+        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["gemini-pro"]
+
+    def test_download_skips_non_downloadable_runs(self, api, capsys):
+        """QUEUED/RUNNING runs are silently skipped."""
+        _setup_runs_response(
+            api,
+            [
+                _make_run(model="queued-model", state=RUN_QUEUED, run_id=1),
+                _make_run(model="running-model", state=RUN_RUNNING, run_id=2),
+                _make_run(model="done-model", state=RUN_COMPLETED, run_id=3),
+            ],
+        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
+            MagicMock()
+        )
+        api.download_file = MagicMock()
+        api.benchmarks_tasks_download_cli("my-task")
+        # Only the completed run should be downloaded
+        assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
+        output = capsys.readouterr().out
+        assert "done-model" in output
+        assert "queued-model" not in output
+        assert "running-model" not in output
+
+    def test_download_includes_errored_runs(self, api, capsys):
+        """ERRORED runs are also downloadable per spec."""
+        _setup_runs_response(api, [_make_run(state=RUN_ERRORED)])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
+            MagicMock()
+        )
+        api.download_file = MagicMock()
+        api.benchmarks_tasks_download_cli("my-task")
+        assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
+
+    def test_download_pagination(self, api, capsys):
+        """Download fetches all pages of runs."""
+        _setup_runs_response(
+            api,
+            runs=[],
+            paginated_responses=[
+                ([_make_run(model="gemini-1", run_id=1)], "page2"),
+                ([_make_run(model="gemini-2", run_id=2)], ""),
+            ],
+        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
+            MagicMock()
+        )
+        api.download_file = MagicMock()
+        api.benchmarks_tasks_download_cli("my-task")
+        assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 2
+
+
+# ============================================================
+# Delete
+# ============================================================
+
+
+class TestDelete:
+    """``kaggle benchmarks tasks delete <task> [-y]``"""
+
+    def test_delete_prints_stub_message(self, api, capsys):
+        api.benchmarks_tasks_delete_cli("my-task")
+        assert "Delete is not supported by the server yet." in capsys.readouterr().out
+
+    def test_delete_accepts_no_confirm_flag(self, api, capsys):
+        """The -y flag is accepted but has no effect (stub)."""
+        api.benchmarks_tasks_delete_cli("my-task", no_confirm=True)
+        assert "Delete is not supported" in capsys.readouterr().out
+
+
+# ============================================================
 # CLI Arg Parsing
 # ============================================================
 
 
 class TestCliArgParsing:
-    """Tests that argparse wiring for ``kaggle benchmarks tasks`` is correct.
-
-    Verifies argument names, aliases (b/t), required flags, and nargs
-    constraints are properly configured in cli.py.
-    """
+    """Tests that argparse wiring for ``kaggle benchmarks tasks`` is correct."""
 
     def setup_method(self):
         self.parser = argparse.ArgumentParser(
-            formatter_class=argparse.RawTextHelpFormatter,
+            formatter_class=argparse.RawTextHelpFormatter
         )
         subparsers = self.parser.add_subparsers(title="commands", dest="command")
         subparsers.required = True
@@ -375,10 +713,21 @@ class TestCliArgParsing:
     @pytest.mark.parametrize(
         "cmd, expected",
         [
-            ("benchmarks tasks push my-task -f ./task.py", {"task": "my-task", "file": "./task.py"}),
+            # push
+            (
+                "benchmarks tasks push my-task -f ./task.py",
+                {"task": "my-task", "file": "./task.py"},
+            ),
             ("b t push my-task -f ./task.py", {"task": "my-task", "file": "./task.py"}),
-            ("benchmarks tasks run my-task", {"task": "my-task", "model": None, "wait": None}),
-            ("benchmarks tasks run my-task -m gemini-3 --wait", {"model": ["gemini-3"], "wait": 0}),
+            # run
+            (
+                "benchmarks tasks run my-task",
+                {"task": "my-task", "model": None, "wait": None},
+            ),
+            (
+                "benchmarks tasks run my-task -m gemini-3 --wait",
+                {"model": ["gemini-3"], "wait": 0},
+            ),
             (
                 "benchmarks tasks run my-task -m gemini-3 --wait 60",
                 {"model": ["gemini-3"], "wait": 60},
@@ -388,6 +737,37 @@ class TestCliArgParsing:
                 {"model": ["gemini-3", "gpt-5", "claude-4"]},
             ),
             ("b t run my-task -m gemini-3", {"task": "my-task", "model": ["gemini-3"]}),
+            # list
+            ("benchmarks tasks list", {"regex": None, "status": None}),
+            ("benchmarks tasks list --regex ^math", {"regex": "^math"}),
+            ("benchmarks tasks list --status completed", {"status": "completed"}),
+            (
+                "benchmarks tasks list --regex ^math --status errored",
+                {"regex": "^math", "status": "errored"},
+            ),
+            # status
+            ("benchmarks tasks status my-task", {"task": "my-task", "model": None}),
+            (
+                "benchmarks tasks status my-task -m gemini-3 gpt-5",
+                {"task": "my-task", "model": ["gemini-3", "gpt-5"]},
+            ),
+            # download
+            (
+                "benchmarks tasks download my-task",
+                {"task": "my-task", "model": None, "output": None},
+            ),
+            ("benchmarks tasks download my-task -o ./results", {"output": "./results"}),
+            (
+                "benchmarks tasks download my-task -m gemini-3 -o ./results",
+                {"model": ["gemini-3"], "output": "./results"},
+            ),
+            # delete
+            (
+                "benchmarks tasks delete my-task",
+                {"task": "my-task", "no_confirm": False},
+            ),
+            ("benchmarks tasks delete my-task -y", {"no_confirm": True}),
+            ("benchmarks tasks delete my-task --yes", {"no_confirm": True}),
         ],
     )
     def test_parse_success(self, cmd, expected):
@@ -398,8 +778,10 @@ class TestCliArgParsing:
     @pytest.mark.parametrize(
         "cmd",
         [
-            "benchmarks tasks push my-task",
-            "benchmarks tasks run my-task -m",
+            "benchmarks tasks push my-task",  # missing required -f
+            "benchmarks tasks run my-task -m",  # -m requires at least one arg
+            "benchmarks tasks status my-task -m",  # -m requires at least one arg
+            "benchmarks tasks download my-task -m",  # -m requires at least one arg
         ],
     )
     def test_parse_error(self, cmd):

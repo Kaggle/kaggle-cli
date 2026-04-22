@@ -60,10 +60,12 @@ from kagglesdk.blobs.types.blob_api_service import ApiStartBlobUploadRequest, Ap
 from kagglesdk.benchmarks.types.benchmark_enums import BenchmarkTaskRunState, BenchmarkTaskVersionCreationState
 from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiCreateBenchmarkTaskRequest,
+    ApiListBenchmarkTasksRequest,
     ApiGetBenchmarkTaskRequest,
     ApiListBenchmarkTaskRunsRequest,
     ApiBenchmarkTaskSlug,
     ApiBatchScheduleBenchmarkTaskRunsRequest,
+    ApiDownloadBenchmarkTaskRunOutputRequest,
 )
 from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
 from kagglesdk.competitions.types.competition_api_service import (
@@ -5953,9 +5955,11 @@ class KaggleApi:
             if url.startswith("/"):
                 url = "https://www.kaggle.com" + url
             print(f"Task URL: {url}")
+            print(f"To run this task against models, use: kaggle b t run {task}")
 
     def _select_models_interactively(self, kaggle, page_size=20):
         """Prompt the user to pick benchmark models from a paginated list."""
+        # TODO: Check if sys.stdin.isatty() to prevent hanging in non-interactive environments.
 
         def _fetch_models(page_token):
             req = ApiListBenchmarkModelsRequest()
@@ -6075,9 +6079,103 @@ class KaggleApi:
                     print(f"  {model_slug}: Scheduled")
                 else:
                     print(f"  {model_slug}: Skipped ({res.run_skipped_reason})")
+            
+            if wait is None:
+                print(f"To check status later, use: kaggle b t status {task}")
 
             if wait is not None:
                 self._poll_runs(kaggle, task_slug_obj, models, wait, poll_interval)
+
+
+    _DOWNLOADABLE_RUN_STATES = {
+        BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED,
+        BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED,
+    }
+
+    def benchmarks_tasks_list_cli(self, regex=None, status=None):
+        request = ApiListBenchmarkTasksRequest()
+        if regex:
+            request.regex_filter = regex
+        if status:
+            request.status_filter = status
+        
+        with self.build_kaggle_client() as kaggle:
+            # TODO: Add pagination support if ApiListBenchmarkTasksResponse starts supporting it in the SDK.
+            response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+            
+            tasks = response.tasks
+            
+            print(f"{'Task':<40} {'Status':<20} {'Created':<20}")
+            print("-" * 80)
+            for t in tasks:
+                print(f"{t.slug.task_slug:<40} {self.string(t.creation_state):<20} {self.string(t.create_time):<20}")
+
+    def benchmarks_tasks_status_cli(self, task, model=None):
+        with self.build_kaggle_client() as kaggle:
+            task_info = self._get_benchmark_task(task, kaggle)
+            print(f"Task:     {task_info.slug.task_slug}")
+            print(f"Status:   {task_info.creation_state}")
+            print(f"Created:  {task_info.create_time}")
+
+            runs_request = ApiListBenchmarkTaskRunsRequest()
+            runs_request.task_slug = self._make_task_slug(task)
+            models = self._normalize_model_list(model)
+            if models:
+                runs_request.model_version_slugs = models
+
+            def _fetch_runs(page_token):
+                runs_request.page_token = page_token
+                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
+
+            runs = self._paginate(_fetch_runs, lambda r: r.runs)
+
+            if not runs:
+                print(f"No runs yet. Use 'kaggle b t run {task}' to start one.")
+                return
+
+            print(f"{'Model':<20} {'Status':<15} {'Started':<25} {'Ended':<25} {'URL':<50}")
+            print("-" * 135)
+            for r in runs:
+                error_suffix = ""
+                if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
+                    error_suffix = f" | Error: {r.error_message}"
+                print(
+                    f"{r.model_version_slug:<20} {self.string(r.state):<15} "
+                    f"{self.string(r.start_time):<25} {self.string(r.end_time):<25} "
+                    f"https://www.kaggle.com/benchmarks/runs/{r.id}{error_suffix}"
+                )
+
+
+
+    def benchmarks_tasks_download_cli(self, task, model=None, output=None):
+        output = output or os.path.join(".", task, "output")
+
+        with self.build_kaggle_client() as kaggle:
+            runs_request = ApiListBenchmarkTaskRunsRequest()
+            runs_request.task_slug = self._make_task_slug(task)
+            models = self._normalize_model_list(model)
+            if models:
+                runs_request.model_version_slugs = models
+
+            def _fetch_runs(page_token):
+                runs_request.page_token = page_token
+                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
+
+            runs = self._paginate(_fetch_runs, lambda r: r.runs)
+
+            for r in runs:
+                if r.state not in self._DOWNLOADABLE_RUN_STATES:
+                    continue
+                dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
+                dl_request.run_id = r.id
+                print(f"Downloading output for run {r.id} ({r.model_version_slug})...")
+                response = kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output(dl_request)
+                outfile = os.path.join(output, f"{r.model_version_slug}_{r.id}")
+                self.download_file(response, outfile, kaggle.http_client(), quiet=False)
+                print(f"Downloaded output for {r.model_version_slug} to {outfile}")
+
+    def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
+        print("Delete is not supported by the server yet.")
 
 
 class TqdmBufferedReader(io.BufferedReader):
