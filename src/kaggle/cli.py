@@ -1177,7 +1177,9 @@ def parse_benchmark_tasks(subparsers) -> None:
         "list", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_list
     )
     parser_list_optional = parser_list._action_groups.pop()
-    parser_list_optional.add_argument("--name-regex", dest="name_regex", required=False, help=Help.param_benchmarks_name_regex)
+    parser_list_optional.add_argument(
+        "--name-regex", dest="name_regex", required=False, help=Help.param_benchmarks_name_regex
+    )
     parser_list_optional.add_argument("--status", dest="status", required=False, help=Help.param_benchmarks_status)
     parser_list._action_groups.append(parser_list_optional)
     parser_list.set_defaults(func=api.benchmarks_tasks_list_cli)
@@ -1188,7 +1190,9 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_status_optional = parser_status._action_groups.pop()
     parser_status_optional.add_argument("task", help=Help.param_benchmarks_task)
-    parser_status_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
+    parser_status_optional.add_argument(
+        "-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model
+    )
     parser_status._action_groups.append(parser_status_optional)
     parser_status.set_defaults(func=api.benchmarks_tasks_status_cli)
 
@@ -1198,8 +1202,12 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_download_optional = parser_download._action_groups.pop()
     parser_download_optional.add_argument("task", help=Help.param_benchmarks_task)
-    parser_download_optional.add_argument("-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model)
-    parser_download_optional.add_argument("-o", "--output", dest="output", required=False, help=Help.param_benchmarks_output)
+    parser_download_optional.add_argument(
+        "-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model
+    )
+    parser_download_optional.add_argument(
+        "-o", "--output", dest="output", required=False, help=Help.param_benchmarks_output
+    )
     parser_download._action_groups.append(parser_download_optional)
     parser_download.set_defaults(func=api.benchmarks_tasks_download_cli)
 
@@ -1215,7 +1223,9 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_delete_optional = parser_delete._action_groups.pop()
     parser_delete_optional.add_argument("task", help=Help.param_benchmarks_task)
-    parser_delete_optional.add_argument("-y", "--yes", dest="no_confirm", action="store_true", required=False, help=Help.param_yes)
+    parser_delete_optional.add_argument(
+        "-y", "--yes", dest="no_confirm", action="store_true", required=False, help=Help.param_yes
+    )
     parser_delete._action_groups.append(parser_delete_optional)
     parser_delete.set_defaults(func=api.benchmarks_tasks_delete_cli)
 
@@ -1642,13 +1652,12 @@ class Help(object):
     param_benchmarks_file = "Path to the source Python file defining the task"
     param_benchmarks_name_regex = "Filter task names by regular expression"
     param_benchmarks_model = "Model slug(s) to filter by or run against"
-    param_benchmarks_wait = "Wait for runs to complete. Optionally specify a timeout in seconds (0 or omit value = wait indefinitely)"
+    param_benchmarks_wait = (
+        "Wait for runs to complete. Optionally specify a timeout in seconds (0 or omit value = wait indefinitely)"
+    )
     param_benchmarks_output = "Directory to download output files into"
     param_benchmarks_poll_interval = "Seconds between status polls when using --wait (default: 10)"
-    param_benchmarks_status = (
-        "Filter tasks by creation status. "
-        "Valid values: queued, running, completed, errored"
-    )
+    param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"
@@ -1659,8 +1668,6 @@ class Help(object):
     )
     param_files_upload_no_compress = "Whether to compress directories (zip) or not (tar)"
     param_files_upload_no_resume = "Whether to skip resumable uploads."
-
-
 
     # Config params
     param_config_name = "Name of the configuration parameter\n(one of " "competition, path, proxy)"

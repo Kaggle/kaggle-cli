@@ -26,15 +26,9 @@ from kagglesdk.benchmarks.types.benchmark_enums import (
 
 # Short aliases for verbose enum members used throughout the tests.
 QUEUED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED
-RUNNING = (
-    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING
-)
-COMPLETED = (
-    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
-)
-ERRORED = (
-    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
-)
+RUNNING = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING
+COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+ERRORED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
 
 RUN_QUEUED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_QUEUED
 RUN_RUNNING = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_RUNNING
@@ -229,9 +223,7 @@ class TestPush:
             "syntax_error",
         ],
     )
-    def test_push_rejects_invalid_input(
-        self, api, tmp_path, task, filename, content, expected_error
-    ):
+    def test_push_rejects_invalid_input(self, api, tmp_path, task, filename, content, expected_error):
         if filename is None:
             filepath = "/nonexistent/task.py"
         else:
@@ -274,14 +266,10 @@ class TestPush:
             assert f"normalized to slug '{expected_slug}'" in captured.err
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
-    def test_push_creates_new_task_without_prompting(
-        self, api, tmp_path, capsys, status_code
-    ):
+    def test_push_creates_new_task_without_prompting(self, api, tmp_path, capsys, status_code):
         """A 403/404 means a new task -- push proceeds without confirmation."""
         filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
-            response=MagicMock(status_code=status_code)
-        )
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
         _setup_create_response(api)
         _push(api, "my-task", filepath)
         assert "Task 'my-task' pushed." in capsys.readouterr().out
@@ -311,9 +299,7 @@ class TestPush:
     def test_push_propagates_server_error(self, api, tmp_path):
         """Non-403/404 HTTP errors (e.g. 500) are re-raised, not swallowed."""
         filepath = _write_task_file(tmp_path)
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
-            response=MagicMock(status_code=500)
-        )
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=500))
         with pytest.raises(HTTPError):
             _push(api, "my-task", filepath)
 
@@ -332,16 +318,16 @@ class TestPush:
     def test_push_wait_polls_until_completion(self, api, capsys, tmp_path):
         filepath = _write_task_file(tmp_path)
         _setup_create_response(api, "my-task")
-        
+
         api._mock_benchmarks.get_benchmark_task.side_effect = [
             _make_task(state=COMPLETED),
             _make_task(state=QUEUED),
             _make_task(state=COMPLETED),
         ]
-        
+
         with patch("time.sleep"):
             api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
-            
+
         output = capsys.readouterr().out
         assert "Waiting for task to be processed" in output
         assert "Task 'my-task' creation completed." in output
@@ -349,16 +335,16 @@ class TestPush:
     def test_push_wait_times_out(self, api, capsys, tmp_path):
         filepath = _write_task_file(tmp_path)
         _setup_create_response(api, "my-task")
-        
+
         api._mock_benchmarks.get_benchmark_task.side_effect = [
             _make_task(state=COMPLETED),
             _make_task(state=QUEUED),
             _make_task(state=QUEUED),
         ]
-        
+
         with patch("time.sleep"), patch("time.time", side_effect=[1000, 1060]):
             api.benchmarks_tasks_push_cli("my-task", filepath, wait=30)
-            
+
         output = capsys.readouterr().out
         assert "Timed out waiting for task creation after 30 seconds" in output
 
@@ -389,9 +375,7 @@ class TestRun:
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_run_task_not_found(self, api, status_code):
         """Run gives friendly error when task doesn't exist (403/404)."""
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
-            response=MagicMock(status_code=status_code)
-        )
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
         with pytest.raises(ValueError, match="not found"):
             api.benchmarks_tasks_run_cli("no-such-task", ["gemini-pro"])
 
@@ -414,9 +398,7 @@ class TestRun:
 
     def test_run_reports_skipped_with_reason(self, api, capsys):
         _setup_completed_task(api)
-        _setup_batch_schedule(
-            api, [_make_run_result(scheduled=False, skipped_reason="Already running")]
-        )
+        _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason="Already running")])
         api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         output = capsys.readouterr().out
         assert "gemini-pro: Skipped" in output
@@ -443,9 +425,7 @@ class TestRun:
         _setup_batch_schedule(api, [_make_run_result()])
         with patch("builtins.input", return_value="1"):
             api.benchmarks_tasks_run_cli("my-task")
-        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][
-            0
-        ]
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro"]
 
     def test_run_selects_all_models(self, api):
@@ -454,9 +434,7 @@ class TestRun:
         _setup_batch_schedule(api, [])
         with patch("builtins.input", return_value="all"):
             api.benchmarks_tasks_run_cli("my-task")
-        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][
-            0
-        ]
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro", "gemma-2b"]
 
     def test_run_rejects_empty_model_list(self, api):
@@ -604,9 +582,7 @@ class TestStatus:
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_status_task_not_found(self, api, status_code):
         """Status gives friendly error when task doesn't exist (403/404)."""
-        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
-            response=MagicMock(status_code=status_code)
-        )
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
         with pytest.raises(ValueError, match="not found"):
             api.benchmarks_tasks_status_cli("no-such-task")
 
@@ -647,11 +623,7 @@ class TestStatus:
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
         _setup_runs_response(
             api,
-            [
-                _make_run(
-                    model="gemma-2b", state=RUN_ERRORED, run_id=43, error_message="OOM"
-                )
-            ],
+            [_make_run(model="gemma-2b", state=RUN_ERRORED, run_id=43, error_message="OOM")],
         )
         api.benchmarks_tasks_status_cli("my-task")
         output = capsys.readouterr().out
@@ -684,9 +656,7 @@ class TestDownload:
 
     def test_download_to_specific_output(self, api, capsys):
         _setup_runs_response(api, [_make_run()])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
-            MagicMock()
-        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
         api.benchmarks_tasks_download_cli("my-task", output="my_output_dir")
         output = capsys.readouterr().out
@@ -697,9 +667,7 @@ class TestDownload:
     def test_download_default_output_path(self, api, capsys):
         """Default output directory is ./<task>/output."""
         _setup_runs_response(api, [_make_run(run_id=1)])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
-            MagicMock()
-        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
         api.benchmarks_tasks_download_cli("my-task")
         # Check the outfile passed to download_file
@@ -710,9 +678,7 @@ class TestDownload:
 
     def test_download_with_model_filter(self, api, capsys):
         _setup_runs_response(api, [_make_run()])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
-            MagicMock()
-        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
         api.benchmarks_tasks_download_cli("my-task", model="gemini-pro")
         request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
@@ -728,9 +694,7 @@ class TestDownload:
                 _make_run(model="done-model", state=RUN_COMPLETED, run_id=3),
             ],
         )
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
-            MagicMock()
-        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
         api.benchmarks_tasks_download_cli("my-task")
         # Only the completed run should be downloaded
@@ -743,9 +707,7 @@ class TestDownload:
     def test_download_includes_errored_runs(self, api, capsys):
         """ERRORED runs are also downloadable per spec."""
         _setup_runs_response(api, [_make_run(state=RUN_ERRORED)])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
-            MagicMock()
-        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
         api.benchmarks_tasks_download_cli("my-task")
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
@@ -760,9 +722,7 @@ class TestDownload:
                 ([_make_run(model="gemini-2", run_id=2)], ""),
             ],
         )
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = (
-            MagicMock()
-        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
         api.benchmarks_tasks_download_cli("my-task")
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 2
@@ -795,9 +755,7 @@ class TestCliArgParsing:
     """Tests that argparse wiring for ``kaggle benchmarks tasks`` is correct."""
 
     def setup_method(self):
-        self.parser = argparse.ArgumentParser(
-            formatter_class=argparse.RawTextHelpFormatter
-        )
+        self.parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
         subparsers = self.parser.add_subparsers(title="commands", dest="command")
         subparsers.required = True
         from kaggle.cli import parse_benchmarks

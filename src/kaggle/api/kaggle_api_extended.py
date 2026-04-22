@@ -5840,7 +5840,7 @@ class KaggleApi:
             if not page_token:
                 break
         return items
-    
+
     @staticmethod
     def _clean_enum_str(s: str) -> str:
         """Remove long prefixes from enum strings for display."""
@@ -5855,17 +5855,19 @@ class KaggleApi:
         if isinstance(t, datetime):
             return t.strftime("%Y-%m-%d %H:%M:%S")
         return str(t).split(".")[0] if t else ""
-    
+
     @staticmethod
     def _print_task_table(tasks):
         """Print a list of benchmark tasks in a aligned table."""
         max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
         max_task_len = max(max_task_len, 40)
-        
+
         print(f"{'Task':<{max_task_len}} {'Status':<20} {'Created':<20}")
         print("-" * (max_task_len + 40))
         for t in tasks:
-            print(f"{t.slug.task_slug:<{max_task_len}} {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}")
+            print(
+                f"{t.slug.task_slug:<{max_task_len}} {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
+            )
 
     @staticmethod
     def _print_run_table(runs):
@@ -5982,9 +5984,9 @@ class KaggleApi:
         # Client-side filter as fallback since the server may ignore model_version_slugs.
         if models:
             model_set = set(models)
-            runs = [r for r in runs
-                    if r.model_version_slug in model_set
-                    or r.model_version_slug.split("/")[-1] in model_set]
+            runs = [
+                r for r in runs if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
+            ]
 
         return runs
 
@@ -6045,22 +6047,22 @@ class KaggleApi:
         while True:
             task_info = self._get_benchmark_task(task, kaggle)
             state = task_info.creation_state
-            
+
             if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
                 print(f"Task '{task}' creation completed.")
                 return
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
-                if hasattr(task_info, 'error_message') and task_info.error_message:
+                if hasattr(task_info, "error_message") and task_info.error_message:
                     error_msg += f" Error: {task_info.error_message}"
                 raise ValueError(error_msg)
-                
+
             print(f"  Task status: {self._clean_enum_str(state)}...")
-            
+
             if wait > 0 and (time.time() - start_time) > wait:
                 print(f"Timed out waiting for task creation after {wait} seconds.")
                 return
-                
+
             time.sleep(poll_interval)
 
     def _poll_runs(self, kaggle, task, models, wait, poll_interval):
@@ -6136,8 +6138,11 @@ class KaggleApi:
         # Normalize the user-supplied task name into a URL-safe slug.
         task_slug = slugify(task)
         if task_slug != task:
-            print(f"\033[1mWarning: task name '{task}' was normalized to slug '{task_slug}'. "
-                  f"Use '{task_slug}' in future commands.\033[0m\n", file=sys.stderr)
+            print(
+                f"\033[1mWarning: task name '{task}' was normalized to slug '{task_slug}'. "
+                f"Use '{task_slug}' in future commands.\033[0m\n",
+                file=sys.stderr,
+            )
 
         # Convert .py file with percent delimiters to .ipynb
         import jupytext
@@ -6170,7 +6175,7 @@ class KaggleApi:
                 url = "https://www.kaggle.com" + url
             print(f"\033[1mTask URL: {url}\033[0m")
             print(f"To run this task against models, use: kaggle b t run {task_slug}")
-            
+
             if wait is not None:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
 
@@ -6217,7 +6222,7 @@ class KaggleApi:
                     print(f"  {model_slug}: Scheduled")
                 else:
                     print(f"  {model_slug}: Skipped ({res.run_skipped_reason})")
-            
+
             if wait is None:
                 print(f"To check status later, use: kaggle b t status {task}")
             else:
@@ -6229,17 +6234,17 @@ class KaggleApi:
             request.regex_filter = name_regex
         if status:
             request.status_filter = status
-        
+
         all_tasks = []
         with self.build_kaggle_client() as kaggle:
             while True:
                 response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
                 if response.tasks:
                     all_tasks.extend(response.tasks)
-                if not getattr(response, 'next_page_token', None):
+                if not getattr(response, "next_page_token", None):
                     break
                 request.page_token = response.next_page_token
-            
+
             self._print_task_table(all_tasks)
 
     def benchmarks_tasks_status_cli(self, task, model=None):
@@ -6285,6 +6290,7 @@ class KaggleApi:
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""
         with self.build_kaggle_client() as kaggle:
+
             def _fetch_models(page_token):
                 req = ApiListBenchmarkModelsRequest()
                 if page_token:
