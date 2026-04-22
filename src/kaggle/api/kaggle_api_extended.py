@@ -721,7 +721,9 @@ class KaggleApi:
                                     total_delay = retry_delay
                                     self.logger.info(
                                         "Rate limited (429). Retry-After: %.1f seconds (attempt %d/%d)",
-                                        total_delay, i, max_retries,
+                                        total_delay,
+                                        i,
+                                        max_retries,
                                     )
                                 else:
                                     total_delay = self._calculate_backoff_delay(
@@ -730,7 +732,9 @@ class KaggleApi:
                                     self.logger.info(
                                         "Rate limited (429). No valid Retry-After header; "
                                         "backing off %.1f seconds (attempt %d/%d)",
-                                        total_delay, i, max_retries,
+                                        total_delay,
+                                        i,
+                                        max_retries,
                                     )
                             else:
                                 total_delay = self._calculate_backoff_delay(
@@ -1939,8 +1943,7 @@ class KaggleApi:
             return response.pages
 
     def competition_list_pages_cli(
-        self, competition=None, competition_opt=None, csv_display=False, quiet=False, content=False,
-        page_name=None
+        self, competition=None, competition_opt=None, csv_display=False, quiet=False, content=False, page_name=None
     ):
         """CLI wrapper for competition_list_pages.
 
@@ -3105,18 +3108,24 @@ class KaggleApi:
                         backoff_time = retry_delay
                         self.logger.info(
                             "Rate limited (429). Retry-After: %.1f seconds (attempt %d/%d)",
-                            backoff_time, retry_count, max_retries,
+                            backoff_time,
+                            retry_count,
+                            max_retries,
                         )
                     else:
                         backoff_time = min(2**retry_count + random(), 60)
                         self.logger.info(
                             "Rate limited (429). No valid Retry-After header; "
                             "backing off %.1f seconds (attempt %d/%d)",
-                            backoff_time, retry_count, max_retries,
+                            backoff_time,
+                            retry_count,
+                            max_retries,
                         )
                     if not quiet:
-                        print(f"\nRate limited (HTTP 429). Retrying in {backoff_time:.1f} seconds... "
-                              f"(attempt {retry_count}/{max_retries})")
+                        print(
+                            f"\nRate limited (HTTP 429). Retrying in {backoff_time:.1f} seconds... "
+                            f"(attempt {retry_count}/{max_retries})"
+                        )
                 else:
                     # Calculate backoff time (exponential with jitter)
                     backoff_time = min(2**retry_count + random(), 60)  # Cap at 60 seconds
