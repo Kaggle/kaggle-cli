@@ -386,6 +386,15 @@ class TestRun:
         with pytest.raises(ValueError, match="Task Info:"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
 
+    @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
+    def test_run_task_not_found(self, api, status_code):
+        """Run gives friendly error when task doesn't exist (403/404)."""
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
+        with pytest.raises(ValueError, match="not found"):
+            api.benchmarks_tasks_run_cli("no-such-task", ["gemini-pro"])
+
     # -- Model scheduling --
 
     @pytest.mark.parametrize(
@@ -591,6 +600,15 @@ class TestStatus:
         assert "Status:" in output
         assert "Created:" in output
         assert "Task URL:" in output
+
+    @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
+    def test_status_task_not_found(self, api, status_code):
+        """Status gives friendly error when task doesn't exist (403/404)."""
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
+        with pytest.raises(ValueError, match="not found"):
+            api.benchmarks_tasks_status_cli("no-such-task")
 
     def test_status_no_runs_message(self, api, capsys):
         """No runs -> helpful message with run command hint."""

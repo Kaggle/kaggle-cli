@@ -1203,6 +1203,12 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_download._action_groups.append(parser_download_optional)
     parser_download.set_defaults(func=api.benchmarks_tasks_download_cli)
 
+    # models
+    parser_models = subparsers_tasks.add_parser(
+        "models", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_models
+    )
+    parser_models.set_defaults(func=api.benchmarks_tasks_models_cli)
+
     # delete
     parser_delete = subparsers_tasks.add_parser(
         "delete", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_delete
@@ -1327,7 +1333,7 @@ class Help(object):
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
     benchmarks_choices = ["tasks", "t", "auth"]
-    benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "delete"]
+    benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "models", "delete"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -1422,6 +1428,7 @@ class Help(object):
     command_benchmarks_tasks_status = "Show task details and per-model run status"
 
     command_benchmarks_tasks_download = "Download output files for completed runs"
+    command_benchmarks_tasks_models = "List available benchmark models"
     command_benchmarks_tasks_delete = "Remove a task"
 
     # Config commands
