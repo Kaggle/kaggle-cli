@@ -17,6 +17,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from kaggle.api.kaggle_api_extended import KaggleApi
+from kagglesdk.models.types.model_proxy_api_service import ApiCreateDefaultModelProxyTokenResponse
 from kagglesdk.benchmarks.types.benchmark_enums import (
     BenchmarkTaskVersionCreationState,
     BenchmarkTaskRunState,
@@ -404,3 +405,86 @@ class TestCliArgParsing:
     def test_parse_error(self, cmd):
         with pytest.raises(SystemExit):
             self._parse(cmd)
+
+    def test_parse_benchmarks_auth(self):
+        args = self._parse("benchmarks auth")
+        assert args.no_confirm is False
+        assert args.env_file == ".env"
+
+    def test_parse_benchmarks_auth_yes(self):
+        args = self._parse("benchmarks auth -y")
+        assert args.no_confirm is True
+
+    def test_parse_benchmarks_auth_env_file(self):
+        args = self._parse("benchmarks auth --env-file custom.env")
+        assert args.env_file == "custom.env"
+
+
+# ============================================================
+# Benchmarks Auth
+# ============================================================
+
+
+def _make_token_response(base_uri="https://mp-staging.kaggle.net/models/openapi",
+                         token="kaggle-benchmarks:cool-token",
+                         expiry_time=None):
+    from datetime import datetime
+    if expiry_time is None:
+        expiry_time = datetime(2026, 4, 17, 12, 0, 0)
+    response = ApiCreateDefaultModelProxyTokenResponse()
+    response.base_uri = base_uri
+    response.token = token
+    response.expiry_time = expiry_time
+    return response
+
+
+class TestBenchmarksAuth:
+    """Tests for ``kaggle benchmarks auth``."""
+
+    def test_writes_env_file_with_yes_flag(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        api.benchmarks_auth_cli(no_confirm=True, env_file=env_file)
+        content = (tmp_path / ".env").read_text()
+        assert "MODEL_PROXY_URL=https://mp-staging.kaggle.net/models/openapi\n" in content
+        assert "MODEL_PROXY_API_KEY=kaggle-benchmarks:cool-token\n" in content
+        assert "MODEL_PROXY_EXPIRY_TIME=2026-04-17T12:00:00Z\n" in content
+        out = capsys.readouterr().out
+        assert "MODEL_PROXY_API_KEY=***-token" in out
+        assert "kaggle-benchmarks:cool-token" not in out
+        assert "have been written to" in out
+
+    def test_aborted_on_no_confirm(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        with patch("builtins.input", return_value="no"):
+            api.benchmarks_auth_cli(no_confirm=False, env_file=env_file)
+        assert not (tmp_path / ".env").exists()
+        out = capsys.readouterr().out
+        assert "MODEL_PROXY_URL" in out
+        assert "have been written to" not in out
+
+    def test_confirmed_on_yes(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        with patch("builtins.input", return_value="yes"):
+            api.benchmarks_auth_cli(no_confirm=False, env_file=env_file)
+        assert (tmp_path / ".env").exists()
+        out = capsys.readouterr().out
+        assert "have been written to" in out
+
+    def test_custom_env_file(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / "custom.env")
+        api.benchmarks_auth_cli(no_confirm=True, env_file=env_file)
+        assert (tmp_path / "custom.env").exists()
+        out = capsys.readouterr().out
+        assert "custom.env" in out

@@ -1090,6 +1090,22 @@ def parse_benchmarks(subparsers) -> None:
     subparsers_benchmarks.choices = Help.benchmarks_choices
 
     parse_benchmark_tasks(subparsers_benchmarks)
+    parse_benchmarks_auth(subparsers_benchmarks)
+
+
+def parse_benchmarks_auth(subparsers) -> None:
+    parser_auth = subparsers.add_parser(
+        "auth", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_auth
+    )
+    parser_auth_optional = parser_auth._action_groups.pop()
+    parser_auth_optional.add_argument(
+        "-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes
+    )
+    parser_auth_optional.add_argument(
+        "--env-file", dest="env_file", default=".env", help=Help.param_benchmarks_env_file
+    )
+    parser_auth._action_groups.append(parser_auth_optional)
+    parser_auth.set_defaults(func=api.benchmarks_auth_cli)
 
 
 def parse_benchmark_tasks(subparsers) -> None:
@@ -1253,7 +1269,7 @@ class Help(object):
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
-    benchmarks_choices = ["tasks", "t"]
+    benchmarks_choices = ["tasks", "t", "auth"]
     benchmarks_tasks_choices = ["push", "run"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
@@ -1336,6 +1352,7 @@ class Help(object):
     command_models_update = "Update a model"
 
     # Benchmarks commands
+    command_benchmarks_auth = "Fetch and persist Model Proxy credential information"
     command_benchmarks_tasks_push = "Create or update a task from a Python source file"
     command_benchmarks_tasks_run = "Run a task against model(s)"
 
@@ -1558,6 +1575,7 @@ class Help(object):
     param_files_upload_no_resume = "Whether to skip resumable uploads."
 
     # Benchmarks params
+    param_benchmarks_env_file = 'File to write environment variables to (default: .env)'
     param_benchmarks_task = "Task name"
     param_benchmarks_file = "Python source file containing the task definition"
     param_benchmarks_model = "Model slug(s) to run the task against"

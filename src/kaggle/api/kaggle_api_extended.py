@@ -166,6 +166,7 @@ from kagglesdk.models.types.model_api_service import (
     ApiListModelInstancesResponse,
 )
 from kagglesdk.models.types.model_enums import ListModelsOrderBy, ModelInstanceType, ModelFramework
+from kagglesdk.models.types.model_proxy_api_service import ApiCreateDefaultModelProxyTokenRequest
 from kagglesdk.models.types.model_types import Owner
 from kagglesdk.security.types.oauth_service import IntrospectTokenRequest
 from ..models.upload_file import UploadFile
@@ -5876,6 +5877,36 @@ class KaggleApi:
             raise ValueError(f"No @task decorators found in file {file}. The file must define at least one task.")
         if task not in task_names:
             raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
+
+    def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
+        env_file = os.path.abspath(env_file)
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateDefaultModelProxyTokenRequest()
+            response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
+
+        env_vars = {
+            "MODEL_PROXY_URL": response.base_uri,
+            "MODEL_PROXY_API_KEY": response.token,
+            "MODEL_PROXY_EXPIRY_TIME": response.expiry_time.isoformat() + "Z" if response.expiry_time else "",
+        }
+
+        masked_api_key = "***" + response.token[-6:] if len(response.token) > 6 else response.token
+        print(f"The following environment variables will be written to {env_file}:\n")
+        for key, value in env_vars.items():
+            display_value = masked_api_key if key == "MODEL_PROXY_API_KEY" else value
+            print(f"  {key}={display_value}")
+        print()
+
+        if not no_confirm:
+            if not self.confirmation(f"write these environment variables to {env_file}"):
+                return
+
+        with open(env_file, "w") as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+
+        print(f"Environment variables have been written to {env_file}.")
 
     def benchmarks_tasks_push_cli(self, task, file):
         if not os.path.isfile(file):
