@@ -69,7 +69,7 @@ dependencies = [
 ]
 
 [tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:src/kagglehub tests}"
+typing = "mypy --install-types --non-interactive {args:src/kaggle tests}"
 style = [
   "black --check --diff {args:.}",
 ]

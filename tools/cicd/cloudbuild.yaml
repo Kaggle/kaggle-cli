@@ -1,0 +1,49 @@
+steps:
+# Import builder if exists.
+# Note: the reason to use bash is to be able to return an exit code 0 even if
+# the docker image doesn't exist yet.
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'check_substitutions'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    docker pull us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION} || exit 0
+
+# Build a modified version of the python image that includes hatch.
+# Use the previous built image as cache.
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-hatch-image'
+  waitFor: ['check_substitutions']
+  dir: 'tools/cicd'
+  args:
+  - build
+  - -f
+  - Dockerfile
+  - -t
+  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+  - --cache-from
+  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+  - --build-arg
+  - PYTHON_VERSION=${_PYTHON_VERSION}
+  - .
+
+# TODO(b/476150887): Run tests once we have good unit tests
+# - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+#   id: tests
+#   args:
+#   - test
+#   waitFor: ['build-hatch-image']
+
+- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+  id: lint
+  args:
+  - run
+  # TODO(b/505103886): Run lint:all once typing issues have been fixed.
+  - lint:style
+  waitFor: ['build-hatch-image']
+
+images: ['us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder']
+
+substitutions:
+  _PYTHON_VERSION: 3.10.13
