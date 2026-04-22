@@ -1098,9 +1098,7 @@ def parse_benchmarks_auth(subparsers) -> None:
         "auth", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_auth
     )
     parser_auth_optional = parser_auth._action_groups.pop()
-    parser_auth_optional.add_argument(
-        "-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes
-    )
+    parser_auth_optional.add_argument("-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes)
     parser_auth_optional.add_argument(
         "--env-file", dest="env_file", default=".env", help=Help.param_benchmarks_env_file
     )
@@ -1575,7 +1573,7 @@ class Help(object):
     param_files_upload_no_resume = "Whether to skip resumable uploads."
 
     # Benchmarks params
-    param_benchmarks_env_file = 'File to write environment variables to (default: .env)'
+    param_benchmarks_env_file = "File to write environment variables to (default: .env)"
     param_benchmarks_task = "Task name"
     param_benchmarks_file = "Python source file containing the task definition"
     param_benchmarks_model = "Model slug(s) to run the task against"

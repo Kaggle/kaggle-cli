@@ -5891,7 +5891,7 @@ class KaggleApi:
             "MODEL_PROXY_EXPIRY_TIME": response.expiry_time.isoformat() + "Z" if response.expiry_time else "",
         }
 
-        masked_api_key = "***" + response.token[-6:] if len(response.token) > 6 else response.token
+        masked_api_key = "****************" + response.token[-4:] if len(response.token) > 4 else response.token
         print(f"The following environment variables will be written to {env_file}:\n")
         for key, value in env_vars.items():
             display_value = masked_api_key if key == "MODEL_PROXY_API_KEY" else value
@@ -5902,7 +5902,7 @@ class KaggleApi:
             if not self.confirmation(f"write these environment variables to {env_file}"):
                 return
 
-        with open(env_file, "w") as f:
+        with open(env_file, "a") as f:
             for key, value in env_vars.items():
                 f.write(f"{key}={value}\n")
 

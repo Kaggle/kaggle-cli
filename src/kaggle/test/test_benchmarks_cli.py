@@ -425,10 +425,11 @@ class TestCliArgParsing:
 # ============================================================
 
 
-def _make_token_response(base_uri="https://mp-staging.kaggle.net/models/openapi",
-                         token="kaggle-benchmarks:cool-token",
-                         expiry_time=None):
+def _make_token_response(
+    base_uri="https://mp-staging.kaggle.net/models/openapi", token="kaggle-benchmarks:cool-token", expiry_time=None
+):
     from datetime import datetime
+
     if expiry_time is None:
         expiry_time = datetime(2026, 4, 17, 12, 0, 0)
     response = ApiCreateDefaultModelProxyTokenResponse()
@@ -452,7 +453,7 @@ class TestBenchmarksAuth:
         assert "MODEL_PROXY_API_KEY=kaggle-benchmarks:cool-token\n" in content
         assert "MODEL_PROXY_EXPIRY_TIME=2026-04-17T12:00:00Z\n" in content
         out = capsys.readouterr().out
-        assert "MODEL_PROXY_API_KEY=***-token" in out
+        assert "MODEL_PROXY_API_KEY=****************oken" in out
         assert "kaggle-benchmarks:cool-token" not in out
         assert "have been written to" in out
 
@@ -478,6 +479,17 @@ class TestBenchmarksAuth:
         assert (tmp_path / ".env").exists()
         out = capsys.readouterr().out
         assert "have been written to" in out
+
+    def test_appends_to_existing_file(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = tmp_path / ".env"
+        env_file.write_text("EXISTING_VAR=hello\n")
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
+        content = env_file.read_text()
+        assert content.startswith("EXISTING_VAR=hello\n")
+        assert "MODEL_PROXY_URL=https://mp-staging.kaggle.net/models/openapi\n" in content
 
     def test_custom_env_file(self, api, capsys, tmp_path):
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
