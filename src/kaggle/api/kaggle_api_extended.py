@@ -24,6 +24,7 @@ import io
 
 import json  # Needed by mypy.
 import logging
+import math
 import os
 from pathlib import Path
 
@@ -5791,6 +5792,8 @@ class KaggleApi:
 
     # ---- Benchmarks CLI ----
 
+    # -- Constants --
+
     _TERMINAL_RUN_STATES = {
         BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED,
         BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED,
@@ -5801,14 +5804,7 @@ class KaggleApi:
         BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING,
     }
 
-    @staticmethod
-    def _normalize_task_name(task: str) -> str:
-        """Normalize a user-provided task name into a URL-safe slug.
-
-        Uses python-slugify so that "my_task", "My Task", and "my-task"
-        all resolve to "my-task".
-        """
-        return slugify(task)
+    # -- Static helpers --
 
     @staticmethod
     def _make_task_slug(task: str) -> ApiBenchmarkTaskSlug:
@@ -5836,6 +5832,7 @@ class KaggleApi:
             if not page_token:
                 break
         return items
+    
     @staticmethod
     def _clean_enum_str(s: str) -> str:
         """Remove long prefixes from enum strings for display."""
@@ -5847,7 +5844,7 @@ class KaggleApi:
     @staticmethod
     def _format_time(t) -> str:
         """Format a timestamp to seconds precision for display."""
-        if hasattr(t, 'strftime'):
+        if isinstance(t, datetime):
             return t.strftime("%Y-%m-%d %H:%M:%S")
         return str(t).split(".")[0] if t else ""
     
@@ -5881,8 +5878,8 @@ class KaggleApi:
                 f"{error_suffix}"
             )
 
-
-    def _get_task_names_from_file(self, file_content: str) -> List[str]:
+    @staticmethod
+    def _get_task_names_from_file(file_content: str) -> List[str]:
         """Extract task names from a Python file."""
         import ast
 
@@ -5920,6 +5917,23 @@ class KaggleApi:
 
         return task_names
 
+    @staticmethod
+    def _validate_task_in_file(task: str, file: str, file_content: str):
+        """Validate that the task name is defined in the Python file.
+
+        Comparison is done on slugified names so that "my_task", "My Task",
+        and "my-task" all match the same task.
+        """
+        task_names = KaggleApi._get_task_names_from_file(file_content)
+        if not task_names:
+            raise ValueError(f"No @task decorators found in file {file}. The file must define at least one task.")
+        task_slug = slugify(task)
+        slugified_names = {slugify(n): n for n in task_names}
+        if task_slug not in slugified_names:
+            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
+
+    # -- Instance helpers (API calls) --
+
     def _get_benchmark_task(self, task: str, kaggle):
         """Get benchmark task details from the server.
 
@@ -5930,19 +5944,123 @@ class KaggleApi:
         request.slug = self._make_task_slug(task)
         return kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task(request)
 
-    def _validate_task_in_file(self, task: str, file: str, file_content: str):
-        """Validate that the task name is defined in the Python file.
+    def _fetch_task_runs(self, kaggle, task, models=None):
+        """Fetch all runs for a task, optionally filtered by models."""
+        request = ApiListBenchmarkTaskRunsRequest()
+        request.task_slug = self._make_task_slug(task)
+        models = self._normalize_model_list(models)
+        if models:
+            request.model_version_slugs = models
 
-        Comparison is done on slugified names so that "my_task", "My Task",
-        and "my-task" all match the same task.
-        """
-        task_names = self._get_task_names_from_file(file_content)
-        if not task_names:
-            raise ValueError(f"No @task decorators found in file {file}. The file must define at least one task.")
-        task_slug = self._normalize_task_name(task)
-        slugified_names = {self._normalize_task_name(n): n for n in task_names}
-        if task_slug not in slugified_names:
-            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
+        def _fetch(page_token):
+            request.page_token = page_token
+            return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(request)
+
+        return self._paginate(_fetch, lambda r: r.runs)
+
+    def _select_models_interactively(self, kaggle, page_size=20):
+        """Prompt the user to pick benchmark models from a paginated list."""
+        # TODO: Check if sys.stdin.isatty() to prevent hanging in non-interactive environments.
+
+        def _fetch_models(page_token):
+            req = ApiListBenchmarkModelsRequest()
+            if page_token:
+                req.page_token = page_token
+            return kaggle.benchmarks.benchmarks_api_client.list_benchmark_models(req)
+
+        available = self._paginate(_fetch_models, lambda r: r.benchmark_models)
+        if not available:
+            raise ValueError("No benchmark models available. Cannot schedule runs.")
+
+        total = len(available)
+        total_pages = math.ceil(total / page_size)
+        current_page = 0
+
+        print(f"No model specified. {total} model(s) available:")
+        while True:
+            start = current_page * page_size
+            for i, m in enumerate(available[start : start + page_size], start=start + 1):
+                print(f"  {i}. {m.version.slug} ({m.display_name})")
+
+            nav_hints = []
+            if total_pages > 1:
+                print(f"  [Page {current_page + 1}/{total_pages}]")
+                if current_page < total_pages - 1:
+                    nav_hints.append("'n'=next")
+                if current_page > 0:
+                    nav_hints.append("'p'=prev")
+
+            prompt_parts = ["Enter model numbers (comma-separated)", "'all'"]
+            if nav_hints:
+                prompt_parts.extend(nav_hints)
+            selection = input(", ".join(prompt_parts) + ": ").strip().lower()
+
+            if selection == "n" and current_page < total_pages - 1:
+                current_page += 1
+            elif selection == "p" and current_page > 0:
+                current_page -= 1
+            elif selection == "all":
+                return [m.version.slug for m in available]
+            else:
+                try:
+                    indices = [int(s) for s in selection.split(",")]
+                    return [available[i - 1].version.slug for i in indices]
+                except (ValueError, IndexError):
+                    raise ValueError(f"Invalid selection: {selection}")
+
+    def _poll_task_creation(self, kaggle, task, wait, poll_interval):
+        """Poll task creation status until terminal or timeout."""
+        print("Waiting for task to be processed...")
+        start_time = time.time()
+        while True:
+            task_info = self._get_benchmark_task(task, kaggle)
+            state = task_info.creation_state
+            
+            if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
+                print(f"Task '{task}' creation completed.")
+                return
+            elif state not in self._PENDING_CREATION_STATES:
+                error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
+                if hasattr(task_info, 'error_message') and task_info.error_message:
+                    error_msg += f" Error: {task_info.error_message}"
+                raise ValueError(error_msg)
+                
+            print(f"  Task status: {self._clean_enum_str(state)}...")
+            
+            if wait > 0 and (time.time() - start_time) > wait:
+                print(f"Timed out waiting for task creation after {wait} seconds.")
+                return
+                
+            time.sleep(poll_interval)
+
+    def _poll_runs(self, kaggle, task, models, wait, poll_interval):
+        """Poll run status until all runs are terminal or timeout."""
+        print("Waiting for run(s) to complete...")
+        start_time = time.time()
+        while True:
+            all_runs = self._fetch_task_runs(kaggle, task, models)
+
+            if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
+                print("All runs completed:")
+                for r in all_runs:
+                    label = (
+                        "COMPLETED"
+                        if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
+                        else "ERRORED"
+                    )
+                    print(f"  {r.model_version_slug}: {label}")
+                return
+
+            pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
+            print(f"  {pending} run(s) still in progress...")
+
+            if wait > 0 and (time.time() - start_time) > wait:
+                print(f"Timed out waiting for runs after {wait} seconds.")
+                return
+
+            time.sleep(poll_interval)
+
+    # -- Public CLI methods --
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
         env_file = os.path.abspath(env_file)
@@ -5986,7 +6104,7 @@ class KaggleApi:
         self._validate_task_in_file(task, file, content)
 
         # Normalize the user-supplied task name into a URL-safe slug.
-        task_slug = self._normalize_task_name(task)
+        task_slug = slugify(task)
         if task_slug != task:
             print(f"\033[1mWarning: task name '{task}' was normalized to slug '{task_slug}'. "
                   f"Use '{task_slug}' in future commands.\033[0m\n", file=sys.stderr)
@@ -6030,122 +6148,9 @@ class KaggleApi:
             if wait is not None:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
 
-    def _select_models_interactively(self, kaggle, page_size=20):
-        """Prompt the user to pick benchmark models from a paginated list."""
-        # TODO: Check if sys.stdin.isatty() to prevent hanging in non-interactive environments.
-
-        def _fetch_models(page_token):
-            req = ApiListBenchmarkModelsRequest()
-            if page_token:
-                req.page_token = page_token
-            return kaggle.benchmarks.benchmarks_api_client.list_benchmark_models(req)
-
-        available = self._paginate(_fetch_models, lambda r: r.benchmark_models)
-        if not available:
-            raise ValueError("No benchmark models available. Cannot schedule runs.")
-
-        total = len(available)
-        total_pages = -(-total // page_size)  # ceiling division
-        current_page = 0
-
-        print(f"No model specified. {total} model(s) available:")
-        while True:
-            start = current_page * page_size
-            for i, m in enumerate(available[start : start + page_size], start=start + 1):
-                print(f"  {i}. {m.version.slug} ({m.display_name})")
-
-            nav_hints = []
-            if total_pages > 1:
-                print(f"  [Page {current_page + 1}/{total_pages}]")
-                if current_page < total_pages - 1:
-                    nav_hints.append("'n'=next")
-                if current_page > 0:
-                    nav_hints.append("'p'=prev")
-
-            prompt_parts = ["Enter model numbers (comma-separated)", "'all'"]
-            if nav_hints:
-                prompt_parts.extend(nav_hints)
-            selection = input(", ".join(prompt_parts) + ": ").strip().lower()
-
-            if selection == "n" and current_page < total_pages - 1:
-                current_page += 1
-            elif selection == "p" and current_page > 0:
-                current_page -= 1
-            elif selection == "all":
-                return [m.version.slug for m in available]
-            else:
-                try:
-                    indices = [int(s) for s in selection.split(",")]
-                    return [available[i - 1].version.slug for i in indices]
-                except (ValueError, IndexError):
-                    raise ValueError(f"Invalid selection: {selection}")
-    def _poll_task_creation(self, kaggle, task, wait, poll_interval):
-        """Poll task creation status until terminal or timeout."""
-        print("Waiting for task to be processed...")
-        start_time = time.time()
-        while True:
-            task_info = self._get_benchmark_task(task, kaggle)
-            state = task_info.creation_state
-            
-            if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
-                print(f"Task '{task}' creation completed.")
-                return
-            elif state not in self._PENDING_CREATION_STATES:
-                error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
-                if hasattr(task_info, 'error_message') and task_info.error_message:
-                    error_msg += f" Error: {task_info.error_message}"
-                raise ValueError(error_msg)
-                
-            print(f"  Task status: {self._clean_enum_str(state)}...")
-            
-            if wait > 0 and (time.time() - start_time) > wait:
-                print(f"Timed out waiting for task creation after {wait} seconds.")
-                return
-                
-            time.sleep(poll_interval)
-
-
-    def _poll_runs(self, kaggle, task_slug_obj, models, wait, poll_interval):
-        """Poll run status until all runs are terminal or timeout."""
-
-        def _fetch_runs(page_token):
-            req = ApiListBenchmarkTaskRunsRequest()
-            req.task_slug = task_slug_obj
-            if models:
-                req.model_version_slugs = models
-            if page_token:
-                req.page_token = page_token
-            return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(req)
-
-        print("Waiting for run(s) to complete...")
-        start_time = time.time()
-        while True:
-            all_runs = self._paginate(_fetch_runs, lambda r: r.runs)
-
-            if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
-                print("All runs completed:")
-                for r in all_runs:
-                    label = (
-                        "COMPLETED"
-                        if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
-                        else "ERRORED"
-                    )
-                    print(f"  {r.model_version_slug}: {label}")
-                return
-
-            pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
-            print(f"  {pending} run(s) still in progress...")
-
-            if wait > 0 and (time.time() - start_time) > wait:
-                print(f"Timed out waiting for runs after {wait} seconds.")
-                return
-
-            time.sleep(poll_interval)
-
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
         models = self._normalize_model_list(model)
-        task = self._normalize_task_name(task)
-        task_slug_obj = self._make_task_slug(task)
+        task = slugify(task)
 
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
@@ -6168,10 +6173,18 @@ class KaggleApi:
                 print(f"Selected models: {models}")
 
             request = ApiBatchScheduleBenchmarkTaskRunsRequest()
-            request.task_slugs = [task_slug_obj]
+            request.task_slugs = [self._make_task_slug(task)]
             request.model_version_slugs = models
 
-            response = kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs(request)
+            try:
+                response = kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs(request)
+            except HTTPError as e:
+                if e.response.status_code == 404:
+                    raise ValueError(
+                        f"Failed to schedule runs. One or more model names may be invalid: {models}. "
+                        f"Use 'kaggle b t run {task}' (without -m) to select from available models."
+                    ) from None
+                raise
             print(f"Submitted run(s) for task '{task}'.")
             for model_slug, res in zip(models, response.results):
                 if res.run_scheduled:
@@ -6182,13 +6195,7 @@ class KaggleApi:
             if wait is None:
                 print(f"To check status later, use: kaggle b t status {task}")
             else:
-                self._poll_runs(kaggle, task_slug_obj, models, wait, poll_interval)
-
-
-    _DOWNLOADABLE_RUN_STATES = {
-        BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED,
-        BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED,
-    }
+                self._poll_runs(kaggle, task, models, wait, poll_interval)
 
     def benchmarks_tasks_list_cli(self, name_regex=None, status=None):
         request = ApiListBenchmarkTasksRequest()
@@ -6203,14 +6210,14 @@ class KaggleApi:
                 response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
                 if response.tasks:
                     all_tasks.extend(response.tasks)
-                if not response.next_page_token:
+                if not getattr(response, 'next_page_token', None):
                     break
                 request.page_token = response.next_page_token
             
             self._print_task_table(all_tasks)
 
     def benchmarks_tasks_status_cli(self, task, model=None):
-        task = self._normalize_task_name(task)
+        task = slugify(task)
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
             print(f"Task:     {task_info.slug.task_slug}")
@@ -6222,17 +6229,7 @@ class KaggleApi:
                     url = "https://www.kaggle.com" + url
                 print(f"\033[1mTask URL: {url}\033[0m")
 
-            runs_request = ApiListBenchmarkTaskRunsRequest()
-            runs_request.task_slug = self._make_task_slug(task)
-            models = self._normalize_model_list(model)
-            if models:
-                runs_request.model_version_slugs = models
-
-            def _fetch_runs(page_token):
-                runs_request.page_token = page_token
-                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
-
-            runs = self._paginate(_fetch_runs, lambda r: r.runs)
+            runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:
                 print(f"No runs yet. Use 'kaggle b t run {task}' to start one.")
@@ -6240,27 +6237,15 @@ class KaggleApi:
 
             self._print_run_table(runs)
 
-
-
     def benchmarks_tasks_download_cli(self, task, model=None, output=None):
-        task = self._normalize_task_name(task)
+        task = slugify(task)
         output = output or os.path.join(".", task, "output")
 
         with self.build_kaggle_client() as kaggle:
-            runs_request = ApiListBenchmarkTaskRunsRequest()
-            runs_request.task_slug = self._make_task_slug(task)
-            models = self._normalize_model_list(model)
-            if models:
-                runs_request.model_version_slugs = models
-
-            def _fetch_runs(page_token):
-                runs_request.page_token = page_token
-                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(runs_request)
-
-            runs = self._paginate(_fetch_runs, lambda r: r.runs)
+            runs = self._fetch_task_runs(kaggle, task, model)
 
             for r in runs:
-                if r.state not in self._DOWNLOADABLE_RUN_STATES:
+                if r.state not in self._TERMINAL_RUN_STATES:
                     continue
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
@@ -6271,7 +6256,7 @@ class KaggleApi:
                 print(f"Downloaded output for {r.model_version_slug} to {outfile}")
 
     def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
-        # TODO: Normalize task name via _normalize_task_name(task) when server supports delete.
+        # TODO: Normalize task name via slugify(task) when server supports delete.
         print("Delete is not supported by the server yet.")
 
 

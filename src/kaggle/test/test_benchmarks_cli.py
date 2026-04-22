@@ -503,6 +503,15 @@ class TestRun:
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)
         assert "gemini-pro: ERRORED" in capsys.readouterr().out
 
+    def test_run_invalid_model_gives_friendly_error(self, api):
+        """Invalid model name returns a friendly error instead of raw 404."""
+        _setup_completed_task(api)
+        api._mock_benchmarks.batch_schedule_benchmark_task_runs.side_effect = HTTPError(
+            response=MagicMock(status_code=404)
+        )
+        with pytest.raises(ValueError, match="model names may be invalid"):
+            api.benchmarks_tasks_run_cli("my-task", ["nonexistent-model"])
+
 
 # ============================================================
 # List
