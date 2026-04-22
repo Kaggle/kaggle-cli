@@ -617,6 +617,13 @@ def parse_datasets(subparsers) -> None:
     parser_datasets_status_optional.add_argument(
         "-d", "--dataset", dest="dataset_opt", required=False, help=argparse.SUPPRESS
     )
+    parser_datasets_status_optional.add_argument(
+        "--format",
+        dest="format",
+        required=False,
+        default=None,
+        help=Help.param_dataset_status_format,
+    )
     parser_datasets_status._action_groups.append(parser_datasets_status_optional)
     parser_datasets_status.set_defaults(func=api.dataset_status_cli)
 
@@ -1611,6 +1618,12 @@ class Help(object):
         "File name, all files downloaded if not provided\n(use " '"kaggle datasets files -d <dataset>" to show options)'
     )
     param_dataset_version_notes = "Message describing the new version"
+    param_dataset_status_format = (
+        "Output format. Defaults to plain text containing only the status. "
+        "Use 'json' to emit a JSON object with the status and the current "
+        "version number. Field selection is supported gcloud-style, e.g. "
+        "'json(current_version_number)' or 'json(status,current_version_number)'."
+    )
     param_dataset_upfile = (
         "Folder for upload, containing data files and a "
         "special datasets-metadata.json file "

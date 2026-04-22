@@ -115,6 +115,7 @@ from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, Crop
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
     ApiListDatasetFilesRequest,
+    ApiGetDatasetRequest,
     ApiGetDatasetStatusRequest,
     ApiDownloadDatasetRequest,
     ApiCreateDatasetRequest,
@@ -2530,15 +2531,61 @@ class KaggleApi:
             response = kaggle.datasets.dataset_api_client.get_dataset_status(request)
             return response.status.name.lower()
 
-    def dataset_status_cli(self, dataset, dataset_opt=None):
+    def dataset_status_cli(self, dataset, dataset_opt=None, format=None):
         """A wrapper for client for dataset_status, with additional dataset_opt to
         get the status of a dataset from the API.
 
         Args:
             dataset_opt: an alternative to dataset
+            format: optional output format. ``None`` (default) preserves the
+                original text output containing only the status string. A value
+                of ``"json"`` returns a JSON object with both ``status`` and
+                ``current_version_number``. ``gcloud``-style field selection is
+                also supported, e.g. ``"json(current_version_number)"`` or
+                ``"json(status,current_version_number)"``.
         """
         dataset = dataset or dataset_opt
-        return self.dataset_status(dataset)
+        if format is None:
+            return self.dataset_status(dataset)
+
+        format_name, fields = _parse_format(format)
+        if format_name != "json":
+            raise ValueError(f"Unsupported --format value: {format!r}. Supported formats: json")
+
+        owner_slug, dataset_slug = self._split_dataset_string(dataset)
+        with self.build_kaggle_client() as kaggle:
+            status_request = ApiGetDatasetStatusRequest()
+            status_request.owner_slug = owner_slug
+            status_request.dataset_slug = dataset_slug
+            status_response = kaggle.datasets.dataset_api_client.get_dataset_status(status_request)
+            status = status_response.status.name.lower()
+
+            dataset_request = ApiGetDatasetRequest()
+            dataset_request.owner_slug = owner_slug
+            dataset_request.dataset_slug = dataset_slug
+            dataset_response = kaggle.datasets.dataset_api_client.get_dataset(dataset_request)
+            current_version_number = dataset_response.current_version_number
+
+        all_fields = {"status": status, "current_version_number": current_version_number}
+        if fields:
+            unknown = [f for f in fields if f not in all_fields]
+            if unknown:
+                raise ValueError(f"Unknown field(s) in --format: {', '.join(unknown)}")
+            payload = {f: all_fields[f] for f in fields}
+        else:
+            payload = all_fields
+        return json.dumps(payload)
+
+    def _split_dataset_string(self, dataset):
+        if dataset is None:
+            raise ValueError("A dataset must be specified")
+        if "/" in dataset:
+            self.validate_dataset_string(dataset)
+            owner_slug, dataset_slug = dataset.split("/", 1)
+        else:
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            dataset_slug = dataset
+        return owner_slug, dataset_slug
 
     def dataset_download_file(self, dataset, file_name, path=None, force=False, quiet=True, licenses=[]):
         """Download a single file for a dataset.
@@ -6525,3 +6572,30 @@ def attributes(obj):
 
 def print_attributes(obj):
     pprint(attributes(obj))
+
+
+def _parse_format(format_value):
+    """Parses a ``--format`` value modeled after gcloud.
+
+    Returns a tuple ``(format_name, fields)`` where ``fields`` is a list of
+    selected field names (empty when no projection was provided). Examples:
+
+    >>> _parse_format("json")
+    ('json', [])
+    >>> _parse_format("json(current_version_number)")
+    ('json', ['current_version_number'])
+    >>> _parse_format("json(status, current_version_number)")
+    ('json', ['status', 'current_version_number'])
+    """
+    if format_value is None:
+        return None, []
+    value = format_value.strip()
+    paren = value.find("(")
+    if paren == -1:
+        return value, []
+    if not value.endswith(")"):
+        raise ValueError(f"Malformed --format value: {format_value!r}")
+    name = value[:paren].strip()
+    inner = value[paren + 1 : -1]
+    fields = [f.strip() for f in inner.split(",") if f.strip()]
+    return name, fields
