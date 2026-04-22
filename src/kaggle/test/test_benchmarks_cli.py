@@ -3,7 +3,7 @@
 Organized by command (matching the spec):
   TestPush      – ``kaggle benchmarks tasks push <task> -f <file>``
   TestRun       – ``kaggle benchmarks tasks run <task> [-m ...] [--wait]``
-  TestList      – ``kaggle benchmarks tasks list [--regex] [--status]``
+  TestList      – ``kaggle benchmarks tasks list [--name-regex] [--status]``
   TestStatus    – ``kaggle benchmarks tasks status <task> [-m ...]``
   TestDownload  – ``kaggle benchmarks tasks download <task> [-m ...] [-o ...]``
   TestDelete    – ``kaggle benchmarks tasks delete <task> [-y]``
@@ -89,11 +89,12 @@ def _push(api, task, filepath):
     return jt
 
 
-def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00"):
+def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00", url=None):
     t = MagicMock()
     t.slug.task_slug = slug
     t.creation_state = state
     t.create_time = create_time
+    t.url = url if url is not None else f"/benchmarks/{slug}"
     return t
 
 
@@ -157,10 +158,26 @@ def _setup_available_models(api, slugs):
     api._mock_client.benchmarks.benchmarks_api_client.list_benchmark_models.return_value = resp
 
 
-def _setup_list_response(api, tasks):
-    resp = MagicMock()
-    resp.tasks = tasks
-    api._mock_benchmarks.list_benchmark_tasks.return_value = resp
+def _setup_list_response(api, tasks, paginated_responses=None):
+    """Set up list tasks response.
+
+    If *paginated_responses* is provided, it should be a list of
+    (tasks_list, next_page_token) tuples for multi-page scenarios.
+    Otherwise a single-page response is created from *tasks*.
+    """
+    if paginated_responses:
+        side_effects = []
+        for page_tasks, token in paginated_responses:
+            resp = MagicMock()
+            resp.tasks = page_tasks
+            resp.next_page_token = token
+            side_effects.append(resp)
+        api._mock_benchmarks.list_benchmark_tasks.side_effect = side_effects
+    else:
+        resp = MagicMock()
+        resp.tasks = tasks
+        resp.next_page_token = ""
+        api._mock_benchmarks.list_benchmark_tasks.return_value = resp
 
 
 def _setup_runs_response(api, runs, paginated_responses=None):
@@ -225,15 +242,15 @@ class TestPush:
     # -- Happy path --
 
     @pytest.mark.parametrize(
-        "content, task_name",
+        "content, task_name, expected_slug",
         [
-            ('@task(name="my-task")\ndef evaluate(): pass\n', "my-task"),
-            ("@task\ndef my_task(llm): pass\n", "My Task"),
-            ("@task\nasync def my_task(llm): pass\n", "My Task"),
+            ('@task(name="my-task")\ndef evaluate(): pass\n', "my-task", "my-task"),
+            ("@task\ndef my_task(llm): pass\n", "My Task", "my-task"),
+            ("@task\nasync def my_task(llm): pass\n", "My Task", "my-task"),
         ],
         ids=["explicit_name", "title_cased", "async_function"],
     )
-    def test_push_creates_task(self, api, tmp_path, capsys, content, task_name):
+    def test_push_creates_task(self, api, tmp_path, capsys, content, task_name, expected_slug):
         """Push converts .py -> ipynb via jupytext and creates the task."""
         filepath = _write_task_file(tmp_path, content)
         _setup_create_response(api, task_name)
@@ -245,11 +262,16 @@ class TestPush:
         jt.writes.assert_called_once()
         request = api._mock_benchmarks.create_benchmark_task.call_args[0][0]
         assert request.text == '{"cells": []}'
+        assert request.slug == expected_slug
 
-        output = capsys.readouterr().out
-        assert f"Task '{task_name}' pushed." in output
+        captured = capsys.readouterr()
+        output = captured.out
+        assert f"Task '{expected_slug}' pushed." in output
         assert "Task URL:" in output
-        assert "To run this task against models, use: kaggle b t run" in output
+        assert f"kaggle b t run {expected_slug}" in output
+        # When the original name differs from the slug, a normalization warning is printed to stderr.
+        if task_name != expected_slug:
+            assert f"normalized to slug '{expected_slug}'" in captured.err
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_push_creates_new_task_without_prompting(
@@ -306,6 +328,39 @@ class TestPush:
 
         with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
             _push(api, "my-task", filepath)
+
+    def test_push_wait_polls_until_completion(self, api, capsys, tmp_path):
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        
+        api._mock_benchmarks.get_benchmark_task.side_effect = [
+            _make_task(state=COMPLETED),
+            _make_task(state=QUEUED),
+            _make_task(state=COMPLETED),
+        ]
+        
+        with patch("time.sleep"):
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
+            
+        output = capsys.readouterr().out
+        assert "Waiting for task to be processed" in output
+        assert "Task 'my-task' creation completed." in output
+
+    def test_push_wait_times_out(self, api, capsys, tmp_path):
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        
+        api._mock_benchmarks.get_benchmark_task.side_effect = [
+            _make_task(state=COMPLETED),
+            _make_task(state=QUEUED),
+            _make_task(state=QUEUED),
+        ]
+        
+        with patch("time.sleep"), patch("time.time", side_effect=[1000, 1060]):
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=30)
+            
+        output = capsys.readouterr().out
+        assert "Timed out waiting for task creation after 30 seconds" in output
 
 
 # ============================================================
@@ -455,7 +510,7 @@ class TestRun:
 
 
 class TestList:
-    """``kaggle benchmarks tasks list [--regex <pattern>] [--status <status>]``"""
+    """``kaggle benchmarks tasks list [--name-regex <pattern>] [--status <status>]``"""
 
     def test_list_all(self, api, capsys):
         _setup_list_response(api, [_make_task()])
@@ -464,9 +519,9 @@ class TestList:
         assert "Task" in output
         assert "my-task" in output
 
-    def test_list_with_regex_filter(self, api, capsys):
+    def test_list_with_name_regex_filter(self, api, capsys):
         _setup_list_response(api, [_make_task(slug="math-task")])
-        api.benchmarks_tasks_list_cli(regex="math.*")
+        api.benchmarks_tasks_list_cli(name_regex="math.*")
         request = api._mock_benchmarks.list_benchmark_tasks.call_args[0][0]
         assert request.regex_filter == "math.*"
         assert "math-task" in capsys.readouterr().out
@@ -476,6 +531,21 @@ class TestList:
         api.benchmarks_tasks_list_cli(status="completed")
         request = api._mock_benchmarks.list_benchmark_tasks.call_args[0][0]
         assert request.status_filter == "completed"
+
+    def test_list_pagination(self, api, capsys):
+        """List fetches all pages of tasks."""
+        _setup_list_response(
+            api,
+            tasks=[],
+            paginated_responses=[
+                ([_make_task(slug="task-1")], "page2"),
+                ([_make_task(slug="task-2")], ""),
+            ],
+        )
+        api.benchmarks_tasks_list_cli()
+        output = capsys.readouterr().out
+        assert "task-1" in output
+        assert "task-2" in output
 
     def test_list_empty(self, api, capsys):
         """Empty task list still prints the header."""
@@ -511,6 +581,7 @@ class TestStatus:
         assert "Task:" in output
         assert "Status:" in output
         assert "Created:" in output
+        assert "Task URL:" in output
 
     def test_status_no_runs_message(self, api, capsys):
         """No runs -> helpful message with run command hint."""
@@ -536,14 +607,13 @@ class TestStatus:
         assert request.model_version_slugs == ["gemini-3", "gpt-5"]
 
     def test_status_run_table(self, api, capsys):
-        """Completed run renders with correct columns and URL."""
+        """Completed run renders with correct columns."""
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
         _setup_runs_response(api, [_make_run(model="gemini-pro", run_id=42)])
         api.benchmarks_tasks_status_cli("my-task")
         output = capsys.readouterr().out
         assert "gemini-pro" in output
-        assert "https://www.kaggle.com/benchmarks/runs/42" in output
-        assert "-" * 135 in output
+        assert "https://www.kaggle.com/benchmarks/runs/42" not in output
 
     def test_status_errored_run_shows_error_message(self, api, capsys):
         """ERRORED runs with error_message append ' | Error: ...'."""
@@ -719,6 +789,14 @@ class TestCliArgParsing:
                 {"task": "my-task", "file": "./task.py"},
             ),
             ("b t push my-task -f ./task.py", {"task": "my-task", "file": "./task.py"}),
+            (
+                "benchmarks tasks push my-task -f ./task.py --wait",
+                {"task": "my-task", "file": "./task.py", "wait": 0},
+            ),
+            (
+                "benchmarks tasks push my-task -f ./task.py --wait 60",
+                {"task": "my-task", "file": "./task.py", "wait": 60},
+            ),
             # run
             (
                 "benchmarks tasks run my-task",
@@ -738,12 +816,12 @@ class TestCliArgParsing:
             ),
             ("b t run my-task -m gemini-3", {"task": "my-task", "model": ["gemini-3"]}),
             # list
-            ("benchmarks tasks list", {"regex": None, "status": None}),
-            ("benchmarks tasks list --regex ^math", {"regex": "^math"}),
+            ("benchmarks tasks list", {"name_regex": None, "status": None}),
+            ("benchmarks tasks list --name-regex ^math", {"name_regex": "^math"}),
             ("benchmarks tasks list --status completed", {"status": "completed"}),
             (
-                "benchmarks tasks list --regex ^math --status errored",
-                {"regex": "^math", "status": "errored"},
+                "benchmarks tasks list --name-regex ^math --status errored",
+                {"name_regex": "^math", "status": "errored"},
             ),
             # status
             ("benchmarks tasks status my-task", {"task": "my-task", "model": None}),

@@ -1121,6 +1121,24 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_push_optional = parser_push._action_groups.pop()
     parser_push_optional.add_argument("task", help=Help.param_benchmarks_task)
     parser_push_optional.add_argument("-f", "--file", dest="file", required=True, help=Help.param_benchmarks_file)
+    parser_push_optional.add_argument(
+        "--wait",
+        dest="wait",
+        type=int,
+        nargs="?",
+        const=0,
+        default=None,
+        required=False,
+        help=Help.param_benchmarks_wait,
+    )
+    parser_push_optional.add_argument(
+        "--poll-interval",
+        dest="poll_interval",
+        type=int,
+        default=10,
+        required=False,
+        help=Help.param_benchmarks_poll_interval,
+    )
     parser_push._action_groups.append(parser_push_optional)
     parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
 
@@ -1159,7 +1177,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "list", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_list
     )
     parser_list_optional = parser_list._action_groups.pop()
-    parser_list_optional.add_argument("--regex", dest="regex", required=False, help=Help.param_benchmarks_regex)
+    parser_list_optional.add_argument("--name-regex", dest="name_regex", required=False, help=Help.param_benchmarks_name_regex)
     parser_list_optional.add_argument("--status", dest="status", required=False, help=Help.param_benchmarks_status)
     parser_list._action_groups.append(parser_list_optional)
     parser_list.set_defaults(func=api.benchmarks_tasks_list_cli)
@@ -1613,9 +1631,9 @@ class Help(object):
 
     # Benchmarks params
     param_benchmarks_env_file = "File to write environment variables to (default: .env)"
-    param_benchmarks_task = "Task name. Matches the name in @task(name='...') or the title-cased function name (e.g., 'my_task' becomes 'My Task')."
+    param_benchmarks_task = "Task name (normalized to a URL-safe slug, e.g. 'my_task' or 'My Task' becomes 'my-task')."
     param_benchmarks_file = "Path to the source Python file defining the task"
-    param_benchmarks_regex = "Filter task names by regular expression"
+    param_benchmarks_name_regex = "Filter task names by regular expression"
     param_benchmarks_model = "Model slug(s) to filter by or run against"
     param_benchmarks_wait = "Wait for runs to complete. Optionally specify a timeout in seconds (0 or omit value = wait indefinitely)"
     param_benchmarks_output = "Directory to download output files into"

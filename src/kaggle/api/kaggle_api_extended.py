@@ -5802,8 +5802,17 @@ class KaggleApi:
     }
 
     @staticmethod
+    def _normalize_task_name(task: str) -> str:
+        """Normalize a user-provided task name into a URL-safe slug.
+
+        Uses python-slugify so that "my_task", "My Task", and "my-task"
+        all resolve to "my-task".
+        """
+        return slugify(task)
+
+    @staticmethod
     def _make_task_slug(task: str) -> ApiBenchmarkTaskSlug:
-        """Build an ApiBenchmarkTaskSlug from a task name string."""
+        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string."""
         slug = ApiBenchmarkTaskSlug()
         slug.task_slug = task
         return slug
@@ -5827,6 +5836,51 @@ class KaggleApi:
             if not page_token:
                 break
         return items
+    @staticmethod
+    def _clean_enum_str(s: str) -> str:
+        """Remove long prefixes from enum strings for display."""
+        s = str(s)
+        s = s.replace("BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_", "")
+        s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
+        return s
+
+    @staticmethod
+    def _format_time(t) -> str:
+        """Format a timestamp to seconds precision for display."""
+        if hasattr(t, 'strftime'):
+            return t.strftime("%Y-%m-%d %H:%M:%S")
+        return str(t).split(".")[0] if t else ""
+    
+    @staticmethod
+    def _print_task_table(tasks):
+        """Print a list of benchmark tasks in a aligned table."""
+        max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
+        max_task_len = max(max_task_len, 40)
+        
+        print(f"{'Task':<{max_task_len}} {'Status':<20} {'Created':<20}")
+        print("-" * (max_task_len + 40))
+        for t in tasks:
+            print(f"{t.slug.task_slug:<{max_task_len}} {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}")
+
+    @staticmethod
+    def _print_run_table(runs):
+        """Print a list of benchmark task runs in an aligned table."""
+        model_col = max((len(r.model_version_slug) for r in runs), default=20)
+        model_col = max(model_col, 20)
+        time_col = 21
+        sep = model_col + 15 + time_col + time_col
+        print(f"{'Model':<{model_col}} {'Status':<15} {'Started':<{time_col}} {'Ended':<{time_col}}")
+        print("-" * sep)
+        for r in runs:
+            error_suffix = ""
+            if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
+                error_suffix = f" | Error: {r.error_message}"
+            print(
+                f"{r.model_version_slug:<{model_col}} {KaggleApi._clean_enum_str(r.state):<15} "
+                f"{KaggleApi._format_time(r.start_time):<{time_col}} {KaggleApi._format_time(r.end_time):<{time_col}}"
+                f"{error_suffix}"
+            )
+
 
     def _get_task_names_from_file(self, file_content: str) -> List[str]:
         """Extract task names from a Python file."""
@@ -5862,22 +5916,32 @@ class KaggleApi:
                         None,
                     )
 
-                task_names.append(name if name else node.name.title().replace("_", " "))
+                task_names.append(name or node.name.title().replace("_", " "))
 
         return task_names
 
     def _get_benchmark_task(self, task: str, kaggle):
-        """Get benchmark task details from the server."""
+        """Get benchmark task details from the server.
+
+        Args:
+            task: A pre-normalized task slug string.
+        """
         request = ApiGetBenchmarkTaskRequest()
         request.slug = self._make_task_slug(task)
         return kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task(request)
 
     def _validate_task_in_file(self, task: str, file: str, file_content: str):
-        """Validate that the task name is defined in the Python file."""
+        """Validate that the task name is defined in the Python file.
+
+        Comparison is done on slugified names so that "my_task", "My Task",
+        and "my-task" all match the same task.
+        """
         task_names = self._get_task_names_from_file(file_content)
         if not task_names:
             raise ValueError(f"No @task decorators found in file {file}. The file must define at least one task.")
-        if task not in task_names:
+        task_slug = self._normalize_task_name(task)
+        slugified_names = {self._normalize_task_name(n): n for n in task_names}
+        if task_slug not in slugified_names:
             raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
@@ -5910,7 +5974,7 @@ class KaggleApi:
 
         print(f"Environment variables have been written to {env_file}.")
 
-    def benchmarks_tasks_push_cli(self, task, file):
+    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10):
         if not os.path.isfile(file):
             raise ValueError(f"File {file} does not exist")
         if not file.endswith(".py"):
@@ -5920,6 +5984,12 @@ class KaggleApi:
             content = f.read()
 
         self._validate_task_in_file(task, file, content)
+
+        # Normalize the user-supplied task name into a URL-safe slug.
+        task_slug = self._normalize_task_name(task)
+        if task_slug != task:
+            print(f"\033[1mWarning: task name '{task}' was normalized to slug '{task_slug}'. "
+                  f"Use '{task_slug}' in future commands.\033[0m\n", file=sys.stderr)
 
         # Convert .py file with percent delimiters to .ipynb
         import jupytext
@@ -5935,27 +6005,30 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             try:
-                task_info = self._get_benchmark_task(task, kaggle)
+                task_info = self._get_benchmark_task(task_slug, kaggle)
                 if task_info.creation_state in self._PENDING_CREATION_STATES:
-                    raise ValueError(f"Task '{task}' is currently being created (pending). Cannot push now.")
+                    raise ValueError(f"Task '{task_slug}' is currently being created (pending). Cannot push now.")
             except HTTPError as e:
                 if e.response.status_code not in (403, 404):
                     raise
 
             request = ApiCreateBenchmarkTaskRequest()
-            request.slug = task
+            request.slug = task_slug
             request.text = notebook_content
 
             response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
             error = getattr(response, "error_message", None) or getattr(response, "errorMessage", None)
             if error:
                 raise ValueError(f"Failed to push task: {error}")
-            print(f"Task '{task}' pushed.")
+            print(f"Task '{task_slug}' pushed.")
             url = response.url
             if url.startswith("/"):
                 url = "https://www.kaggle.com" + url
-            print(f"Task URL: {url}")
-            print(f"To run this task against models, use: kaggle b t run {task}")
+            print(f"\033[1mTask URL: {url}\033[0m")
+            print(f"To run this task against models, use: kaggle b t run {task_slug}")
+            
+            if wait is not None:
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
 
     def _select_models_interactively(self, kaggle, page_size=20):
         """Prompt the user to pick benchmark models from a paginated list."""
@@ -6006,6 +6079,31 @@ class KaggleApi:
                     return [available[i - 1].version.slug for i in indices]
                 except (ValueError, IndexError):
                     raise ValueError(f"Invalid selection: {selection}")
+    def _poll_task_creation(self, kaggle, task, wait, poll_interval):
+        """Poll task creation status until terminal or timeout."""
+        print("Waiting for task to be processed...")
+        start_time = time.time()
+        while True:
+            task_info = self._get_benchmark_task(task, kaggle)
+            state = task_info.creation_state
+            
+            if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
+                print(f"Task '{task}' creation completed.")
+                return
+            elif state not in self._PENDING_CREATION_STATES:
+                error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
+                if hasattr(task_info, 'error_message') and task_info.error_message:
+                    error_msg += f" Error: {task_info.error_message}"
+                raise ValueError(error_msg)
+                
+            print(f"  Task status: {self._clean_enum_str(state)}...")
+            
+            if wait > 0 and (time.time() - start_time) > wait:
+                print(f"Timed out waiting for task creation after {wait} seconds.")
+                return
+                
+            time.sleep(poll_interval)
+
 
     def _poll_runs(self, kaggle, task_slug_obj, models, wait, poll_interval):
         """Poll run status until all runs are terminal or timeout."""
@@ -6046,6 +6144,7 @@ class KaggleApi:
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
         models = self._normalize_model_list(model)
+        task = self._normalize_task_name(task)
         task_slug_obj = self._make_task_slug(task)
 
         with self.build_kaggle_client() as kaggle:
@@ -6082,8 +6181,7 @@ class KaggleApi:
             
             if wait is None:
                 print(f"To check status later, use: kaggle b t status {task}")
-
-            if wait is not None:
+            else:
                 self._poll_runs(kaggle, task_slug_obj, models, wait, poll_interval)
 
 
@@ -6092,30 +6190,37 @@ class KaggleApi:
         BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED,
     }
 
-    def benchmarks_tasks_list_cli(self, regex=None, status=None):
+    def benchmarks_tasks_list_cli(self, name_regex=None, status=None):
         request = ApiListBenchmarkTasksRequest()
-        if regex:
-            request.regex_filter = regex
+        if name_regex:
+            request.regex_filter = name_regex
         if status:
             request.status_filter = status
         
+        all_tasks = []
         with self.build_kaggle_client() as kaggle:
-            # TODO: Add pagination support if ApiListBenchmarkTasksResponse starts supporting it in the SDK.
-            response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+            while True:
+                response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+                if response.tasks:
+                    all_tasks.extend(response.tasks)
+                if not response.next_page_token:
+                    break
+                request.page_token = response.next_page_token
             
-            tasks = response.tasks
-            
-            print(f"{'Task':<40} {'Status':<20} {'Created':<20}")
-            print("-" * 80)
-            for t in tasks:
-                print(f"{t.slug.task_slug:<40} {self.string(t.creation_state):<20} {self.string(t.create_time):<20}")
+            self._print_task_table(all_tasks)
 
     def benchmarks_tasks_status_cli(self, task, model=None):
+        task = self._normalize_task_name(task)
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
             print(f"Task:     {task_info.slug.task_slug}")
-            print(f"Status:   {task_info.creation_state}")
-            print(f"Created:  {task_info.create_time}")
+            print(f"Status:   {self._clean_enum_str(task_info.creation_state)}")
+            print(f"Created:  {self._format_time(task_info.create_time)}")
+            url = getattr(task_info, "url", None)
+            if url:
+                if url.startswith("/"):
+                    url = "https://www.kaggle.com" + url
+                print(f"\033[1mTask URL: {url}\033[0m")
 
             runs_request = ApiListBenchmarkTaskRunsRequest()
             runs_request.task_slug = self._make_task_slug(task)
@@ -6133,21 +6238,12 @@ class KaggleApi:
                 print(f"No runs yet. Use 'kaggle b t run {task}' to start one.")
                 return
 
-            print(f"{'Model':<20} {'Status':<15} {'Started':<25} {'Ended':<25} {'URL':<50}")
-            print("-" * 135)
-            for r in runs:
-                error_suffix = ""
-                if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
-                    error_suffix = f" | Error: {r.error_message}"
-                print(
-                    f"{r.model_version_slug:<20} {self.string(r.state):<15} "
-                    f"{self.string(r.start_time):<25} {self.string(r.end_time):<25} "
-                    f"https://www.kaggle.com/benchmarks/runs/{r.id}{error_suffix}"
-                )
+            self._print_run_table(runs)
 
 
 
     def benchmarks_tasks_download_cli(self, task, model=None, output=None):
+        task = self._normalize_task_name(task)
         output = output or os.path.join(".", task, "output")
 
         with self.build_kaggle_client() as kaggle:
@@ -6175,6 +6271,7 @@ class KaggleApi:
                 print(f"Downloaded output for {r.model_version_slug} to {outfile}")
 
     def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
+        # TODO: Normalize task name via _normalize_task_name(task) when server supports delete.
         print("Delete is not supported by the server yet.")
 
 
