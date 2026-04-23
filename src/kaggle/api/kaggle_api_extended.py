@@ -1175,7 +1175,11 @@ class KaggleApi:
 
     @staticmethod
     def build_kaggle_client_with_params(
-        args: List[str], username: Optional[str] = None, password: Optional[str] = None, api_token: Optional[str] = None, response_processor=None
+        args: List[str],
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        api_token: Optional[str] = None,
+        response_processor=None,
     ) -> kagglesdk.kaggle_client.KaggleClient:
         """Builds a Kaggle client with the given parameters.
 
@@ -1488,7 +1492,12 @@ class KaggleApi:
         try:
             if kernel:
                 submit_result = self.competition_submit_code(
-                    cast(str, file_name), cast(str, message), cast(str, competition), kernel, int(version) if version else None, quiet
+                    cast(str, file_name),
+                    cast(str, message),
+                    cast(str, competition),
+                    kernel,
+                    int(version) if version else None,
+                    quiet,
                 )
             else:
                 submit_result = self.competition_submit(
