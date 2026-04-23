@@ -5,15 +5,15 @@ Changelog
 
 ### 2.0.2
 
-Add `kaggle benchmarks auth` command (#976)
-Create Cloud Build script to run linter (#974)
-Add `kaggle kernels logs` CLI command (#966)
-Fix(benchmarks tasks push): handle 403  (#971)
-Fix: respect Retry-After header on HTTP 429 responses (#938) (#940)
-Update kagglesdk dependency version to 0.1.19 (#970)
-Support `dataset-cover-image.png` upload for `datasets metadata --update` (#969)
-Add CLI commands for simulation episodes and competition pages (#968)
-Feature(benchmarks): implement Kaggle client (push/run functionality) (#960)
+* Add `kaggle benchmarks auth` command (#976)
+* Create Cloud Build script to run linter (#974)
+* Add `kaggle kernels logs` CLI command (#966)
+* Fix(benchmarks tasks push): handle 403  (#971)
+* Fix: respect Retry-After header on HTTP 429 responses (#938) (#940)
+* Update kagglesdk dependency version to 0.1.19 (#970)
+* Support `dataset-cover-image.png` upload for `datasets metadata --update` (#969)
+* Add CLI commands for simulation episodes and competition pages (#968)
+* Feature(benchmarks): implement Kaggle client (push/run functionality) (#960)
 
 ### 2.0.1
 
