@@ -39,8 +39,7 @@ steps:
   id: lint
   args:
   - run
-  # TODO(b/505103886): Run lint:all once typing issues have been fixed.
-  - lint:style
+  - lint:all
   waitFor: ['build-hatch-image']
 
 images: ['us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder']

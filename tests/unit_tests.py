@@ -617,6 +617,7 @@ class TestKaggleApi(unittest.TestCase):
         if self.instance_metadata_file == "":
             self.test_model_instance_a_initialize()
         try:
+            assert self.model_meta_data is not None
             update_model_instance_metadata(
                 self.instance_metadata_file, test_user, self.model_meta_data["slug"], instance_name, framework_name
             )

@@ -66,6 +66,9 @@ dependencies = [
     # Pre-install `types-*` packages to speed up lint:typing command.
     "types-requests",
     "types-tqdm",
+    "types-python-slugify",
+    # Needed for the `typing` lint command to find the `pytest` types.
+    "pytest"
 ]
 
 [tool.hatch.envs.lint.scripts]
@@ -89,41 +92,11 @@ recursive = true
 target-version = ["py311"]
 line-length = 120
 
-[tool.mypy]
-strict = false
-show_error_codes = true
-follow_imports = 'silent'
-exclude = '''(?x)(
-    /src/
-)'''
-python_version = 3.11
-
-# Start off with these
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-
-# Getting these passing should be easy
-strict_equality = true
-extra_checks = true
-
-# Strongly recommend enabling this one as soon as you can
-check_untyped_defs = true
-
-# These shouldn't be too much additional work, but may be tricky to
-# get passing if you use a lot of untyped libraries
-disallow_subclassing_any = true
-disallow_untyped_decorators = true
-disallow_any_generics = true
-
-# These next few are various gradations of forcing use of type annotations
-disallow_incomplete_defs = true
-# TODO Enable these after GA.
-#disallow_untyped_calls = true # 167 errors reported a/o April 30, 2025
-#disallow_untyped_defs = true # 132
-
-# This one isn't too hard to get passing, but return on investment is lower
-no_implicit_reexport = true # 50
-
-# This one can be tricky to get passing if you use a lot of untyped libraries
-warn_return_any = true
+[[tool.mypy.overrides]]
+module = [
+    # TODO(b/505845982): Generate type hints for kagglesdk
+    "kagglesdk.*",
+    "kaggle_api_extended.*",
+    "jupytext.*"
+]
+ignore_missing_imports = true

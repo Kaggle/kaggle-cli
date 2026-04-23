@@ -48,7 +48,7 @@ def main() -> None:
 
     subparsers = parser.add_subparsers(title="commands", help=Help.kaggle, dest="command")
     subparsers.required = True
-    subparsers.choices = Help.kaggle_choices
+    subparsers.choices = Help.kaggle_choices  # type: ignore[assignment]
     parse_competitions(subparsers)
     parse_datasets(subparsers)
     parse_kernels(subparsers)

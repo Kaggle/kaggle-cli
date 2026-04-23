@@ -810,7 +810,7 @@ class KaggleApi:
             if item not in config_values:
                 raise ValueError("Error: Missing %s in configuration." % item)
         self.config_values = config_values
-        self.config_values[self.CONFIG_NAME_AUTH_METHOD] = AuthMethod.LEGACY_API_KEY
+        self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.LEGACY_API_KEY)
         self.logger.debug(f"Authenticated with legacy api key in: {self.config}")
         return True
 
@@ -827,7 +827,7 @@ class KaggleApi:
         self.config_values: Dict[str, str] = {
             self.CONFIG_NAME_TOKEN: access_token,
             self.CONFIG_NAME_USER: username,
-            self.CONFIG_NAME_AUTH_METHOD: AuthMethod.ACCESS_TOKEN,
+            self.CONFIG_NAME_AUTH_METHOD: str(AuthMethod.ACCESS_TOKEN),
         }
         self.logger.debug(f"Authenticated with access token in: {source}")
         return True
@@ -848,13 +848,13 @@ class KaggleApi:
             self.config_values: Dict[str, str] = {
                 self.CONFIG_NAME_TOKEN: access_token,
                 self.CONFIG_NAME_USER: creds.get_username(),
-                self.CONFIG_NAME_AUTH_METHOD: AuthMethod.OAUTH,
+                self.CONFIG_NAME_AUTH_METHOD: str(AuthMethod.OAUTH),
             }
             creds_path = os.path.expanduser(KaggleCredentials.DEFAULT_CREDENTIALS_FILE)
             self.logger.debug(f"Authenticated with OAuth credentials in: {creds_path}")
             return True
 
-    def _introspect_token(self, access_token: str) -> str:
+    def _introspect_token(self, access_token: str) -> Optional[str]:
         with self.build_kaggle_client() as kaggle:
             request = IntrospectTokenRequest()
             request.token = access_token
@@ -1110,7 +1110,7 @@ class KaggleApi:
             oAuth = KaggleOAuth(client=kaggle)
             oAuth.authenticate(scopes=default_scopes, no_launch_browser=no_launch_browser)
 
-    def auth_print_access_token(self, expiration_duration: str = None):
+    def auth_print_access_token(self, expiration_duration: Optional[str] = None):
         """Prints the current OAuth access token.
 
         If an expiration duration is provided, a new token will be generated with the specified
@@ -1137,7 +1137,7 @@ class KaggleApi:
 
     def _parse_duration(self, duration_str: str) -> relativedelta:
         try:
-            delta = relativedelta(**{duration_str[-1]: int(duration_str[:-1])})
+            delta = relativedelta(**{duration_str[-1]: int(duration_str[:-1])})  # type: ignore[arg-type]
             return delta
         except ValueError:
             raise ValueError("Invalid duration format. Please use one of the following formats: 1h, 30s, 2h30s, 2:30")
@@ -1175,7 +1175,7 @@ class KaggleApi:
 
     @staticmethod
     def build_kaggle_client_with_params(
-        args: List[str], username: str = None, password: str = None, api_token: str = None, response_processor=None
+        args: List[str], username: Optional[str] = None, password: Optional[str] = None, api_token: Optional[str] = None, response_processor=None
     ) -> kagglesdk.kaggle_client.KaggleClient:
         """Builds a Kaggle client with the given parameters.
 
@@ -1340,9 +1340,9 @@ class KaggleApi:
             page_size=page_size,
             page_token=page_token,
         )
-        if response.next_page_token:
+        if response is not None and response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
-        competitions = response.competitions
+        competitions = response.competitions if response is not None else None
         if competitions:
             if csv_display:
                 self.print_csv(competitions, self.competition_fields)
@@ -1489,7 +1489,7 @@ class KaggleApi:
         try:
             if kernel:
                 submit_result = self.competition_submit_code(
-                    cast(str, file_name), cast(str, message), cast(str, competition), kernel, version, quiet
+                    cast(str, file_name), cast(str, message), cast(str, competition), kernel, int(version) if version else None, quiet
                 )
             else:
                 submit_result = self.competition_submit(
@@ -2374,7 +2374,7 @@ class KaggleApi:
             owner_slug = dataset_urls[0]
             dataset_slug = dataset_urls[1]
         else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
             dataset_slug = dataset
 
         with self.build_kaggle_client() as kaggle:
@@ -2734,7 +2734,7 @@ class KaggleApi:
         """
 
         if not owner_slug:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
 
         if not no_confirm:
             if not self.confirmation(f"delete the dataset: {owner_slug}/{dataset_slug}"):
@@ -3717,7 +3717,7 @@ class KaggleApi:
             print("Source code downloaded to " + effective_path)
 
     def kernels_output(
-        self, kernel: str, path: str, file_pattern: str = None, force: bool = False, quiet: bool = True
+        self, kernel: str, path: str, file_pattern: Optional[str] = None, force: bool = False, quiet: bool = True
     ) -> Tuple[List[str], str]:
         """Retrieves the output for a specified kernel.
 
@@ -3895,7 +3895,7 @@ class KaggleApi:
             owner_slug = kernel_url_list[0]
             kernel_slug = kernel_url_list[1]
         else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
+            owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
             kernel_slug = kernel
 
         with self.build_kaggle_client() as kaggle:
@@ -5894,7 +5894,7 @@ class KaggleApi:
         """Extract task names from a Python file."""
         import ast
 
-        task_names = []
+        task_names: list[str] = []
         try:
             tree = ast.parse(file_content)
         except SyntaxError:
@@ -5924,7 +5924,7 @@ class KaggleApi:
                         None,
                     )
 
-                task_names.append(name or node.name.title().replace("_", " "))
+                task_names.append(str(name) if name else node.name.title().replace("_", " "))
 
         return task_names
 
