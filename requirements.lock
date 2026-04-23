@@ -26,7 +26,7 @@ jupyter-core==5.9.1
     # via nbformat
 jupytext==1.19.1
     # via kaggle (pyproject.toml)
-kagglesdk==0.1.18
+kagglesdk==0.1.20
     # via kaggle (pyproject.toml)
 markdown-it-py==4.0.0
     # via
