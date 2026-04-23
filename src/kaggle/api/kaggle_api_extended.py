@@ -1340,14 +1340,13 @@ class KaggleApi:
             page_size=page_size,
             page_token=page_token,
         )
-        if response is not None and response.next_page_token:
+        if response and response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
-        competitions = response.competitions if response is not None else None
-        if competitions:
+        if response and response.competitions:
             if csv_display:
-                self.print_csv(competitions, self.competition_fields)
+                self.print_csv(response.competitions, self.competition_fields)
             else:
-                self.print_table(competitions, self.competition_fields)
+                self.print_table(response.competitions, self.competition_fields)
         else:
             print("No competitions found")
 
