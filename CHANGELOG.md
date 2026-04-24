@@ -3,6 +3,14 @@ Changelog
 
 ### Next
 
+### 2.1.0
+
+* Add `kaggle benchmarks init` command (#981)
+* Fix mypy typing checks (#979)
+* feat: Implement kaggle benchmark client (#955)
+* Update default Python version in cicd CB config
+* Make a list (#978)
+
 ### 2.0.2
 
 * Add `kaggle benchmarks auth` command (#976)
