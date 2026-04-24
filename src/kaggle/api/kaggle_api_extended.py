@@ -2526,20 +2526,6 @@ class KaggleApi:
         if dataset is None:
             raise ValueError("A dataset must be specified")
 
-        if format is None:
-            selected_fields = None
-        else:
-            format_name, fields = _parse_format(format)
-            if format_name != "json":
-                raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
-            if fields:
-                unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
-                if unknown:
-                    raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
-                selected_fields = list(fields)
-            else:
-                selected_fields = list(self._DATASET_STATUS_FIELDS)
-
         if "/" in dataset:
             self.validate_dataset_string(dataset)
             dataset_urls = dataset.split("/")
@@ -2549,15 +2535,30 @@ class KaggleApi:
             owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
             dataset_slug = dataset
 
-        with self.build_kaggle_client() as kaggle:
-            if selected_fields is None:
+        # Default behavior: return only the status string for backward compat.
+        if format is None:
+            with self.build_kaggle_client() as kaggle:
                 request = ApiGetDatasetStatusRequest()
                 request.owner_slug = owner_slug
                 request.dataset_slug = dataset_slug
                 response = kaggle.datasets.dataset_api_client.get_dataset_status(request)
                 return response.status.name.lower()
 
-            payload = {}
+        # JSON format: parse fields and only call the APIs needed for them.
+        format_name, fields = _parse_format(format)
+        if format_name != "json":
+            raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
+        if fields:
+            unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
+            if unknown:
+                raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
+            selected_fields = list(fields)
+        else:
+            # No projection: return all fields in JSON.
+            selected_fields = list(self._DATASET_STATUS_FIELDS)
+
+        payload = {}
+        with self.build_kaggle_client() as kaggle:
             if "status" in selected_fields:
                 status_request = ApiGetDatasetStatusRequest()
                 status_request.owner_slug = owner_slug
