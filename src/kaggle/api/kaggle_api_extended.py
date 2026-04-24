@@ -652,8 +652,8 @@ class KaggleApi:
     valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
     valid_comment_sort_by = ["hot", "new", "old", "top"]
 
-    def __init__(self, enable_oauth: bool = False):
-        self.enable_oauth = enable_oauth
+    def __init__(self):
+        pass
 
     def _is_retriable(self, e: HTTPError) -> bool:
         if self._is_rate_limited(e):
@@ -771,20 +771,15 @@ class KaggleApi:
         Returns:
             None:
         """
-        if self.enable_oauth and self._authenticate_with_oauth_creds():
+        if self._authenticate_with_oauth_creds():
             return
         if self._authenticate_with_access_token():
             return
         if self._authenticate_with_legacy_apikey():
             return
-        if self.enable_oauth:
-            print("You must authenticate before you can call the Kaggle API.")
-            print('Please run "kaggle auth login" to log in.')
-        else:
-            print("You must authenticate before you can call the Kaggle API.")
-            print(
-                "Follow the instructions to authenticate at: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
-            )
+        print("You must authenticate before you can call the Kaggle API.")
+        print('Please run "kaggle auth login" to log in via OAuth')
+        print("Or use one of the alternate ways to authenticate: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication")
         exit(1)
 
     def _authenticate_with_legacy_apikey(self) -> bool:
