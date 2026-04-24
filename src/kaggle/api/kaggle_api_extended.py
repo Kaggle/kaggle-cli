@@ -776,7 +776,9 @@ class KaggleApi:
             return
         print("You must authenticate before you can call the Kaggle API.")
         print('Please run "kaggle auth login" to log in via OAuth')
-        print("Or use one of the alternate ways to authenticate: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication")
+        print(
+            "Or use one of the alternate ways to authenticate: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
+        )
         exit(1)
 
     def _authenticate_with_legacy_apikey(self) -> bool:
