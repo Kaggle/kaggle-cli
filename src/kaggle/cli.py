@@ -1091,6 +1091,7 @@ def parse_benchmarks(subparsers) -> None:
 
     parse_benchmark_tasks(subparsers_benchmarks)
     parse_benchmarks_auth(subparsers_benchmarks)
+    parse_benchmarks_init(subparsers_benchmarks)
 
 
 def parse_benchmarks_auth(subparsers) -> None:
@@ -1104,6 +1105,19 @@ def parse_benchmarks_auth(subparsers) -> None:
     )
     parser_auth._action_groups.append(parser_auth_optional)
     parser_auth.set_defaults(func=api.benchmarks_auth_cli)
+
+
+def parse_benchmarks_init(subparsers) -> None:
+    parser_init = subparsers.add_parser(
+        "init", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_init
+    )
+    parser_init_optional = parser_init._action_groups.pop()
+    parser_init_optional.add_argument("-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes)
+    parser_init_optional.add_argument(
+        "--env-file", dest="env_file", default=".env", help=Help.param_benchmarks_env_file
+    )
+    parser_init._action_groups.append(parser_init_optional)
+    parser_init.set_defaults(func=api.benchmarks_init_cli)
 
 
 def parse_benchmark_tasks(subparsers) -> None:
@@ -1342,7 +1356,7 @@ class Help(object):
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
-    benchmarks_choices = ["tasks", "t", "auth"]
+    benchmarks_choices = ["tasks", "t", "auth", "init"]
     benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "models", "delete"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
@@ -1426,6 +1440,7 @@ class Help(object):
 
     # Benchmarks commands
     command_benchmarks_auth = "Fetch and persist Model Proxy credential information"
+    command_benchmarks_init = "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
     command_benchmarks_tasks_push = "Create or update a task from a Python source file"
     command_benchmarks_tasks_run = "Run a task against model(s)"
 

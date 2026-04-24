@@ -6132,6 +6132,39 @@ class KaggleApi:
 
         print(f"Environment variables have been written to {env_file}.")
 
+    def benchmarks_init_cli(self, no_confirm=False, env_file=".env"):
+        env_file = os.path.abspath(env_file)
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateDefaultModelProxyTokenRequest()
+            response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
+
+        env_vars = {
+            "MODEL_PROXY_URL": response.base_uri,
+            "MODEL_PROXY_API_KEY": response.token,
+            "MODEL_PROXY_EXPIRY_TIME": response.expiry_time.isoformat() + "Z" if response.expiry_time else "",
+            "LLM_DEFAULT": "google/gemini-3-flash-preview",
+            "LLM_DEFAULT_EVAL": "google/gemini-3-flash-preview",
+            "LLMS_AVAILABLE": "google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview",
+        }
+
+        masked_api_key = "****************" + response.token[-4:] if len(response.token) > 4 else response.token
+        print(f"The following environment variables will be written to {env_file}:\n")
+        for key, value in env_vars.items():
+            display_value = masked_api_key if key == "MODEL_PROXY_API_KEY" else value
+            print(f"  {key}={display_value}")
+        print()
+
+        if not no_confirm:
+            if not self.confirmation(f"write these environment variables to {env_file}"):
+                return
+
+        with open(env_file, "a") as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+
+        print(f"Environment variables have been written to {env_file}.")
+
     def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10):
         if not os.path.isfile(file):
             raise ValueError(f"File {file} does not exist")

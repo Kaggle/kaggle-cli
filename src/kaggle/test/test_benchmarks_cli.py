@@ -864,6 +864,19 @@ class TestCliArgParsing:
         args = self._parse("benchmarks auth --env-file custom.env")
         assert args.env_file == "custom.env"
 
+    def test_parse_benchmarks_init(self):
+        args = self._parse("benchmarks init")
+        assert args.no_confirm is False
+        assert args.env_file == ".env"
+
+    def test_parse_benchmarks_init_yes(self):
+        args = self._parse("benchmarks init -y")
+        assert args.no_confirm is True
+
+    def test_parse_benchmarks_init_env_file(self):
+        args = self._parse("benchmarks init --env-file custom.env")
+        assert args.env_file == "custom.env"
+
 
 # ============================================================
 # Benchmarks Auth
@@ -945,3 +958,50 @@ class TestBenchmarksAuth:
         assert (tmp_path / "custom.env").exists()
         out = capsys.readouterr().out
         assert "custom.env" in out
+
+
+# ============================================================
+# Benchmarks Init
+# ============================================================
+
+
+class TestBenchmarksInit:
+    """Tests for ``kaggle benchmarks init``."""
+
+    def test_writes_all_vars(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file)
+        content = (tmp_path / ".env").read_text()
+        assert "MODEL_PROXY_URL=https://mp-staging.kaggle.net/models/openapi\n" in content
+        assert "MODEL_PROXY_API_KEY=kaggle-benchmarks:cool-token\n" in content
+        assert "MODEL_PROXY_EXPIRY_TIME=2026-04-17T12:00:00Z\n" in content
+        assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
+        assert "LLM_DEFAULT_EVAL=google/gemini-3-flash-preview\n" in content
+        assert "LLMS_AVAILABLE=google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview\n" in content
+        out = capsys.readouterr().out
+        assert "MODEL_PROXY_API_KEY=****************oken" in out
+        assert "LLM_DEFAULT=google/gemini-3-flash-preview" in out
+        assert "have been written to" in out
+
+    def test_aborted_on_no_confirm(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        with patch("builtins.input", return_value="no"):
+            api.benchmarks_init_cli(no_confirm=False, env_file=env_file)
+        assert not (tmp_path / ".env").exists()
+
+    def test_appends_to_existing_file(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = tmp_path / ".env"
+        env_file.write_text("EXISTING_VAR=hello\n")
+        api.benchmarks_init_cli(no_confirm=True, env_file=str(env_file))
+        content = env_file.read_text()
+        assert content.startswith("EXISTING_VAR=hello\n")
+        assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
