@@ -2504,17 +2504,42 @@ class KaggleApi:
         else:
             print("No files found")
 
-    def dataset_status(self, dataset: str) -> str:
+    _DATASET_STATUS_FIELDS = ("status", "current_version_number")
+
+    def dataset_status(self, dataset: str, format=None) -> str:
         """Gets the status of a dataset.
 
         Args:
             dataset (str): The string identifier of the dataset, in the format [owner]/[dataset-name].
+            format: optional output format. ``None`` (default) preserves the
+                original behavior and returns the status string. A value of
+                ``"json"`` returns a JSON-encoded object with both ``status``
+                and ``current_version_number``. ``gcloud``-style field
+                selection is supported, e.g. ``"json(current_version_number)"``
+                or ``"json(status,current_version_number)"``; only the APIs
+                required to populate the requested fields are called.
 
         Returns:
-            str: The status of the dataset.
+            str: The status of the dataset, or a JSON-encoded payload when a
+            ``format`` is requested.
         """
         if dataset is None:
             raise ValueError("A dataset must be specified")
+
+        if format is None:
+            selected_fields = None
+        else:
+            format_name, fields = _parse_format(format)
+            if format_name != "json":
+                raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
+            if fields:
+                unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
+                if unknown:
+                    raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
+                selected_fields = list(fields)
+            else:
+                selected_fields = list(self._DATASET_STATUS_FIELDS)
+
         if "/" in dataset:
             self.validate_dataset_string(dataset)
             dataset_urls = dataset.split("/")
@@ -2525,11 +2550,28 @@ class KaggleApi:
             dataset_slug = dataset
 
         with self.build_kaggle_client() as kaggle:
-            request = ApiGetDatasetStatusRequest()
-            request.owner_slug = owner_slug
-            request.dataset_slug = dataset_slug
-            response = kaggle.datasets.dataset_api_client.get_dataset_status(request)
-            return response.status.name.lower()
+            if selected_fields is None:
+                request = ApiGetDatasetStatusRequest()
+                request.owner_slug = owner_slug
+                request.dataset_slug = dataset_slug
+                response = kaggle.datasets.dataset_api_client.get_dataset_status(request)
+                return response.status.name.lower()
+
+            payload = {}
+            if "status" in selected_fields:
+                status_request = ApiGetDatasetStatusRequest()
+                status_request.owner_slug = owner_slug
+                status_request.dataset_slug = dataset_slug
+                status_response = kaggle.datasets.dataset_api_client.get_dataset_status(status_request)
+                payload["status"] = status_response.status.name.lower()
+            if "current_version_number" in selected_fields:
+                dataset_request = ApiGetDatasetRequest()
+                dataset_request.owner_slug = owner_slug
+                dataset_request.dataset_slug = dataset_slug
+                dataset_response = kaggle.datasets.dataset_api_client.get_dataset(dataset_request)
+                payload["current_version_number"] = dataset_response.current_version_number
+
+        return json.dumps({field: payload[field] for field in selected_fields})
 
     def dataset_status_cli(self, dataset, dataset_opt=None, format=None):
         """A wrapper for client for dataset_status, with additional dataset_opt to
@@ -2537,55 +2579,13 @@ class KaggleApi:
 
         Args:
             dataset_opt: an alternative to dataset
-            format: optional output format. ``None`` (default) preserves the
-                original text output containing only the status string. A value
-                of ``"json"`` returns a JSON object with both ``status`` and
-                ``current_version_number``. ``gcloud``-style field selection is
-                also supported, e.g. ``"json(current_version_number)"`` or
-                ``"json(status,current_version_number)"``.
+            format: see :meth:`dataset_status`. ``None`` (default) keeps the
+                historic plain-text output containing only the status string;
+                pass ``"json"`` (optionally with field selection) to receive a
+                JSON payload.
         """
         dataset = dataset or dataset_opt
-        if format is None:
-            return self.dataset_status(dataset)
-
-        format_name, fields = _parse_format(format)
-        if format_name != "json":
-            raise ValueError(f"Unsupported --format value: {format!r}. Supported formats: json")
-
-        owner_slug, dataset_slug = self._split_dataset_string(dataset)
-        with self.build_kaggle_client() as kaggle:
-            status_request = ApiGetDatasetStatusRequest()
-            status_request.owner_slug = owner_slug
-            status_request.dataset_slug = dataset_slug
-            status_response = kaggle.datasets.dataset_api_client.get_dataset_status(status_request)
-            status = status_response.status.name.lower()
-
-            dataset_request = ApiGetDatasetRequest()
-            dataset_request.owner_slug = owner_slug
-            dataset_request.dataset_slug = dataset_slug
-            dataset_response = kaggle.datasets.dataset_api_client.get_dataset(dataset_request)
-            current_version_number = dataset_response.current_version_number
-
-        all_fields = {"status": status, "current_version_number": current_version_number}
-        if fields:
-            unknown = [f for f in fields if f not in all_fields]
-            if unknown:
-                raise ValueError(f"Unknown field(s) in --format: {', '.join(unknown)}")
-            payload = {f: all_fields[f] for f in fields}
-        else:
-            payload = all_fields
-        return json.dumps(payload)
-
-    def _split_dataset_string(self, dataset):
-        if dataset is None:
-            raise ValueError("A dataset must be specified")
-        if "/" in dataset:
-            self.validate_dataset_string(dataset)
-            owner_slug, dataset_slug = dataset.split("/", 1)
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-            dataset_slug = dataset
-        return owner_slug, dataset_slug
+        return self.dataset_status(dataset, format=format)
 
     def dataset_download_file(self, dataset, file_name, path=None, force=False, quiet=True, licenses=[]):
         """Download a single file for a dataset.
