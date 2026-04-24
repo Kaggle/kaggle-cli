@@ -93,6 +93,14 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiGetEpisodeAgentLogsRequest,
     ApiListCompetitionPagesRequest,
     ApiListCompetitionPagesResponse,
+    ApiListCompetitionTopicsRequest,
+    ApiListCompetitionTopicsResponse,
+    ApiListTopicMessagesRequest,
+    ApiListTopicMessagesResponse,
+)
+from kagglesdk.discussions.types.discussions_enums import (
+    CommentListSortBy,
+    TopicListSortBy,
 )
 from kagglesdk.competitions.types.competition_enums import (
     CompetitionListTab,
@@ -639,6 +647,10 @@ class KaggleApi:
     episode_fields = ["id", "createTime", "endTime", "state", "type"]
     episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
     competition_page_fields = ["name"]
+    competition_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
+    competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
+    valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
+    valid_comment_sort_by = ["hot", "new", "old", "top"]
 
     def __init__(self, enable_oauth: bool = False):
         self.enable_oauth = enable_oauth
@@ -1985,6 +1997,132 @@ class KaggleApi:
                 self.print_table(pages, fields)
         else:
             print("No pages found")
+
+    def competition_list_topics(self, competition: str, sort_by: Optional[str] = None, page: Optional[int] = None):
+        """List discussion topics for a competition.
+
+        Args:
+            competition (str): The competition name.
+            sort_by (Optional[str]): Sort order; one of valid_topic_sort_by.
+            page (Optional[int]): Page number (1-based).
+
+        Returns:
+            ApiListCompetitionTopicsResponse: response with topics and total_count.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListCompetitionTopicsRequest()
+            request.competition_name = competition
+            if sort_by:
+                if sort_by not in self.valid_topic_sort_by:
+                    raise ValueError("Invalid sort_by specified. Valid options are " + str(self.valid_topic_sort_by))
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page is not None:
+                request.page = page
+            return kaggle.competitions.competition_api_client.list_competition_topics(request)
+
+    def competition_list_topics_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        sort_by=None,
+        page=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_list_topics."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+
+        if competition is None:
+            raise ValueError("No competition specified")
+
+        response = self.competition_list_topics(competition, sort_by=sort_by, page=page)
+        topics = response.topics
+        if topics:
+            fields = self.competition_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+        else:
+            print("No topics found")
+
+    def competition_list_topic_messages(
+        self,
+        competition: str,
+        topic_id: int,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+    ):
+        """List messages within a competition discussion topic.
+
+        Args:
+            competition (str): The competition name.
+            topic_id (int): The topic id.
+            sort_by (Optional[str]): Sort order; one of valid_comment_sort_by.
+            page_size (Optional[int]): Max top-level messages to return; -1 for all.
+
+        Returns:
+            ApiListTopicMessagesResponse: response with the messages tree.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListTopicMessagesRequest()
+            request.competition_name = competition
+            request.topic_id = topic_id
+            if sort_by:
+                if sort_by not in self.valid_comment_sort_by:
+                    raise ValueError("Invalid sort_by specified. Valid options are " + str(self.valid_comment_sort_by))
+                request.sort_by = CommentListSortBy["COMMENT_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            return kaggle.competitions.competition_api_client.list_topic_messages(request)
+
+    def competition_list_topic_messages_cli(
+        self,
+        competition=None,
+        topic_id=None,
+        competition_opt=None,
+        sort_by=None,
+        page_size=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_list_topic_messages."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+
+        if competition is None:
+            raise ValueError("No competition specified")
+        if topic_id is None:
+            raise ValueError("No topic_id specified")
+
+        response = self.competition_list_topic_messages(
+            competition, int(topic_id), sort_by=sort_by, page_size=page_size
+        )
+        messages = self._flatten_topic_messages(response.messages)
+        if messages:
+            fields = self.competition_topic_message_fields
+            if csv_display:
+                self.print_csv(messages, fields)
+            else:
+                self.print_table(messages, fields)
+        else:
+            print("No messages found")
+
+    def _flatten_topic_messages(self, messages, depth=0):
+        """Flatten the nested replies tree into a single list, preserving order."""
+        flat = []
+        for m in messages or []:
+            flat.append(m)
+            if getattr(m, "replies", None):
+                flat.extend(self._flatten_topic_messages(m.replies, depth + 1))
+        return flat
 
     def dataset_list(
         self,

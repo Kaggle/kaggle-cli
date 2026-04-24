@@ -416,6 +416,39 @@ class TestKaggleApi(unittest.TestCase):
             if os.path.exists("tmp"):
                 os.rmdir("tmp")
 
+    def test_competition_i_topics(self):
+        try:
+            response = api.competition_list_topics(competition)
+            self.assertTrue(hasattr(response, "topics"))
+            self.assertTrue(hasattr(response, "total_count"))
+            topics = response.topics
+            self.assertIsInstance(topics, list)
+            self.assertGreaterEqual(response.total_count, 0)
+            if topics:
+                [self.assertTrue(hasattr(topics[0], api.camel_to_snake(f))) for f in api.competition_topic_fields]
+                self.competition_topic_id = topics[0].id
+            else:
+                self.competition_topic_id = None
+        except ApiException as e:
+            self.fail(f"competition_list_topics failed: {e}")
+
+    def test_competition_j_topic_messages(self):
+        if not getattr(self, "competition_topic_id", None):
+            self.test_competition_i_topics()
+        if not getattr(self, "competition_topic_id", None):
+            self.skipTest("No topics available to fetch messages from")
+        try:
+            response = api.competition_list_topic_messages(competition, self.competition_topic_id)
+            self.assertTrue(hasattr(response, "messages"))
+            self.assertIsInstance(response.messages, list)
+            if response.messages:
+                [
+                    self.assertTrue(hasattr(response.messages[0], api.camel_to_snake(f)))
+                    for f in api.competition_topic_message_fields
+                ]
+        except ApiException as e:
+            self.fail(f"competition_list_topic_messages failed: {e}")
+
     # Datasets
 
     def test_dataset_a_list(self):

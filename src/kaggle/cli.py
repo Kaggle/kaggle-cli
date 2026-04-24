@@ -359,6 +359,76 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages._action_groups.append(parser_competitions_pages_optional)
     parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
 
+    # Competitions list discussion topics
+    parser_competitions_topics = subparsers_competitions.add_parser(
+        "topics", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_topics
+    )
+    parser_competitions_topics_optional = parser_competitions_topics._action_groups.pop()
+    parser_competitions_topics_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_topics_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_topics_optional.add_argument(
+        "-s",
+        "--sort-by",
+        dest="sort_by",
+        required=False,
+        help="Sort order. One of: " + ", ".join(KaggleApi.valid_topic_sort_by),
+    )
+    parser_competitions_topics_optional.add_argument(
+        "-p", "--page", dest="page", type=int, required=False, help="Page number (1-based)"
+    )
+    parser_competitions_topics_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_topics_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_topics._action_groups.append(parser_competitions_topics_optional)
+    parser_competitions_topics.set_defaults(func=api.competition_list_topics_cli)
+
+    # Competitions list messages within a topic
+    parser_competitions_topic_messages = subparsers_competitions.add_parser(
+        "topic-messages",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_topic_messages,
+    )
+    parser_competitions_topic_messages_optional = parser_competitions_topic_messages._action_groups.pop()
+    parser_competitions_topic_messages_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_topic_messages_optional.add_argument(
+        "topic_id", nargs="?", default=None, type=int, help="The discussion topic id"
+    )
+    parser_competitions_topic_messages_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_topic_messages_optional.add_argument(
+        "-s",
+        "--sort-by",
+        dest="sort_by",
+        required=False,
+        help="Sort order. One of: " + ", ".join(KaggleApi.valid_comment_sort_by),
+    )
+    parser_competitions_topic_messages_optional.add_argument(
+        "-n",
+        "--page-size",
+        dest="page_size",
+        type=int,
+        required=False,
+        help="Max top-level messages to return; -1 for all",
+    )
+    parser_competitions_topic_messages_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_topic_messages_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_topic_messages._action_groups.append(parser_competitions_topic_messages_optional)
+    parser_competitions_topic_messages.set_defaults(func=api.competition_list_topic_messages_cli)
+
 
 def parse_datasets(subparsers) -> None:
     parser_datasets = subparsers.add_parser(
@@ -1335,6 +1405,8 @@ class Help(object):
         "replay",
         "logs",
         "pages",
+        "topics",
+        "topic-messages",
     ]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
     kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "logs", "update", "delete"]
@@ -1392,6 +1464,8 @@ class Help(object):
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
     command_competitions_pages = "List pages for a competition"
+    command_competitions_topics = "List discussion topics for a competition"
+    command_competitions_topic_messages = "List messages within a competition discussion topic"
 
     # Datasets commands
     command_datasets_list = "List available datasets"
