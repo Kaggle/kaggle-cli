@@ -2579,10 +2579,11 @@ class KaggleApi:
 
         Args:
             dataset_opt: an alternative to dataset
-            format: see :meth:`dataset_status`. ``None`` (default) keeps the
-                historic plain-text output containing only the status string;
-                pass ``"json"`` (optionally with field selection) to receive a
-                JSON payload.
+            format: optional output format forwarded to ``dataset_status``.
+                ``None`` (default) keeps the historic plain-text output
+                containing only the status string; pass ``"json"`` (optionally
+                with field selection like ``"json(current_version_number)"``)
+                to receive a JSON payload.
         """
         dataset = dataset or dataset_opt
         return self.dataset_status(dataset, format=format)
