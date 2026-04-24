@@ -20,17 +20,25 @@ First, you will need a Kaggle account. You can sign up [here](https://www.kaggle
 
 After login, you can download your Kaggle API credentials at https://www.kaggle.com/settings by clicking on the "Generate New Token" button under the "API" section.
 
-### Option 1: Environment variable
+### Option 1: OAuth
+
+Obtains access credentials for your Kaggle user accounts via a web-based authrorization flow.
+
+```sh
+kaggle auth login
+```
+
+### Option 2: Environment variable
 
 ```sh
 export KAGGLE_API_TOKEN=xxxxxxxxxxxxxx # Copied from the settings UI
 ```
 
-### Option 2: API token file
+### Option 3: API token file
 
 Store your Kaggle API token obtained from your [Kaggle account settings page](https://www.kaggle.com/settings) in a file at `~/.kaggle/access_token`.
 
-### Option 3: Legacy API credentials file
+### Option 4: Legacy API credentials file
 
 From your [Kaggle account settings page](https://www.kaggle.com/settings), under "Legacy API Credentials", click on the "Create Legacy API Key" button to generate a `kaggle.json` file and store it at `~/.kaggle/kaggle.json`.
 
