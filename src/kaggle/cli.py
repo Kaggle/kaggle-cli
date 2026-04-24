@@ -1440,7 +1440,9 @@ class Help(object):
 
     # Benchmarks commands
     command_benchmarks_auth = "Fetch and persist Model Proxy credential information"
-    command_benchmarks_init = "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
+    command_benchmarks_init = (
+        "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
+    )
     command_benchmarks_tasks_push = "Create or update a task from a Python source file"
     command_benchmarks_tasks_run = "Run a task against model(s)"
 
