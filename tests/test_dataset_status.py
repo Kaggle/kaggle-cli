@@ -87,9 +87,7 @@ class TestDatasetStatus(unittest.TestCase):
         mock_build.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_build.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = self.api.dataset_status_cli(
-            "owner/dataset-name", format="json(current_version_number)"
-        )
+        result = self.api.dataset_status_cli("owner/dataset-name", format="json(current_version_number)")
 
         self.assertEqual(json.loads(result), {"current_version_number": 7})
         # Field selection should skip the unrelated API call.
@@ -102,9 +100,7 @@ class TestDatasetStatus(unittest.TestCase):
         mock_build.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_build.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = self.api.dataset_status_cli(
-            "owner/dataset-name", format="json(status)"
-        )
+        result = self.api.dataset_status_cli("owner/dataset-name", format="json(status)")
 
         self.assertEqual(json.loads(result), {"status": "ready"})
         mock_kaggle.datasets.dataset_api_client.get_dataset.assert_not_called()
@@ -116,13 +112,9 @@ class TestDatasetStatus(unittest.TestCase):
         mock_build.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_build.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = self.api.dataset_status_cli(
-            "owner/dataset-name", format="json(status, current_version_number)"
-        )
+        result = self.api.dataset_status_cli("owner/dataset-name", format="json(status, current_version_number)")
 
-        self.assertEqual(
-            json.loads(result), {"status": "ready", "current_version_number": 2}
-        )
+        self.assertEqual(json.loads(result), {"status": "ready", "current_version_number": 2})
 
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_dataset_status_cli_unknown_format_raises(self, mock_build):
