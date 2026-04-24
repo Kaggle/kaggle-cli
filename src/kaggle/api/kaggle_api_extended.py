@@ -652,9 +652,6 @@ class KaggleApi:
     valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
     valid_comment_sort_by = ["hot", "new", "old", "top"]
 
-    def __init__(self):
-        pass
-
     def _is_retriable(self, e: HTTPError) -> bool:
         if self._is_rate_limited(e):
             return True
