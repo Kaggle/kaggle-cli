@@ -3199,8 +3199,6 @@ class KaggleApi:
         if not os.path.exists(outpath):
             os.makedirs(outpath)
 
-
-
         # Get file metadata
         size, is_chunked = self._extract_content_length(response)
 
