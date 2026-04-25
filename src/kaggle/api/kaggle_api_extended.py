@@ -3164,8 +3164,8 @@ class KaggleApi:
         """
         content_length = response.headers.get("Content-Length")
         transfer_encoding = response.headers.get("Transfer-Encoding")
-        is_chunked = False
         # default
+        is_chunked = False
         size = 0
 
         if content_length is not None:
@@ -3176,7 +3176,6 @@ class KaggleApi:
         if transfer_encoding == 'chunked':
             size = 0
             is_chunked = True
-
 
         return size, is_chunked
 
