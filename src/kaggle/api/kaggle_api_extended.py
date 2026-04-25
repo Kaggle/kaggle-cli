@@ -3203,8 +3203,6 @@ class KaggleApi:
 
 
         # Get file metadata
-        import ipdb
-        ipdb.set_trace()
         size, is_chunked = self._prepare_content_length(response)
 
         last_modified = response.headers.get("Last-Modified")
