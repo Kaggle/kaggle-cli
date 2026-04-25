@@ -3154,6 +3154,32 @@ class KaggleApi:
         else:
             print("Dataset creation error: " + result.error)
 
+
+    @staticmethod
+    def _prepare_content_length(response):
+        """Extract the content length of a response.
+
+        Args:
+            response: The response for which to look up the content length.
+        """
+        content_length = response.headers.get("Content-Length")
+        transfer_encoding = response.headers.get("Transfer-Encoding")
+        is_chunked = False
+        # default
+        size = 0
+
+        if content_length is not None:
+            size = int(content_length)
+
+        # Per RFC 7230, chunked encoding implies unknown content length.
+        # We return 0 here to allow the stream to proceed.
+        if transfer_encoding == 'chunked':
+            size = 0
+            is_chunked = True
+
+
+        return size, is_chunked
+
     def download_file(
         self, response, outfile, http_client, quiet=True, resume=False, chunk_size=1048576, max_retries=5, timeout=300
     ):
@@ -3174,8 +3200,13 @@ class KaggleApi:
         if not os.path.exists(outpath):
             os.makedirs(outpath)
 
+
+
         # Get file metadata
-        size = int(response.headers["Content-Length"])
+        import ipdb
+        ipdb.set_trace()
+        size, is_chunked = self._prepare_content_length(response)
+
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
             remote_date = datetime.now()
@@ -3268,7 +3299,7 @@ class KaggleApi:
 
                 # Verify file size
                 final_size = os.path.getsize(outfile)
-                if final_size != size:
+                if final_size != size and not is_chunked:
                     error_msg = f"Downloaded file size ({final_size}) does not match expected size ({size})"
                     if not quiet:
                         print(f"\n{error_msg}")
