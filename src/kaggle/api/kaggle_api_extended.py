@@ -3156,8 +3156,8 @@ class KaggleApi:
 
 
     @staticmethod
-    def _prepare_content_length(response):
-        """Extract the content length of a response.
+    def _extract_content_length(response):
+        """Extract the content length and determine if the content is chunked from a response.
 
         Args:
             response: The response for which to look up the content length.
@@ -3202,7 +3202,7 @@ class KaggleApi:
 
 
         # Get file metadata
-        size, is_chunked = self._prepare_content_length(response)
+        size, is_chunked = self._extract_content_length(response)
 
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
