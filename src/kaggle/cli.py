@@ -1209,11 +1209,15 @@ def parse_benchmark_tasks(subparsers) -> None:
 
     # push
     parser_push = subparsers_tasks.add_parser(
-        "push", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_push
+        "push",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_benchmarks_tasks_push,
+        usage="%(prog)s [-h] task -f FILE [--wait [WAIT]] [--poll-interval POLL_INTERVAL]",
     )
     parser_push_optional = parser_push._action_groups.pop()
-    parser_push_optional.add_argument("task", help=Help.param_benchmarks_task)
-    parser_push_optional.add_argument("-f", "--file", dest="file", required=True, help=Help.param_benchmarks_file)
+    parser_push_required = parser_push.add_argument_group("required arguments")
+    parser_push_required.add_argument("task", help=Help.param_benchmarks_task)
+    parser_push_required.add_argument("-f", "--file", dest="file", required=True, help=Help.param_benchmarks_file)
     parser_push_optional.add_argument(
         "--wait",
         dest="wait",
@@ -1237,10 +1241,14 @@ def parse_benchmark_tasks(subparsers) -> None:
 
     # run
     parser_run = subparsers_tasks.add_parser(
-        "run", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_run
+        "run",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_benchmarks_tasks_run,
+        usage="%(prog)s [-h] task [-m MODEL [MODEL ...]] [--wait [WAIT]] [--poll-interval POLL_INTERVAL]",
     )
     parser_run_optional = parser_run._action_groups.pop()
-    parser_run_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_run_required = parser_run.add_argument_group("required arguments")
+    parser_run_required.add_argument("task", help=Help.param_benchmarks_task)
     parser_run_optional.add_argument(
         "-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model
     )

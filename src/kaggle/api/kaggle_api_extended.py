@@ -6255,6 +6255,7 @@ class KaggleApi:
 
                 name = None
                 if isinstance(decorator, ast.Call):
+                    # Check keyword: @task(name="...")
                     name = next(
                         (
                             k.value.value
@@ -6263,6 +6264,13 @@ class KaggleApi:
                         ),
                         None,
                     )
+                    # Check first positional arg: @task("...")
+                    if (
+                        name is None
+                        and decorator.args
+                        and isinstance(decorator.args[0], ast.Constant)
+                    ):
+                        name = decorator.args[0].value
 
                 task_names.append(str(name) if name else node.name.title().replace("_", " "))
 
@@ -6325,7 +6333,13 @@ class KaggleApi:
         if models:
             model_set = set(models)
             runs = [
-                r for r in runs if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
+                r for r in runs if r.model_version_slug in model_set
+                or r.model_version_slug.split("/")[-1] in model_set
+                # TODO(dolaameng): Remove this fallback once the server returns
+                # BenchmarkModelVersion.Slug (e.g. "claude-sonnet-4-6-default")
+                # instead of ModelProxySlug (e.g. "anthropic/claude-sonnet-4-6@default")
+                # in ApiBenchmarkTaskRun.model_version_slug.
+                or r.model_version_slug.split("/")[-1].replace("@", "-") in model_set
             ]
 
         return runs
@@ -6557,7 +6571,9 @@ class KaggleApi:
             print(f"\033[1mTask URL: {url}\033[0m")
             print(f"To run this task against models, use: kaggle b t run {task_slug}")
 
-            if wait is not None:
+            if wait is None:
+                print(f"To check creation status, use: kaggle b t status {task_slug}")
+            else:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):

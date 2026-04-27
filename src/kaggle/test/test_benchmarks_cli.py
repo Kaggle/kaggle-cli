@@ -1071,3 +1071,68 @@ class TestBenchmarksInit:
         content = env_file.read_text()
         assert content.startswith("EXISTING_VAR=hello\n")
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
+
+
+# ============================================================
+# Task Name Detection
+# ============================================================
+
+
+class TestGetTaskNamesFromFile:
+    """Tests for ``_get_task_names_from_file`` static method."""
+
+    @pytest.mark.parametrize(
+        "source, expected",
+        [
+            # keyword arg
+            ('@task(name="My Task")\ndef evaluate(): pass\n', ["My Task"]),
+            # positional arg
+            ('@task("My Task")\ndef evaluate(): pass\n', ["My Task"]),
+            # no name — falls back to function name
+            ("@task()\ndef my_eval(): pass\n", ["My Eval"]),
+            # bare decorator (no parens)
+            ("@task\ndef my_eval(): pass\n", ["My Eval"]),
+            # module-qualified: benchmarks.task
+            ('@benchmarks.task(name="Qualified")\ndef f(): pass\n', ["Qualified"]),
+            # module-qualified positional
+            ('@benchmarks.task("Qualified")\ndef f(): pass\n', ["Qualified"]),
+            # async function
+            ('@task(name="Async")\nasync def evaluate(): pass\n', ["Async"]),
+            # non-constant name expression — falls back to function name
+            ("@task(name=TASK_NAME)\ndef my_task(): pass\n", ["My Task"]),
+            # non-constant positional arg — falls back to function name
+            ("@task(TASK_NAME)\ndef my_task(): pass\n", ["My Task"]),
+            # multiple tasks in one file
+            (
+                '@task("First")\ndef a(): pass\n\n@task(name="Second")\ndef b(): pass\n',
+                ["First", "Second"],
+            ),
+            # syntax error → empty list
+            ("def broken(\n", []),
+            # no decorators at all
+            ("def plain(): pass\n", []),
+            # unrelated decorator
+            ("@other_decorator\ndef f(): pass\n", []),
+            # keyword takes priority when both name= and positional could exist
+            # (not valid Python for task(), but tests the keyword-first logic)
+            ('@task("Pos", name="Kw")\ndef f(): pass\n', ["Kw"]),
+        ],
+        ids=[
+            "keyword_name",
+            "positional_name",
+            "no_name_parens",
+            "bare_decorator",
+            "module_qualified_keyword",
+            "module_qualified_positional",
+            "async_function",
+            "non_constant_keyword",
+            "non_constant_positional",
+            "multiple_tasks",
+            "syntax_error",
+            "no_decorators",
+            "unrelated_decorator",
+            "keyword_over_positional",
+        ],
+    )
+    def test_task_name_detection(self, source, expected):
+        assert KaggleApi._get_task_names_from_file(source) == expected
