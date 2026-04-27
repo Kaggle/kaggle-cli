@@ -18,7 +18,7 @@ If you run into a `Command kaggle not found` error, ensure that your Python exec
 
 First, you will need a Kaggle account. You can sign up [here](https://www.kaggle.com/account/login).
 
-After login, you can download your Kaggle API credentials at https://www.kaggle.com/settings by clicking on the "Generate New Token" button under the "API" section.
+After login, you can download your Kaggle API credentials at https://www.kaggle.com/settings/api by clicking on the "Generate New Token" button under the "API" section.
 
 ### Option 1: OAuth
 
@@ -36,11 +36,11 @@ export KAGGLE_API_TOKEN=xxxxxxxxxxxxxx # Copied from the settings UI
 
 ### Option 3: API token file
 
-Store your Kaggle API token obtained from your [Kaggle account settings page](https://www.kaggle.com/settings) in a file at `~/.kaggle/access_token`.
+Store your Kaggle API token obtained from your [Kaggle account API tokens settings page](https://www.kaggle.com/settings/api) in a file at `~/.kaggle/access_token`.
 
 ### Option 4: Legacy API credentials file
 
-From your [Kaggle account settings page](https://www.kaggle.com/settings), under "Legacy API Credentials", click on the "Create Legacy API Key" button to generate a `kaggle.json` file and store it at `~/.kaggle/kaggle.json`.
+From your [Kaggle account API tokens settings page](https://www.kaggle.com/settings/api), under "Legacy API Credentials", click on the "Create Legacy API Key" button to generate a `kaggle.json` file and store it at `~/.kaggle/kaggle.json`.
 
 ## CLI Usage
 
