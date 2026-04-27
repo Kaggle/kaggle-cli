@@ -768,11 +768,11 @@ class KaggleApi:
         Returns:
             None:
         """
-        if self._authenticate_with_oauth_creds():
-            return
         if self._authenticate_with_access_token():
             return
         if self._authenticate_with_legacy_apikey():
+            return
+        if self._authenticate_with_oauth_creds():
             return
         print("You must authenticate before you can call the Kaggle API.")
         print('Please run "kaggle auth login" to log in via OAuth')
