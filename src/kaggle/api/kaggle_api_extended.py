@@ -5942,13 +5942,15 @@ class KaggleApi:
     def sanitize_markdown(self, markdown: str) -> str:
         return bleach.clean(markdown)
 
-    def confirmation(self, action: str = ""):
+    def confirmation(self, action: str = "", default_to_yes: bool = False):
         if len(action):
             question = f"Are you sure you want to {action}?"
         else:
             question = "Are you sure?"
-        prompt = "[yes/no]"
+        prompt = "[Y/n]" if default_to_yes else "[yes/no]"
         options = {"yes": True, "y": True, "no": False, "n": False}
+        if default_to_yes:
+            options[""] = True
         while True:
             sys.stdout.write("{} {} ".format(question, prompt))
             choice = input().lower()
@@ -6302,10 +6304,11 @@ class KaggleApi:
         print()
 
         if not no_confirm:
-            if not self.confirmation(f"write these environment variables to {env_file}"):
+            if not self.confirmation(f"write these environment variables to {env_file}", default_to_yes=True):
                 return
 
         with open(env_file, "a") as f:
+            f.write("\n")
             for key, value in env_vars.items():
                 f.write(f"{key}={value}\n")
 
