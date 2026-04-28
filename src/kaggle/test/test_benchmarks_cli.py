@@ -973,7 +973,8 @@ class TestBenchmarksInit:
             _make_token_response()
         )
         env_file = str(tmp_path / ".env")
-        api.benchmarks_init_cli(no_confirm=True, env_file=env_file)
+        example_file = str(tmp_path / "example_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
         content = (tmp_path / ".env").read_text()
         assert "MODEL_PROXY_URL=https://mp-staging.kaggle.net/models/openapi\n" in content
         assert "MODEL_PROXY_API_KEY=kaggle-benchmarks:cool-token\n" in content
@@ -986,13 +987,77 @@ class TestBenchmarksInit:
         assert "LLM_DEFAULT=google/gemini-3-flash-preview" in out
         assert "have been written to" in out
 
+    def test_writes_example_file(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        example_file = str(tmp_path / "example_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
+        content = (tmp_path / "example_task.py").read_text()
+        assert "import kaggle_benchmarks as kbench" in content
+        assert "kaggle_benchmarks_reference.md" in content
+        out = capsys.readouterr().out
+        assert "Example benchmark task file has been written to" in out
+
+    def test_writes_reference_file(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        example_file = str(tmp_path / "example_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
+        ref_file = tmp_path / "kaggle_benchmarks_reference.md"
+        assert ref_file.exists()
+        content = ref_file.read_text()
+        assert "kaggle-benchmarks Task Syntax Reference" in content
+        out = capsys.readouterr().out
+        assert "Syntax reference has been written to" in out
+        assert "@kaggle_benchmarks_reference.md" in out
+
+    def test_skips_reference_file_if_exists(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        ref_file = tmp_path / "kaggle_benchmarks_reference.md"
+        ref_file.write_text("existing content\n")
+        env_file = str(tmp_path / ".env")
+        example_file = str(tmp_path / "example_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=str(example_file))
+        assert ref_file.read_text() == "existing content\n"
+        out = capsys.readouterr().out
+        assert "Reference file already exists" in out
+
+    def test_skips_example_file_if_exists(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        example_file = tmp_path / "example_task.py"
+        example_file.write_text("existing content\n")
+        env_file = str(tmp_path / ".env")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=str(example_file))
+        assert example_file.read_text() == "existing content\n"
+        out = capsys.readouterr().out
+        assert "already exists" in out
+
+    def test_custom_example_file(self, api, capsys, tmp_path):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
+            _make_token_response()
+        )
+        env_file = str(tmp_path / ".env")
+        example_file = str(tmp_path / "my_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
+        content = (tmp_path / "my_task.py").read_text()
+        assert "import kaggle_benchmarks as kbench" in content
+
     def test_aborted_on_no_confirm(self, api, capsys, tmp_path):
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
             _make_token_response()
         )
         env_file = str(tmp_path / ".env")
+        example_file = str(tmp_path / "example_task.py")
         with patch("builtins.input", return_value="no"):
-            api.benchmarks_init_cli(no_confirm=False, env_file=env_file)
+            api.benchmarks_init_cli(no_confirm=False, env_file=env_file, example_file=example_file)
         assert not (tmp_path / ".env").exists()
 
     def test_appends_to_existing_file(self, api, capsys, tmp_path):
@@ -1001,7 +1066,8 @@ class TestBenchmarksInit:
         )
         env_file = tmp_path / ".env"
         env_file.write_text("EXISTING_VAR=hello\n")
-        api.benchmarks_init_cli(no_confirm=True, env_file=str(env_file))
+        example_file = str(tmp_path / "example_task.py")
+        api.benchmarks_init_cli(no_confirm=True, env_file=str(env_file), example_file=example_file)
         content = env_file.read_text()
         assert content.startswith("EXISTING_VAR=hello\n")
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content

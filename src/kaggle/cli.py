@@ -1192,6 +1192,9 @@ def parse_benchmarks_init(subparsers) -> None:
     parser_init_optional.add_argument(
         "--env-file", dest="env_file", default=".env", help=Help.param_benchmarks_env_file
     )
+    parser_init_optional.add_argument(
+        "--example-file", dest="example_file", default="example_task.py", help=Help.param_benchmarks_example_file
+    )
     parser_init._action_groups.append(parser_init_optional)
     parser_init.set_defaults(func=api.benchmarks_init_cli)
 
@@ -1750,6 +1753,7 @@ class Help(object):
 
     # Benchmarks params
     param_benchmarks_env_file = "File to write environment variables to (default: .env)"
+    param_benchmarks_example_file = "File to write the example benchmark task to (default: example_task.py)"
     param_benchmarks_task = "Task name (normalized to a URL-safe slug, e.g. 'my_task' or 'My Task' becomes 'my-task')."
     param_benchmarks_file = "Path to the source Python file defining the task"
     param_benchmarks_name_regex = "Filter task names by regular expression"
