@@ -6491,19 +6491,14 @@ class KaggleApi:
                 for r in all_runs:
                     print(f"  {self._short_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
 
-                errored = [
-                    r for r in all_runs
-                    if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED
-                ]
+                errored = [r for r in all_runs if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED]
                 if errored:
                     details = []
                     for r in errored:
                         slug = self._short_model_slug(r.model_version_slug)
                         msg = r.error_message.strip() if r.error_message else "No error message"
                         details.append(f"  [{slug}]\n    {msg}")
-                    raise ValueError(
-                        f"{len(errored)} run(s) failed:\n" + "\n".join(details)
-                    )
+                    raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
                 return
 
             pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
