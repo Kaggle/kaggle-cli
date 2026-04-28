@@ -11,7 +11,9 @@ Organized by command (matching the spec):
 """
 
 import argparse
+import io
 import os
+import zipfile
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -654,33 +656,38 @@ class TestStatus:
 class TestDownload:
     """``kaggle benchmarks tasks download <task> [-m <model> ...] [-o <dir>]``"""
 
-    def test_download_to_specific_output(self, api, capsys):
-        _setup_runs_response(api, [_make_run()])
+    def _mock_download(self, api):
+        """Mock download_file, zipfile.ZipFile, and os.remove for download tests."""
         api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
-        api.benchmarks_tasks_download_cli("my-task", output="my_output_dir")
+
+    def test_download_to_specific_output(self, api, capsys):
+        _setup_runs_response(api, [_make_run()])
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", output="my_output_dir")
         output = capsys.readouterr().out
         assert "Downloading output for run" in output
         assert "Downloaded output for gemini-pro to" in output
         assert "my_output_dir" in output
 
     def test_download_default_output_path(self, api, capsys):
-        """Default output directory is ./<task>/output."""
+        """Default output directory is ./<task>/output; download_file gets .zip path."""
         _setup_runs_response(api, [_make_run(run_id=1)])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
-        api.download_file = MagicMock()
-        api.benchmarks_tasks_download_cli("my-task")
-        # Check the outfile passed to download_file
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task")
+        # download_file receives the .zip path
         call_args = api.download_file.call_args
-        outfile = call_args[0][1]
-        expected = os.path.join(".", "my-task", "output", "gemini-pro_1")
-        assert outfile == expected
+        zippath = call_args[0][1]
+        expected = os.path.join(".", "my-task", "output", "gemini-pro_1.zip")
+        assert zippath == expected
 
     def test_download_with_model_filter(self, api, capsys):
         _setup_runs_response(api, [_make_run()])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
-        api.download_file = MagicMock()
-        api.benchmarks_tasks_download_cli("my-task", model="gemini-pro")
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", model="gemini-pro")
         request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro"]
 
@@ -694,9 +701,9 @@ class TestDownload:
                 _make_run(model="done-model", state=RUN_COMPLETED, run_id=3),
             ],
         )
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
-        api.download_file = MagicMock()
-        api.benchmarks_tasks_download_cli("my-task")
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task")
         # Only the completed run should be downloaded
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
         output = capsys.readouterr().out
@@ -707,9 +714,9 @@ class TestDownload:
     def test_download_includes_errored_runs(self, api, capsys):
         """ERRORED runs are also downloadable per spec."""
         _setup_runs_response(api, [_make_run(state=RUN_ERRORED)])
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
-        api.download_file = MagicMock()
-        api.benchmarks_tasks_download_cli("my-task")
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task")
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
 
     def test_download_pagination(self, api, capsys):
@@ -722,10 +729,100 @@ class TestDownload:
                 ([_make_run(model="gemini-2", run_id=2)], ""),
             ],
         )
-        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
-        api.download_file = MagicMock()
-        api.benchmarks_tasks_download_cli("my-task")
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task")
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 2
+
+    def test_download_extracts_zip_and_cleans_up(self, api, capsys, tmp_path):
+        """Download extracts zip into a directory and removes the zip file."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
+
+        outdir = str(tmp_path / "out")
+        zip_path = os.path.join(outdir, "gemini-pro_42.zip")
+
+        # Make download_file create a real zip so extraction works
+        def fake_download(response, outfile, http_client, quiet=False):
+            os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as zf:
+                zf.writestr("output.txt", "hello world")
+            with open(outfile, "wb") as f:
+                f.write(buf.getvalue())
+
+        api.download_file = MagicMock(side_effect=fake_download)
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir)
+
+        # Verify extraction happened
+        extracted_dir = os.path.join(outdir, "gemini-pro_42")
+        assert os.path.isdir(extracted_dir)
+        assert os.path.isfile(os.path.join(extracted_dir, "output.txt"))
+        with open(os.path.join(extracted_dir, "output.txt")) as f:
+            assert f.read() == "hello world"
+        # Verify zip was cleaned up
+        assert not os.path.exists(zip_path)
+
+
+# ============================================================
+# download_file (Content-Length handling)
+# ============================================================
+
+
+class TestDownloadFile:
+    """Tests for ``download_file`` handling of Content-Length header."""
+
+    def _make_response(self, content=b"test data", headers=None, url="http://example.com/file"):
+        """Build a mock requests.Response-like object."""
+        resp = MagicMock()
+        default_headers = {"Last-Modified": "Mon, 01 Jan 2024 00:00:00 GMT"}
+        if headers:
+            default_headers.update(headers)
+        resp.headers = default_headers
+        resp.url = url
+        resp.request.method = "GET"
+        resp.request.headers = {}
+        resp.iter_content = MagicMock(return_value=iter([content]))
+        # Make type().__name__ return something other than "HTTPResponse"
+        type(resp).__name__ = "Response"
+        return resp
+
+    def test_download_file_with_content_length(self, api, tmp_path):
+        """Normal download with Content-Length header works and verifies size."""
+        content = b"hello world"
+        resp = self._make_response(
+            content=content,
+            headers={"Content-Length": str(len(content))},
+        )
+        outfile = str(tmp_path / "out" / "test.txt")
+        api.download_file(resp, outfile, MagicMock(), quiet=True)
+        assert os.path.isfile(outfile)
+        with open(outfile, "rb") as f:
+            assert f.read() == content
+
+    def test_download_file_missing_content_length(self, api, tmp_path):
+        """Chunked response (no Content-Length) downloads without crashing."""
+        content = b"chunked data"
+        resp = self._make_response(
+            content=content,
+            headers={"Transfer-Encoding": "chunked"},
+        )
+        outfile = str(tmp_path / "out" / "chunked.bin")
+        api.download_file(resp, outfile, MagicMock(), quiet=True)
+        assert os.path.isfile(outfile)
+        with open(outfile, "rb") as f:
+            assert f.read() == content
+
+    def test_download_file_missing_content_length_skips_size_check(self, api, tmp_path):
+        """When Content-Length is absent, size verification is skipped (no ValueError)."""
+        content = b"data"
+        resp = self._make_response(content=content)
+        # No Content-Length in headers at all
+        outfile = str(tmp_path / "out" / "nosize.bin")
+        api.download_file(resp, outfile, MagicMock(), quiet=True)
+        # Should succeed without ValueError about size mismatch
+        assert os.path.isfile(outfile)
 
 
 # ============================================================

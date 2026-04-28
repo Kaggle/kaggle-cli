@@ -3321,7 +3321,8 @@ class KaggleApi:
             os.makedirs(outpath)
 
         # Get file metadata
-        size = int(response.headers["Content-Length"])
+        content_length = response.headers.get("Content-Length")
+        size = int(content_length) if content_length is not None else None
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
             remote_date = datetime.now()
@@ -3352,18 +3353,22 @@ class KaggleApi:
                     size_read = os.path.getsize(outfile) if file_exists else 0
                     open_mode = "ab"
 
-                    if size_read >= size:
+                    if size is not None and size_read >= size:
                         if not quiet:
                             print("File already downloaded completely.")
                         return
 
                     if not quiet:
+                        if size is not None:
+                            remaining = f" ({size - size_read} bytes left)"
+                        else:
+                            remaining = ""
                         if retry_count > 0:
                             print(
-                                f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes ({size - size_read} bytes left)..."
+                                f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes{remaining}..."
                             )
                         else:
-                            print(f"Resuming from {size_read} bytes ({size - size_read} bytes left)...")
+                            print(f"Resuming from {size_read} bytes{remaining}...")
 
                     # Request with Range header for resume, preserving authentication
                     retry_headers = original_headers.copy()
@@ -3412,13 +3417,14 @@ class KaggleApi:
 
                 os.utime(outfile, times=(remote_date_timestamp, remote_date_timestamp))
 
-                # Verify file size
-                final_size = os.path.getsize(outfile)
-                if final_size != size:
-                    error_msg = f"Downloaded file size ({final_size}) does not match expected size ({size})"
-                    if not quiet:
-                        print(f"\n{error_msg}")
-                    raise ValueError(error_msg)
+                # Verify file size (only when Content-Length was provided)
+                if size is not None:
+                    final_size = os.path.getsize(outfile)
+                    if final_size != size:
+                        error_msg = f"Downloaded file size ({final_size}) does not match expected size ({size})"
+                        if not quiet:
+                            print(f"\n{error_msg}")
+                        raise ValueError(error_msg)
 
                 # Success - exit retry loop
                 break
@@ -6680,9 +6686,14 @@ class KaggleApi:
                 slug = self._short_model_slug(r.model_version_slug)
                 print(f"Downloading output for run {r.id} ({slug})...")
                 response = kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output(dl_request)
-                outfile = os.path.join(output, f"{slug}_{r.id}")
-                self.download_file(response, outfile, kaggle.http_client(), quiet=False)
-                print(f"Downloaded output for {slug} to {outfile}")
+                outdir = os.path.join(output, f"{slug}_{r.id}")
+                zipfile_path = outdir + ".zip"
+                self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
+                # Extract the zip archive into the output directory
+                with zipfile.ZipFile(zipfile_path, "r") as zf:
+                    zf.extractall(outdir)
+                os.remove(zipfile_path)
+                print(f"Downloaded output for {slug} to {outdir}")
 
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""
