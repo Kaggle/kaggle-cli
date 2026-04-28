@@ -41,7 +41,7 @@ This command fetches a short-lived Model Proxy API key and URL from Kaggle and a
 
 ## `kaggle benchmarks init`
 
-Fetches Model Proxy credentials **and** additional default environment variables useful for local benchmark development.
+Fetches Model Proxy credentials **and** additional default environment variables useful for local benchmark development. Also generates a starter example task file and a syntax reference document.
 
 **Usage:**
 
@@ -53,14 +53,21 @@ kaggle benchmarks init [options]
 
 *   `-y, --yes`: Automatically confirm without prompting.
 *   `--env-file <FILE>`: File to write environment variables to (default: `.env`).
+*   `--example-file <FILE>`: File to write the example benchmark task to (default: `example_task.py`).
 
-**Example:**
+**Examples:**
 
-Initialize a `.env` file with all benchmark environment variables:
+1.  Initialize with defaults (writes `.env`, `example_task.py`, and `kaggle_benchmarks_reference.md`):
 
-```bash
-kaggle b init -y --env-file my_project/.env
-```
+    ```bash
+    kaggle b init -y
+    ```
+
+2.  Initialize with a custom env file and example file:
+
+    ```bash
+    kaggle b init -y --env-file my_project/.env --example-file my_project/my_task.py
+    ```
 
 **Purpose:**
 
@@ -69,6 +76,13 @@ In addition to the three credential variables written by `auth`, `init` also wri
 *   `LLM_DEFAULT` — Default model slug for tasks.
 *   `LLM_DEFAULT_EVAL` — Default model slug for evaluation.
 *   `LLMS_AVAILABLE` — Comma-separated list of available model slugs.
+
+`init` also creates two files alongside the example file:
+
+*   **`example_task.py`** (or custom name via `--example-file`) — A starter Python script demonstrating how to define a benchmark task using `@task` decorators and the `kaggle_benchmarks` library.
+*   **`kaggle_benchmarks_reference.md`** — A syntax reference document for the `kaggle-benchmarks` task API.
+
+If either file already exists, it is skipped without overwriting.
 
 ---
 

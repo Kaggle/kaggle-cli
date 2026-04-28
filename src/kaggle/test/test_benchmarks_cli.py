@@ -1135,6 +1135,7 @@ class TestCliArgParsing:
         args = self._parse("benchmarks init")
         assert args.no_confirm is False
         assert args.env_file == ".env"
+        assert args.example_file == "example_task.py"
 
     def test_parse_benchmarks_init_yes(self):
         args = self._parse("benchmarks init -y")
@@ -1143,6 +1144,10 @@ class TestCliArgParsing:
     def test_parse_benchmarks_init_env_file(self):
         args = self._parse("benchmarks init --env-file custom.env")
         assert args.env_file == "custom.env"
+
+    def test_parse_benchmarks_init_example_file(self):
+        args = self._parse("benchmarks init --example-file my_task.py")
+        assert args.example_file == "my_task.py"
 
 
 # ============================================================
@@ -1256,7 +1261,7 @@ class TestBenchmarksInit:
         assert "kaggle-benchmarks Task Syntax Reference" in content
         out = capsys.readouterr().out
         assert "Syntax reference has been written to" in out
-        assert "@kaggle_benchmarks_reference.md" in out
+        assert "kaggle_benchmarks_reference.md" in out
 
     def test_skips_reference_file_if_exists(self, api, mock_token, capsys, tmp_path):
         ref_file = tmp_path / "kaggle_benchmarks_reference.md"
