@@ -631,7 +631,7 @@ class KaggleApi:
 
     # Attributes
     competition_fields = ["ref", "deadline", "category", "reward", "teamCount", "userHasEntered"]
-    submission_fields = ["fileName", "date", "description", "status", "publicScore", "privateScore"]
+    submission_fields = ["ref", "fileName", "date", "description", "status", "publicScore", "privateScore"]
     competition_file_fields = ["name", "totalBytes", "creationDate"]
     competition_file_labels = ["name", "size", "creationDate"]
     competition_leaderboard_fields = ["teamId", "teamName", "submissionDate", "score"]
