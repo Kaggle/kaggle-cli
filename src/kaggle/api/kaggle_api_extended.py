@@ -6684,9 +6684,18 @@ class KaggleApi:
                 outdir = os.path.join(output, f"{slug}_{r.id}")
                 zipfile_path = outdir + ".zip"
                 self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
-                # Extract the zip archive into the output directory
-                with zipfile.ZipFile(zipfile_path, "r") as zf:
-                    zf.extractall(outdir)
+                # Extract the zip archive into the output directory.
+                # Note: extractall() is safe here because the zip originates from
+                # the trusted Kaggle server, not user-supplied input (zip-slip).
+                try:
+                    with zipfile.ZipFile(zipfile_path, "r") as zf:
+                        zf.extractall(outdir)
+                except zipfile.BadZipFile:
+                    print(
+                        f"Warning: Downloaded file for {slug} (run {r.id}) is not a valid zip archive. "
+                        f"The raw file has been kept at {zipfile_path}."
+                    )
+                    continue
                 os.remove(zipfile_path)
                 print(f"Downloaded output for {slug} to {outdir}")
 

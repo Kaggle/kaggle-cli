@@ -764,6 +764,70 @@ class TestDownload:
         # Verify zip was cleaned up
         assert not os.path.exists(zip_path)
 
+    def test_download_model_slug_at_sign_fallback(self, api, capsys):
+        """Model filter matches proxy-style slugs via @→- replacement.
+
+        The server may return ``model_version_slug`` in the proxy format
+        (e.g. ``anthropic/claude-sonnet-4-6@default``) while the user filters
+        by the display slug (``claude-sonnet-4-6-default``).  The client-side
+        fallback in ``_fetch_task_runs`` should still include such runs.
+        """
+        _setup_runs_response(
+            api,
+            [_make_run(model="anthropic/claude-sonnet-4-6@default", run_id=10)],
+        )
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", model="claude-sonnet-4-6-default")
+        # The run should NOT have been filtered out
+        assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
+
+    def test_download_bad_zip_keeps_file_and_continues(self, api, capsys, tmp_path):
+        """Corrupt zip prints a warning, keeps the raw file, and continues."""
+        _setup_runs_response(
+            api,
+            [
+                _make_run(model="bad-model", run_id=10),
+                _make_run(model="good-model", run_id=11),
+            ],
+        )
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
+
+        outdir = str(tmp_path / "out")
+
+        call_count = 0
+
+        def fake_download(response, outfile, http_client, quiet=False):
+            nonlocal call_count
+            os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            call_count += 1
+            if call_count == 1:
+                # First download: write garbage (not a valid zip)
+                with open(outfile, "wb") as f:
+                    f.write(b"this is not a zip")
+            else:
+                # Second download: write a valid zip
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w") as zf:
+                    zf.writestr("result.txt", "ok")
+                with open(outfile, "wb") as f:
+                    f.write(buf.getvalue())
+
+        api.download_file = MagicMock(side_effect=fake_download)
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir)
+
+        output = capsys.readouterr().out
+        # Bad zip: warning printed, raw file kept
+        assert "not a valid zip archive" in output
+        bad_zip_path = os.path.join(outdir, "bad-model_10.zip")
+        assert os.path.isfile(bad_zip_path)
+        # Good zip: extracted successfully
+        good_dir = os.path.join(outdir, "good-model_11")
+        assert os.path.isdir(good_dir)
+        assert os.path.isfile(os.path.join(good_dir, "result.txt"))
+        assert "Downloaded output for good-model to" in output
+
 
 # ============================================================
 # download_file (Content-Length handling)
