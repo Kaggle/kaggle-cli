@@ -3364,9 +3364,7 @@ class KaggleApi:
                         else:
                             remaining = ""
                         if retry_count > 0:
-                            print(
-                                f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes{remaining}..."
-                            )
+                            print(f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes{remaining}...")
                         else:
                             print(f"Resuming from {size_read} bytes{remaining}...")
 
@@ -6271,11 +6269,7 @@ class KaggleApi:
                         None,
                     )
                     # Check first positional arg: @task("...")
-                    if (
-                        name is None
-                        and decorator.args
-                        and isinstance(decorator.args[0], ast.Constant)
-                    ):
+                    if name is None and decorator.args and isinstance(decorator.args[0], ast.Constant):
                         name = decorator.args[0].value
 
                 task_names.append(str(name) if name else node.name.title().replace("_", " "))
@@ -6339,8 +6333,9 @@ class KaggleApi:
         if models:
             model_set = set(models)
             runs = [
-                r for r in runs if r.model_version_slug in model_set
-                or r.model_version_slug.split("/")[-1] in model_set
+                r
+                for r in runs
+                if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
                 # TODO(dolaameng): Remove this fallback once the server returns
                 # BenchmarkModelVersion.Slug (e.g. "claude-sonnet-4-6-default")
                 # instead of ModelProxySlug (e.g. "anthropic/claude-sonnet-4-6@default")
