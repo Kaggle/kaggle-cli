@@ -6578,8 +6578,7 @@ class KaggleApi:
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",
                 "LLM_DEFAULT_EVAL": "google/gemini-3-flash-preview",
-                "LLMS_AVAILABLE": "google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview",
-            }
+                "LLMS_AVAILABLE": "anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5"            }
         )
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
         self._write_benchmarks_example(example_file)
