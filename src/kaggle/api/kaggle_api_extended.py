@@ -6222,16 +6222,23 @@ class KaggleApi:
         sep = model_col + 15 + time_col + time_col
         print(f"{'Model':<{model_col}} {'Status':<15} {'Started':<{time_col}} {'Ended':<{time_col}}")
         print("-" * sep)
+        errors = []
         for r in runs:
-            error_suffix = ""
-            if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
-                error_suffix = f" | Error: {r.error_message}"
             slug = KaggleApi._short_model_slug(r.model_version_slug)
             print(
                 f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state):<15} "
                 f"{KaggleApi._format_time(r.start_time):<{time_col}} {KaggleApi._format_time(r.end_time):<{time_col}}"
-                f"{error_suffix}"
             )
+            if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
+                errors.append((slug, r.error_message))
+
+        if errors:
+            print()
+            print(f"\033[1;31mErrors:\033[0m")
+            for slug, msg in errors:
+                print(f"\033[1;31m  [{slug}]\033[0m")
+                for line in msg.strip().splitlines():
+                    print(f"\033[31m    {line}\033[0m")
 
     @staticmethod
     def _strip_ipython_magics(source: str) -> str:
@@ -6323,7 +6330,7 @@ class KaggleApi:
         task_slug = slugify(task)
         slugified_names = {slugify(n): n for n in task_names}
         if task_slug not in slugified_names:
-            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
+            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(slugified_names)}")
 
     @staticmethod
     def _convert_py_to_notebook(source: str) -> str:
@@ -6483,6 +6490,20 @@ class KaggleApi:
                 print("All runs completed:")
                 for r in all_runs:
                     print(f"  {self._short_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
+
+                errored = [
+                    r for r in all_runs
+                    if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED
+                ]
+                if errored:
+                    details = []
+                    for r in errored:
+                        slug = self._short_model_slug(r.model_version_slug)
+                        msg = r.error_message.strip() if r.error_message else "No error message"
+                        details.append(f"  [{slug}]\n    {msg}")
+                    raise ValueError(
+                        f"{len(errored)} run(s) failed:\n" + "\n".join(details)
+                    )
                 return
 
             pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
