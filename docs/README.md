@@ -58,6 +58,7 @@ The Kaggle CLI is organized into several command groups:
 *   [Models](./models.md): Manage your Kaggle Models.
 *   [Model Variations](./model_variations.md): Manage variations of your Kaggle Models.
 *   [Model Variation Versions](./model_variations_versions.md): Manage versions of your Kaggle Model Variations.
+*   [Benchmarks](./benchmarks.md): Define evaluation tasks, run them against LLM models, and download results.
 *   [Configuration](./configuration.md): Configure the Kaggle CLI.
 
 ## Tutorials
