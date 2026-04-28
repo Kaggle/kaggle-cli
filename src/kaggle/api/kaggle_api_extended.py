@@ -3322,7 +3322,7 @@ class KaggleApi:
 
         # Get file metadata
         content_length = response.headers.get("Content-Length")
-        size = int(content_length) if content_length is not None else None
+        size = int(content_length) if content_length else None
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
             remote_date = datetime.now()
