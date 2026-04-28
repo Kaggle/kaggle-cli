@@ -291,12 +291,38 @@ class TestPush:
     # -- Server edge cases --
 
     @pytest.mark.parametrize("state", [QUEUED, RUNNING], ids=["queued", "running"])
-    def test_push_rejects_pending_task(self, api, tmp_path, state):
-        """Push rejects when the task version is still being created."""
+    def test_push_rejects_pending_task_without_wait(self, api, tmp_path, state):
+        """Push without --wait rejects when task is pending, with a --wait hint."""
         filepath = _write_task_file(tmp_path)
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=state)
-        with pytest.raises(ValueError, match="currently being created"):
+        with pytest.raises(ValueError, match="currently being created") as exc_info:
             _push(api, "my-task", filepath)
+        assert "--wait" in str(exc_info.value)
+
+    @pytest.mark.parametrize("state", [QUEUED, RUNNING], ids=["queued", "running"])
+    def test_push_wait_monitors_pending_then_pushes(self, api, capsys, tmp_path, state):
+        """Push --wait with a pending task waits for existing creation, then pushes new version."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+
+        # Call 1: initial check → pending; Call 2: poll existing → completed;
+        # Call 3: poll new version after push → completed
+        api._mock_benchmarks.get_benchmark_task.side_effect = [
+            _make_task(state=state),
+            _make_task(state=COMPLETED),
+            _make_task(state=COMPLETED),
+        ]
+
+        jt, ctx = _mock_jupytext()
+        with ctx, patch("time.sleep"):
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
+
+        output = capsys.readouterr().out
+        assert "already being created" in output
+        assert "Pushing new version of 'my-task'" in output
+        assert "Task 'my-task' pushed." in output
+        # Verify the create API was still called (new version pushed)
+        api._mock_benchmarks.create_benchmark_task.assert_called_once()
 
     def test_push_propagates_server_error(self, api, tmp_path):
         """Non-403/404 HTTP errors (e.g. 500) are re-raised, not swallowed."""
@@ -1277,6 +1303,18 @@ class TestGetTaskNamesFromFile:
             # keyword takes priority when both name= and positional could exist
             # (not valid Python for task(), but tests the keyword-first logic)
             ('@task("Pos", name="Kw")\ndef f(): pass\n', ["Kw"]),
+            # file with IPython line magic
+            ('!pip install numpy\n@task("t1")\ndef f(): pass\n', ["t1"]),
+            # file with cell magic and body
+            (
+                '%%writefile out.csv\n1,2,3\n4,5,6\n\n@task("t2")\ndef g(): pass\n',
+                ["t2"],
+            ),
+            # file with Jupytext cell markers (# %%) should NOT be stripped
+            (
+                '# %%\nimport os\n\n# %%\n@task("t3")\ndef h(): pass\n',
+                ["t3"],
+            ),
         ],
         ids=[
             "keyword_name",
@@ -1293,7 +1331,89 @@ class TestGetTaskNamesFromFile:
             "no_decorators",
             "unrelated_decorator",
             "keyword_over_positional",
+            "with_line_magic",
+            "with_cell_magic",
+            "with_jupytext_markers",
         ],
     )
     def test_task_name_detection(self, source, expected):
         assert KaggleApi._get_task_names_from_file(source) == expected
+
+
+# ============================================================
+# IPython Magic Stripping
+# ============================================================
+
+
+class TestStripIpythonMagics:
+    """Tests for ``_strip_ipython_magics`` static method."""
+
+    def test_strips_line_magic(self):
+        source = "%matplotlib inline\nimport os\n"
+        result = KaggleApi._strip_ipython_magics(source)
+        assert "%matplotlib" not in result
+        assert "import os" in result
+
+    def test_strips_shell_escape(self):
+        source = "!pip install numpy\nimport numpy\n"
+        result = KaggleApi._strip_ipython_magics(source)
+        assert "!pip" not in result
+        assert "import numpy" in result
+
+    def test_strips_cell_magic_with_body(self):
+        source = "%%writefile out.csv\n1,2,3\n4,5,6\n\nimport os\n"
+        result = KaggleApi._strip_ipython_magics(source)
+        assert "%%writefile" not in result
+        assert "1,2,3" not in result
+        assert "import os" in result
+
+    def test_preserves_jupytext_cell_markers(self):
+        """``# %%`` markers are NOT magics and must be preserved."""
+        source = "# %%\nimport os\n\n# %%\nx = 1\n"
+        result = KaggleApi._strip_ipython_magics(source)
+        assert result == source
+
+    def test_preserves_line_count(self):
+        """Stripped lines are replaced with blanks to keep line numbers stable."""
+        source = "!pip install foo\nimport os\n%%writefile a.txt\nhello\n\nx = 1\n"
+        assert source.count("\n") == KaggleApi._strip_ipython_magics(source).count("\n")
+
+    def test_mixed_magics_and_code(self):
+        """A realistic Jupytext percent-format file."""
+        source = (
+            "# %%\n"
+            "!pip install kaggle_benchmarks\n"
+            "\n"
+            "# %%\n"
+            "import kaggle_benchmarks as kb\n"
+            "\n"
+            "# %%\n"
+            '@kb.task("ask")\n'
+            "def my_task(llm):\n"
+            "    pass\n"
+            "\n"
+            "my_task.run(kb.llm)\n"
+            "\n"
+            "# %%\n"
+            "%%writefile a.csv\n"
+            "1,2,3\n"
+            "4,5,6\n"
+        )
+        result = KaggleApi._strip_ipython_magics(source)
+        # Code is preserved
+        assert "import kaggle_benchmarks" in result
+        assert '@kb.task("ask")' in result
+        assert "my_task.run" in result
+        # Magics are gone
+        assert "!pip" not in result
+        assert "%%writefile" not in result
+        assert "1,2,3" not in result
+        # Line count preserved
+        assert source.count("\n") == result.count("\n")
+
+    def test_empty_source(self):
+        assert KaggleApi._strip_ipython_magics("") == ""
+
+    def test_no_magics(self):
+        source = "import os\nx = 1\n"
+        assert KaggleApi._strip_ipython_magics(source) == source

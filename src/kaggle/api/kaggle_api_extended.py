@@ -6234,13 +6234,44 @@ class KaggleApi:
             )
 
     @staticmethod
+    def _strip_ipython_magics(source: str) -> str:
+        """Remove IPython/Jupyter magic lines so ast.parse() can handle them.
+
+        Replaces magic lines with blank lines to preserve line numbers for
+        accurate AST node positions.  Handles cell magics (%%cmd), line
+        magics (%cmd), and shell escapes (!cmd).
+        """
+        import re
+
+        def _to_blank_lines(m: re.Match) -> str:
+            """Replace matched content with the same number of newlines."""
+            return "\n" * m.group().count("\n")
+
+        # Cell magics: %%magic ... spanning to the next blank line or EOF.
+        source = re.sub(
+            r"^[ \t]*%%\w[^\n]*\n(?:[ \t]*\S[^\n]*\n)*",
+            _to_blank_lines,
+            source,
+            flags=re.MULTILINE,
+        )
+        # Line magics (%cmd ...) and shell escapes (!cmd ...).
+        source = re.sub(
+            r"^[ \t]*(?:%(?!%)|!)\w[^\n]*$",
+            "",
+            source,
+            flags=re.MULTILINE,
+        )
+        return source
+
+    @staticmethod
     def _get_task_names_from_file(file_content: str) -> List[str]:
         """Extract task names from a Python file."""
         import ast
 
         task_names: list[str] = []
+        cleaned = KaggleApi._strip_ipython_magics(file_content)
         try:
-            tree = ast.parse(file_content)
+            tree = ast.parse(cleaned)
         except SyntaxError:
             return []
 
@@ -6290,6 +6321,24 @@ class KaggleApi:
         slugified_names = {slugify(n): n for n in task_names}
         if task_slug not in slugified_names:
             raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
+
+    @staticmethod
+    def _convert_py_to_notebook(source: str) -> str:
+        """Convert a percent-format .py file to .ipynb JSON string."""
+        import jupytext
+
+        notebook = jupytext.reads(source, fmt="py:percent")
+        notebook.metadata["kernelspec"] = {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3",
+        }
+        return jupytext.writes(notebook, fmt="ipynb")
+
+    @staticmethod
+    def _full_task_url(url: str) -> str:
+        """Ensure a task URL is absolute."""
+        return f"https://www.kaggle.com{url}" if url.startswith("/") else url
 
     # -- Instance helpers (API calls) --
 
@@ -6526,12 +6575,9 @@ class KaggleApi:
         if not file.endswith(".py"):
             raise ValueError(f"File {file} must be a .py file")
 
-        with open(file) as f:
-            content = f.read()
-
+        content = open(file).read()
         self._validate_task_in_file(task, file, content)
 
-        # Normalize the user-supplied task name into a URL-safe slug.
         task_slug = slugify(task)
         if task_slug != task:
             print(
@@ -6540,22 +6586,20 @@ class KaggleApi:
                 file=sys.stderr,
             )
 
-        # Convert .py file with percent delimiters to .ipynb
-        import jupytext
-
-        notebook = jupytext.reads(content, fmt="py:percent")
-        # Add kernelspec metadata so papermill can execute it on the server
-        notebook.metadata["kernelspec"] = {
-            "display_name": "Python 3",
-            "language": "python",
-            "name": "python3",
-        }
-        notebook_content = jupytext.writes(notebook, fmt="ipynb")
+        notebook_content = self._convert_py_to_notebook(content)
 
         with self.build_kaggle_client() as kaggle:
+            # If a previous push is still being created, wait or error.
             task_info = self._get_benchmark_task(task_slug, kaggle, allow_not_found=True)
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
-                raise ValueError(f"Task '{task_slug}' is currently being created (pending). Cannot push now.")
+                if wait is None:
+                    raise ValueError(
+                        f"Task '{task_slug}' is currently being created (pending). Cannot push now. "
+                        f"Use --wait to monitor the existing creation."
+                    )
+                print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
+                print(f"Pushing new version of '{task_slug}'...")
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
@@ -6565,10 +6609,9 @@ class KaggleApi:
             error = getattr(response, "error_message", None) or getattr(response, "errorMessage", None)
             if error:
                 raise ValueError(f"Failed to push task: {error}")
+
+            url = self._full_task_url(response.url)
             print(f"Task '{task_slug}' pushed.")
-            url = response.url
-            if url.startswith("/"):
-                url = "https://www.kaggle.com" + url
             print(f"\033[1mTask URL: {url}\033[0m")
             print(f"To run this task against models, use: kaggle b t run {task_slug}")
 
@@ -6654,9 +6697,7 @@ class KaggleApi:
             print(f"Created:  {self._format_time(task_info.create_time)}")
             url = getattr(task_info, "url", None)
             if url:
-                if url.startswith("/"):
-                    url = "https://www.kaggle.com" + url
-                print(f"\033[1mTask URL: {url}\033[0m")
+                print(f"\033[1mTask URL: {self._full_task_url(url)}\033[0m")
 
             runs = self._fetch_task_runs(kaggle, task, model)
 
