@@ -6148,6 +6148,9 @@ class KaggleApi:
         BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING,
     }
 
+    _TASK_CREATION_COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+    _TASK_CREATION_ERRORED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
+
     # -- Static helpers --
 
     @staticmethod
@@ -6180,7 +6183,7 @@ class KaggleApi:
         while True:
             response = fetch_page(page_token)
             items.extend(get_items(response))
-            page_token = response.next_page_token or ""
+            page_token = getattr(response, "next_page_token", None) or ""
             if not page_token:
                 break
         return items
@@ -6251,7 +6254,6 @@ class KaggleApi:
         Note: jupytext's ``comment_magics`` only comments the magic line, not
         the cell body, so non-Python content still breaks ``ast.parse()``.
         """
-        import re
 
         def _to_blank_lines(m: re.Match) -> str:
             """Replace matched content with the same number of newlines."""
@@ -6267,7 +6269,7 @@ class KaggleApi:
         # Line magics (%cmd ...) and shell escapes (!cmd ...).
         source = re.sub(
             r"^[ \t]*(?:%(?!%)|!)\w[^\n]*$",
-            "",
+            _to_blank_lines,
             source,
             flags=re.MULTILINE,
         )
@@ -6386,7 +6388,7 @@ class KaggleApi:
             request.page_token = page_token
             return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(request)
 
-        runs = self._paginate(_fetch, lambda r: r.runs)
+        runs = self._paginate(_fetch, lambda r: r.runs or [])
 
         # Client-side filter as fallback since the server may ignore model_version_slugs.
         if models:
@@ -6589,7 +6591,8 @@ class KaggleApi:
         if not file.endswith(".py"):
             raise ValueError(f"File {file} must be a .py file")
 
-        content = open(file).read()
+        with open(file) as f:
+            content = f.read()
         self._validate_task_in_file(task, file, content)
 
         task_slug = slugify(task)
@@ -6641,12 +6644,10 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
             task_info = self._get_benchmark_task(task, kaggle)
-            COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
-            ERRORED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
             state = task_info.creation_state
-            if state != COMPLETED:
+            if state != self._TASK_CREATION_COMPLETED:
                 error_msg = f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)})."
-                if state == ERRORED:
+                if state == self._TASK_CREATION_ERRORED:
                     error_msg += f" Task Info: {task_info}."
                 error_msg += " Only completed tasks can be run."
                 raise ValueError(error_msg)
@@ -6724,9 +6725,12 @@ class KaggleApi:
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:
-                model_hint = f" for model '{model}'" if isinstance(model, str) else ""
-                if model_hint == "" and model:
-                    model_hint = f" for models {model}"
+                if isinstance(model, str):
+                    model_hint = f" for model '{model}'"
+                elif model:
+                    model_hint = f" for models {', '.join(model)}"
+                else:
+                    model_hint = ""
                 print(f"No runs found for task '{task}'{model_hint}.")
                 print(f"Use 'kaggle b t run {task}' to start one.")
                 return

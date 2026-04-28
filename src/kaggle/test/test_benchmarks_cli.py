@@ -502,13 +502,13 @@ class TestRun:
         assert "Timed out waiting for runs after 30 seconds" in output
 
     def test_run_wait_shows_errored_runs(self, api, capsys):
-        """ERRORED runs display with ERRORED label."""
+        """ERRORED runs display with ERRORED label and raise ValueError."""
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result()])
         api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(
             runs=[_make_run(state=RUN_ERRORED)], next_page_token=""
         )
-        with patch("time.sleep"):
+        with patch("time.sleep"), pytest.raises(ValueError, match="run\(s\) failed"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)
         assert "gemini-pro: ERRORED" in capsys.readouterr().out
 
@@ -649,7 +649,7 @@ class TestStatus:
         assert "https://www.kaggle.com/benchmarks/runs/42" not in output
 
     def test_status_errored_run_shows_error_message(self, api, capsys):
-        """ERRORED runs with error_message append ' | Error: ...'."""
+        """ERRORED runs show error in a dedicated section below the table."""
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
         _setup_runs_response(
             api,
@@ -657,7 +657,9 @@ class TestStatus:
         )
         api.benchmarks_tasks_status_cli("my-task")
         output = capsys.readouterr().out
-        assert "| Error: OOM" in output
+        assert "Errors:" in output
+        assert "[gemma-2b]" in output
+        assert "OOM" in output
 
     def test_status_pagination(self, api, capsys):
         """Status fetches all pages of runs."""
