@@ -6240,6 +6240,9 @@ class KaggleApi:
         Replaces magic lines with blank lines to preserve line numbers for
         accurate AST node positions.  Handles cell magics (%%cmd), line
         magics (%cmd), and shell escapes (!cmd).
+
+        Note: jupytext's ``comment_magics`` only comments the magic line, not
+        the cell body, so non-Python content still breaks ``ast.parse()``.
         """
         import re
 
@@ -6457,8 +6460,8 @@ class KaggleApi:
                 return
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
-                if hasattr(task_info, "error_message") and task_info.error_message:
-                    error_msg += f" Error: {task_info.error_message}"
+                if error := getattr(task_info, "error_message", None):
+                    error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
 
             print(f"  Task status: {self._clean_enum_str(state)}...")
@@ -6479,12 +6482,7 @@ class KaggleApi:
             if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
                 print("All runs completed:")
                 for r in all_runs:
-                    label = (
-                        "COMPLETED"
-                        if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
-                        else "ERRORED"
-                    )
-                    print(f"  {self._short_model_slug(r.model_version_slug)}: {label}")
+                    print(f"  {self._short_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
                 return
 
             pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
@@ -6581,8 +6579,8 @@ class KaggleApi:
         task_slug = slugify(task)
         if task_slug != task:
             print(
-                f"\033[1mWarning: task name '{task}' was normalized to slug '{task_slug}'. "
-                f"Use '{task_slug}' in future commands.\033[0m\n",
+                f"\n\033[1;33m⚠ Warning: task name '{task}' was normalized to slug '{task_slug}'.\033[0m\n"
+                f"\033[33m  Use '{task_slug}' in future commands.\033[0m\n",
                 file=sys.stderr,
             )
 
@@ -6627,15 +6625,12 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
             task_info = self._get_benchmark_task(task, kaggle)
-            if (
-                task_info.creation_state
-                != BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
-            ):
-                error_msg = f"Task '{task}' is not ready to run (status: {task_info.creation_state})."
-                if (
-                    task_info.creation_state
-                    == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
-                ):
+            COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+            ERRORED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
+            state = task_info.creation_state
+            if state != COMPLETED:
+                error_msg = f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)})."
+                if state == ERRORED:
                     error_msg += f" Task Info: {task_info}."
                 error_msg += " Only completed tasks can be run."
                 raise ValueError(error_msg)
@@ -6676,16 +6671,13 @@ class KaggleApi:
         if status:
             request.status_filter = status
 
-        all_tasks = []
         with self.build_kaggle_client() as kaggle:
-            while True:
-                response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
-                if response.tasks:
-                    all_tasks.extend(response.tasks)
-                if not getattr(response, "next_page_token", None):
-                    break
-                request.page_token = response.next_page_token
 
+            def _fetch(page_token):
+                request.page_token = page_token
+                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+
+            all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
             self._print_task_table(all_tasks)
 
     def benchmarks_tasks_status_cli(self, task, model=None):
@@ -6709,20 +6701,40 @@ class KaggleApi:
 
     def benchmarks_tasks_download_cli(self, task, model=None, output=None):
         task = slugify(task)
-        output = output or os.path.join(".", task, "output")
+        output = output or "."
 
         with self.build_kaggle_client() as kaggle:
+            self._get_benchmark_task(task, kaggle)
             runs = self._fetch_task_runs(kaggle, task, model)
 
-            for r in runs:
-                if r.state not in self._TERMINAL_RUN_STATES:
-                    continue
+            if not runs:
+                model_hint = f" for model '{model}'" if isinstance(model, str) else ""
+                if model_hint == "" and model:
+                    model_hint = f" for models {model}"
+                print(f"No runs found for task '{task}'{model_hint}.")
+                print(f"Use 'kaggle b t run {task}' to start one.")
+                return
+
+            downloadable = [r for r in runs if r.state in self._TERMINAL_RUN_STATES]
+            if not downloadable:
+                pending = len(runs)
+                print(f"No downloadable runs yet — {pending} run(s) still in progress.")
+                print(f"Use 'kaggle b t status {task}' to check progress.")
+                return
+
+            for r in downloadable:
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
                 slug = self._short_model_slug(r.model_version_slug)
+                # Hierarchical layout: {output}/{task}/{model}/{run_id}/
+                outdir = os.path.join(output, task, slug, str(r.id))
+
+                if os.path.isdir(outdir):
+                    print(f"Skipping {slug} (run {r.id}) — already downloaded to {outdir}")
+                    continue
+
                 print(f"Downloading output for run {r.id} ({slug})...")
                 response = kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output(dl_request)
-                outdir = os.path.join(output, f"{slug}_{r.id}")
                 zipfile_path = outdir + ".zip"
                 self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
                 # Extract the zip archive into the output directory.
