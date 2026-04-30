@@ -54,6 +54,7 @@ The Kaggle CLI is organized into several command groups:
 
 *   [Competitions](./competitions.md): Manage and participate in Kaggle competitions.
 *   [Datasets](./datasets.md): Search, download, and manage Kaggle datasets.
+*   [Forums](./forums.md): Browse and read Kaggle discussion forums.
 *   [Kernels](./kernels.md): Interact with Kaggle Kernels (notebooks and scripts).
 *   [Models](./models.md): Manage your Kaggle Models.
 *   [Model Variations](./model_variations.md): Manage variations of your Kaggle Models.

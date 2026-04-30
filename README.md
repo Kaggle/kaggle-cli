@@ -16,6 +16,7 @@ Some of the key features are:
 * List, create, update, download or delete datasets.
 * List, create, update, download or delete models & model variations.
 * List, update & run, download code & output or delete kernels (notebooks).
+* Browse and read discussion forums.
 
 ## Installation
 

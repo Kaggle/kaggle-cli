@@ -98,8 +98,23 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListTopicMessagesRequest,
     ApiListTopicMessagesResponse,
 )
+from kagglesdk.discussions.types.discussions_api_service import (
+    ApiDiscussionComment,
+    ApiDiscussionForum,
+    ApiDiscussionTopic,
+    ApiGetTopicRequest,
+    ApiGetTopicResponse,
+    ApiListCommentsRequest,
+    ApiListCommentsResponse,
+    ApiListForumsRequest,
+    ApiListForumsResponse,
+    ApiListTopicsRequest,
+    ApiListTopicsResponse,
+)
 from kagglesdk.discussions.types.discussions_enums import (
     CommentListSortBy,
+    TopicListCategory,
+    TopicListGroup,
     TopicListSortBy,
 )
 from kagglesdk.competitions.types.competition_enums import (
@@ -804,6 +819,14 @@ class KaggleApi:
     competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
     valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
     valid_comment_sort_by = ["hot", "new", "old", "top"]
+
+    # Forums / Discussions
+    forum_fields = ["id", "name", "subtitle"]
+    forum_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
+    forum_comment_fields = ["id", "authorName", "postDate", "votes", "content"]
+    valid_forum_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
+    valid_forum_topic_categories = ["all", "forums", "competitions", "datasets", "competition_write_ups", "models", "benchmarks"]
+    valid_forum_topic_groups = ["all", "owned", "upvoted", "bookmarked", "my_activity", "drafts"]
 
     def _is_retriable(self, e: HTTPError) -> bool:
         if self._is_rate_limited(e):
@@ -2269,6 +2292,242 @@ class KaggleApi:
             flat.append(m)
             if getattr(m, "replies", None):
                 flat.extend(self._flatten_topic_messages(m.replies, depth + 1))
+        return flat
+
+    # ── Forums / Discussions ─────────────────────────────────────────────
+
+    def forums_list(self):
+        """List all top-level discussion forums on Kaggle.
+
+        Returns:
+            ApiListForumsResponse: response with a list of forums.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListForumsRequest()
+            return kaggle.discussions.discussion_api_client.list_forums(request)
+
+    def forums_list_cli(self, csv_display=False, quiet=False):
+        """CLI wrapper for forums_list."""
+        response = self.forums_list()
+        forums = response.forums
+        if forums:
+            fields = self.forum_fields
+            if csv_display:
+                self.print_csv(forums, fields)
+            else:
+                self.print_table(forums, fields)
+        else:
+            print("No forums found")
+
+    def forums_list_topics(
+        self,
+        forum_slug: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        group: Optional[str] = None,
+    ):
+        """List discussion topics, optionally filtered by forum.
+
+        Args:
+            forum_slug (Optional[str]): Forum slug to filter by (e.g. 'getting-started').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+            category (Optional[str]): Topic category filter; one of valid_forum_topic_categories.
+            group (Optional[str]): Topic group filter; one of valid_forum_topic_groups.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListTopicsRequest()
+            if forum_slug:
+                request.forum_slug = forum_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            if category:
+                if category not in self.valid_forum_topic_categories:
+                    raise ValueError(
+                        "Invalid category specified. Valid options are " + str(self.valid_forum_topic_categories)
+                    )
+                request.category = TopicListCategory["TOPIC_LIST_CATEGORY_" + category.upper()]
+            if group:
+                if group not in self.valid_forum_topic_groups:
+                    raise ValueError(
+                        "Invalid group specified. Valid options are " + str(self.valid_forum_topic_groups)
+                    )
+                request.group = TopicListGroup["TOPIC_LIST_GROUP_" + group.upper()]
+            return kaggle.discussions.discussion_api_client.list_topics(request)
+
+    def forums_list_topics_cli(
+        self,
+        forum=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        category=None,
+        group=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for forums_list_topics."""
+        response = self.forums_list_topics(
+            forum_slug=forum,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+            category=category,
+            group=group,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def forums_topic_show(self, topic_id: int):
+        """Get a single discussion topic by ID, including its comments.
+
+        Args:
+            topic_id (int): The topic ID.
+
+        Returns:
+            tuple: (ApiDiscussionTopic, list[ApiDiscussionComment]) — the topic and its comments.
+        """
+        with self.build_kaggle_client() as kaggle:
+            # Fetch the topic
+            get_request = ApiGetTopicRequest()
+            get_request.id = topic_id
+            topic_response = kaggle.discussions.discussion_api_client.get_topic(get_request)
+            topic = topic_response.topic
+
+            # Fetch comments (paginate to get all)
+            all_comments: list = []
+            page_token: Optional[str] = None
+            while True:
+                comments_request = ApiListCommentsRequest()
+                comments_request.topic_id = topic_id
+                if page_token:
+                    comments_request.page_token = page_token
+                comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
+                if comments_response.comments:
+                    all_comments.extend(comments_response.comments)
+                next_token = comments_response.next_page_token
+                if not next_token:
+                    break
+                page_token = next_token
+
+            return topic, all_comments
+
+    def forums_topic_show_cli(
+        self,
+        topic_ref=None,
+        topic_id_arg=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for forums_topic_show.
+
+        topic_ref can be either 'forum-slug/topic-id' or just 'topic-id'.
+        topic_id_arg is the second positional arg when using 'forum-slug topic-id' form.
+        """
+        # Support both 'forum-slug/topic-id' and 'forum-slug topic-id' forms
+        if topic_id_arg is not None:
+            # Two separate positional args: forum-slug topic-id
+            topic_id = int(topic_id_arg)
+        elif topic_ref and "/" in topic_ref:
+            # Single arg with slash: forum-slug/topic-id
+            parts = topic_ref.rsplit("/", 1)
+            topic_id = int(parts[1])
+        else:
+            # Just a bare topic-id
+            if topic_ref is None:
+                raise ValueError("No topic specified. Usage: kaggle forums topics show <forum>/<topic-id>")
+            topic_id = int(topic_ref)
+
+        topic, comments = self.forums_topic_show(topic_id)
+
+        if topic is None:
+            print("Topic not found")
+            return
+
+        if csv_display:
+            # In CSV mode, print the topic then flat comments
+            self.print_csv([topic], self.forum_topic_fields)
+            flat = self._flatten_discussion_comments(comments)
+            if flat:
+                self.print_csv(flat, self.forum_comment_fields)
+        else:
+            # Pretty-print the topic header
+            print(f"Topic #{topic.id}: {topic.title}")
+            print(f"  Author: {topic.author_name}")
+            print(f"  Posted: {topic.post_date}")
+            print(f"  Votes: {topic.votes}  Comments: {topic.comment_count}")
+            if topic.content:
+                content = bleach.clean(topic.content, tags=[], strip=True).strip()
+                print(f"\n{content}")
+            print()
+
+            # Print comment tree
+            if comments:
+                print("Comments:")
+                self._print_comment_tree(comments)
+            elif not quiet:
+                print("No comments")
+
+    def _print_comment_tree(self, comments, depth=0):
+        """Recursively print comments with indentation to show tree structure."""
+        indent = "  " * depth
+        for comment in comments or []:
+            author = getattr(comment, "author_name", "Unknown")
+            date = getattr(comment, "post_date", "")
+            votes = getattr(comment, "votes", 0)
+            content = getattr(comment, "content", "")
+            if content:
+                content = bleach.clean(content, tags=[], strip=True).strip()
+                # Truncate long content for display
+                if len(content) > 200:
+                    content = content[:197] + "..."
+
+            print(f"{indent}├─ {author} ({date}) [+{votes}]")
+            if content:
+                # Indent content lines
+                for line in content.split("\n"):
+                    print(f"{indent}│  {line}")
+
+            replies = getattr(comment, "replies", None)
+            if replies:
+                self._print_comment_tree(replies, depth + 1)
+
+    def _flatten_discussion_comments(self, comments, depth=0):
+        """Flatten nested discussion comments into a single list."""
+        flat = []
+        for c in comments or []:
+            flat.append(c)
+            if getattr(c, "replies", None):
+                flat.extend(self._flatten_discussion_comments(c.replies, depth + 1))
         return flat
 
     def dataset_list(

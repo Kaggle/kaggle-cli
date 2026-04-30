@@ -449,6 +449,47 @@ class TestKaggleApi(unittest.TestCase):
         except ApiException as e:
             self.fail(f"competition_list_topic_messages failed: {e}")
 
+    # Forums
+
+    def test_forums_a_list(self):
+        try:
+            response = api.forums_list()
+            self.assertTrue(hasattr(response, "forums"))
+            forums = response.forums
+            self.assertIsInstance(forums, list)
+            self.assertGreater(len(forums), 0)
+            [self.assertTrue(hasattr(forums[0], api.camel_to_snake(f))) for f in api.forum_fields]
+        except ApiException as e:
+            self.fail(f"forums_list failed: {e}")
+
+    def test_forums_b_list_topics(self):
+        try:
+            response = api.forums_list_topics()
+            self.assertTrue(hasattr(response, "topics"))
+            topics = response.topics
+            self.assertIsInstance(topics, list)
+            self.assertGreater(len(topics), 0)
+            [self.assertTrue(hasattr(topics[0], api.camel_to_snake(f))) for f in api.forum_topic_fields]
+            if topics:
+                self.forum_topic_id = topics[0].id
+            else:
+                self.forum_topic_id = None
+        except ApiException as e:
+            self.fail(f"forums_list_topics failed: {e}")
+
+    def test_forums_c_topic_show(self):
+        if not getattr(self, "forum_topic_id", None):
+            self.test_forums_b_list_topics()
+        if not getattr(self, "forum_topic_id", None):
+            self.skipTest("No topics available to show")
+        try:
+            topic, comments = api.forums_topic_show(self.forum_topic_id)
+            self.assertIsNotNone(topic)
+            self.assertEqual(topic.id, self.forum_topic_id)
+            self.assertIsInstance(comments, list)
+        except ApiException as e:
+            self.fail(f"forums_topic_show failed: {e}")
+
     # Datasets
 
     def test_dataset_a_list(self):

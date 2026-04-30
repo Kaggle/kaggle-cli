@@ -54,6 +54,7 @@ def main() -> None:
     parse_kernels(subparsers)
     parse_models(subparsers)
     parse_files(subparsers)
+    parse_forums(subparsers)
     parse_benchmarks(subparsers)
     parse_config(subparsers)
     parse_auth(subparsers)
@@ -1408,6 +1409,93 @@ def parse_auth(subparsers) -> None:
     parser_auth_revoke_token.set_defaults(func=api.auth_revoke_token)
 
 
+def parse_forums(subparsers) -> None:
+    parser_forums = subparsers.add_parser(
+        "forums", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_forums, aliases=["fo"]
+    )
+    subparsers_forums = parser_forums.add_subparsers(title="commands", dest="command")
+    subparsers_forums.choices = Help.forums_choices
+
+    # Default action: list forums (when no subcommand given)
+    parser_forums.set_defaults(func=api.forums_list_cli)
+
+    # Forums list (explicit)
+    parser_forums_list = subparsers_forums.add_parser(
+        "list", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_forums_list
+    )
+    parser_forums_list_optional = parser_forums_list._action_groups.pop()
+    parser_forums_list_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_forums_list_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_forums_list._action_groups.append(parser_forums_list_optional)
+    parser_forums_list.set_defaults(func=api.forums_list_cli)
+
+    # Forums topics
+    parser_forums_topics = subparsers_forums.add_parser(
+        "topics", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_forums_topics
+    )
+    subparsers_forums_topics = parser_forums_topics.add_subparsers(title="commands", dest="command")
+    subparsers_forums_topics.choices = Help.forums_topics_choices
+
+    parser_forums_topics_optional = parser_forums_topics._action_groups.pop()
+    parser_forums_topics_optional.add_argument(
+        "forum", nargs="?", default=None, help=Help.param_forum
+    )
+    parser_forums_topics_optional.add_argument(
+        "--sort-by", dest="sort_by", required=False,
+        help="Sort order. One of: " + ", ".join(KaggleApi.valid_forum_topic_sort_by),
+    )
+    parser_forums_topics_optional.add_argument(
+        "--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size
+    )
+    parser_forums_topics_optional.add_argument(
+        "--page-token", dest="page_token", required=False, help=Help.param_page_token
+    )
+    parser_forums_topics_optional.add_argument(
+        "-s", "--search", dest="search", required=False, help=Help.param_search
+    )
+    parser_forums_topics_optional.add_argument(
+        "--category", dest="category", required=False,
+        help="Filter by category. One of: " + ", ".join(KaggleApi.valid_forum_topic_categories),
+    )
+    parser_forums_topics_optional.add_argument(
+        "--group", dest="group", required=False,
+        help="Filter by group. One of: " + ", ".join(KaggleApi.valid_forum_topic_groups),
+    )
+    parser_forums_topics_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_forums_topics_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_forums_topics._action_groups.append(parser_forums_topics_optional)
+    parser_forums_topics.set_defaults(func=api.forums_list_topics_cli)
+
+    # Forums topics show
+    parser_forums_topics_show = subparsers_forums_topics.add_parser(
+        "show", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_forums_topics_show
+    )
+    parser_forums_topics_show_optional = parser_forums_topics_show._action_groups.pop()
+    parser_forums_topics_show_optional.add_argument(
+        "topic_ref", help=Help.param_topic_ref
+    )
+    parser_forums_topics_show_optional.add_argument(
+        "topic_id_arg", nargs="?", default=None, type=int,
+        help="Topic ID (when using two-arg form: <forum-name> <topic-id>)"
+    )
+    parser_forums_topics_show_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_forums_topics_show_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_forums_topics_show._action_groups.append(parser_forums_topics_show_optional)
+    parser_forums_topics_show.set_defaults(func=api.forums_topic_show_cli)
+
+
 class Help(object):
     kaggle_choices = [
         "competitions",
@@ -1420,6 +1508,8 @@ class Help(object):
         "m",
         "files",
         "f",
+        "forums",
+        "fo",
         "benchmarks",
         "b",
         "config",
@@ -1447,6 +1537,8 @@ class Help(object):
     files_choices = ["upload"]
     benchmarks_choices = ["tasks", "t", "auth", "init"]
     benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "models", "delete"]
+    forums_choices = ["list", "topics"]
+    forums_topics_choices = ["show"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -1463,6 +1555,10 @@ class Help(object):
         + ", ".join(model_instances_choices)
         + "}\nmodels variations versions {"
         + ", ".join(model_instance_versions_choices)
+        + "}\nforums {"
+        + ", ".join(forums_choices)
+        + "}\nforums topics {"
+        + ", ".join(forums_topics_choices)
         + "}\nbenchmarks {"
         + ", ".join(benchmarks_choices)
         + "}\nconfig {"
@@ -1477,6 +1573,7 @@ class Help(object):
     group_models = "Commands related to Kaggle models"
     group_model_instances = "Commands related to Kaggle model variations"
     group_model_instance_versions = "Commands related to Kaggle model variations versions"
+    group_forums = "Commands related to Kaggle discussion forums"
     group_files = "Commands related files"
     group_benchmarks = "Commands related to Kaggle benchmarks"
     group_benchmarks_tasks = "Commands related to benchmark tasks"
@@ -1496,6 +1593,11 @@ class Help(object):
     command_competitions_pages = "List pages for a competition"
     command_competitions_topics = "List discussion topics for a competition"
     command_competitions_topic_messages = "List messages within a competition discussion topic"
+
+    # Forums commands
+    command_forums_list = "List all discussion forums"
+    command_forums_topics = "List topics in a forum"
+    command_forums_topics_show = "Display a topic with all its comments in tree form"
 
     # Datasets commands
     command_datasets_list = "List available datasets"
@@ -1586,6 +1688,16 @@ class Help(object):
     param_page_token = "Page token for results paging."
     param_search = "Term(s) to search for"
     param_mine = "Display only my items"
+
+    # Forums params
+    param_forum = (
+        "Forum slug (e.g. 'getting-started', 'product-feedback').\n"
+        'Use "kaggle forums" to list available forums.'
+    )
+    param_topic_ref = (
+        "Topic reference in format <forum-name>/<topic-id> or just <topic-id>.\n"
+        "You can also pass <forum-name> and <topic-id> as two separate arguments."
+    )
     param_unzip = "Unzip the downloaded file. Will delete the zip file when completed."
     param_untar = "Untar the downloaded file. Will delete the tar file when completed."
     param_yes = 'Sets any confirmation values to "yes" automatically. Users will not be asked to confirm.'
