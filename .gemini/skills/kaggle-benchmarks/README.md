@@ -36,6 +36,3 @@ Since `SKILL.md` is plain markdown, any AI coding assistant can use it. The gene
 
 > **Tip:** Each tool has its own conventions for persistent instructions vs. on-demand context. Check your agent's documentation for the recommended way to include project-specific reference files.
 
-## Validation
-
-This skill has been validated against **43 test scenarios** covering all commands, error cases, edge cases, and hallucination resistance, with a **100% pass rate**.
