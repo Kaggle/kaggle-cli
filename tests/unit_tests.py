@@ -483,10 +483,11 @@ class TestKaggleApi(unittest.TestCase):
         if not getattr(self, "forum_topic_id", None):
             self.skipTest("No topics available to show")
         try:
-            topic, comments = api.forums_topic_show(self.forum_topic_id)
+            topic, comments, next_page_token = api.forums_topic_show(self.forum_topic_id)
             self.assertIsNotNone(topic)
             self.assertEqual(topic.id, self.forum_topic_id)
             self.assertIsInstance(comments, list)
+            self.assertIsInstance(next_page_token, str)
         except ApiException as e:
             self.fail(f"forums_topic_show failed: {e}")
 

@@ -1427,9 +1427,7 @@ def parse_forums(subparsers) -> None:
     parser_forums_list_optional.add_argument(
         "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
     )
-    parser_forums_list_optional.add_argument(
-        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
-    )
+    parser_forums_list_optional.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     parser_forums_list._action_groups.append(parser_forums_list_optional)
     parser_forums_list.set_defaults(func=api.forums_list_cli)
 
@@ -1441,11 +1439,11 @@ def parse_forums(subparsers) -> None:
     subparsers_forums_topics.choices = Help.forums_topics_choices
 
     parser_forums_topics_optional = parser_forums_topics._action_groups.pop()
+    parser_forums_topics_optional.add_argument("forum", nargs="?", default=None, help=Help.param_forum)
     parser_forums_topics_optional.add_argument(
-        "forum", nargs="?", default=None, help=Help.param_forum
-    )
-    parser_forums_topics_optional.add_argument(
-        "--sort-by", dest="sort_by", required=False,
+        "--sort-by",
+        dest="sort_by",
+        required=False,
         help="Sort order. One of: " + ", ".join(KaggleApi.valid_forum_topic_sort_by),
     )
     parser_forums_topics_optional.add_argument(
@@ -1454,15 +1452,17 @@ def parse_forums(subparsers) -> None:
     parser_forums_topics_optional.add_argument(
         "--page-token", dest="page_token", required=False, help=Help.param_page_token
     )
+    parser_forums_topics_optional.add_argument("-s", "--search", dest="search", required=False, help=Help.param_search)
     parser_forums_topics_optional.add_argument(
-        "-s", "--search", dest="search", required=False, help=Help.param_search
-    )
-    parser_forums_topics_optional.add_argument(
-        "--category", dest="category", required=False,
+        "--category",
+        dest="category",
+        required=False,
         help="Filter by category. One of: " + ", ".join(KaggleApi.valid_forum_topic_categories),
     )
     parser_forums_topics_optional.add_argument(
-        "--group", dest="group", required=False,
+        "--group",
+        dest="group",
+        required=False,
         help="Filter by group. One of: " + ", ".join(KaggleApi.valid_forum_topic_groups),
     )
     parser_forums_topics_optional.add_argument(
@@ -1479,18 +1479,25 @@ def parse_forums(subparsers) -> None:
         "show", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_forums_topics_show
     )
     parser_forums_topics_show_optional = parser_forums_topics_show._action_groups.pop()
+    parser_forums_topics_show_optional.add_argument("topic_ref", help=Help.param_topic_ref)
     parser_forums_topics_show_optional.add_argument(
-        "topic_ref", help=Help.param_topic_ref
-    )
-    parser_forums_topics_show_optional.add_argument(
-        "topic_id_arg", nargs="?", default=None, type=int,
-        help="Topic ID (when using two-arg form: <forum-name> <topic-id>)"
+        "topic_id_arg",
+        nargs="?",
+        default=None,
+        type=int,
+        help="Topic ID (when using two-arg form: <forum-name> <topic-id>)",
     )
     parser_forums_topics_show_optional.add_argument(
         "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
     )
     parser_forums_topics_show_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_forums_topics_show_optional.add_argument(
+        "--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size
+    )
+    parser_forums_topics_show_optional.add_argument(
+        "--page-token", dest="page_token", required=False, help=Help.param_page_token
     )
     parser_forums_topics_show._action_groups.append(parser_forums_topics_show_optional)
     parser_forums_topics_show.set_defaults(func=api.forums_topic_show_cli)
@@ -1691,8 +1698,7 @@ class Help(object):
 
     # Forums params
     param_forum = (
-        "Forum slug (e.g. 'getting-started', 'product-feedback').\n"
-        'Use "kaggle forums" to list available forums.'
+        "Forum slug (e.g. 'getting-started', 'product-feedback').\n" 'Use "kaggle forums" to list available forums.'
     )
     param_topic_ref = (
         "Topic reference in format <forum-name>/<topic-id> or just <topic-id>.\n"

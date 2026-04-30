@@ -89,6 +89,8 @@ kaggle forums topics show <TOPIC_REF> [options]
 
 *   `-v, --csv`: Print results in CSV format.
 *   `-q, --quiet`: Suppress verbose output.
+*   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
 
 **Example:**
 

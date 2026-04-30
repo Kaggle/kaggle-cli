@@ -825,7 +825,15 @@ class KaggleApi:
     forum_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
     forum_comment_fields = ["id", "authorName", "postDate", "votes", "content"]
     valid_forum_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
-    valid_forum_topic_categories = ["all", "forums", "competitions", "datasets", "competition_write_ups", "models", "benchmarks"]
+    valid_forum_topic_categories = [
+        "all",
+        "forums",
+        "competitions",
+        "datasets",
+        "competition_write_ups",
+        "models",
+        "benchmarks",
+    ]
     valid_forum_topic_groups = ["all", "owned", "upvoted", "bookmarked", "my_activity", "drafts"]
 
     def _is_retriable(self, e: HTTPError) -> bool:
@@ -2367,9 +2375,7 @@ class KaggleApi:
                 request.category = TopicListCategory["TOPIC_LIST_CATEGORY_" + category.upper()]
             if group:
                 if group not in self.valid_forum_topic_groups:
-                    raise ValueError(
-                        "Invalid group specified. Valid options are " + str(self.valid_forum_topic_groups)
-                    )
+                    raise ValueError("Invalid group specified. Valid options are " + str(self.valid_forum_topic_groups))
                 request.group = TopicListGroup["TOPIC_LIST_GROUP_" + group.upper()]
             return kaggle.discussions.discussion_api_client.list_topics(request)
 
@@ -2407,14 +2413,22 @@ class KaggleApi:
         else:
             print("No topics found")
 
-    def forums_topic_show(self, topic_id: int):
+    def forums_topic_show(
+        self,
+        topic_id: int,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ):
         """Get a single discussion topic by ID, including its comments.
 
         Args:
             topic_id (int): The topic ID.
+            page_size (Optional[int]): Number of comments per page. If None, fetches all.
+            page_token (Optional[str]): Page token for comment pagination.
 
         Returns:
-            tuple: (ApiDiscussionTopic, list[ApiDiscussionComment]) — the topic and its comments.
+            tuple: (ApiDiscussionTopic, list[ApiDiscussionComment], str) — the topic,
+                comments, and next_page_token (empty string if no more pages).
         """
         with self.build_kaggle_client() as kaggle:
             # Fetch the topic
@@ -2423,28 +2437,41 @@ class KaggleApi:
             topic_response = kaggle.discussions.discussion_api_client.get_topic(get_request)
             topic = topic_response.topic
 
-            # Fetch comments (paginate to get all)
-            all_comments: list = []
-            page_token: Optional[str] = None
-            while True:
+            # Fetch comments
+            if page_size is not None:
+                # Single page requested
                 comments_request = ApiListCommentsRequest()
                 comments_request.topic_id = topic_id
+                comments_request.page_size = page_size
                 if page_token:
                     comments_request.page_token = page_token
                 comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
-                if comments_response.comments:
-                    all_comments.extend(comments_response.comments)
-                next_token = comments_response.next_page_token
-                if not next_token:
-                    break
-                page_token = next_token
+                return topic, comments_response.comments or [], comments_response.next_page_token or ""
+            else:
+                # Fetch all pages
+                all_comments: list = []
+                current_token: Optional[str] = page_token
+                while True:
+                    comments_request = ApiListCommentsRequest()
+                    comments_request.topic_id = topic_id
+                    if current_token:
+                        comments_request.page_token = current_token
+                    comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
+                    if comments_response.comments:
+                        all_comments.extend(comments_response.comments)
+                    next_token = comments_response.next_page_token
+                    if not next_token:
+                        break
+                    current_token = next_token
 
-            return topic, all_comments
+                return topic, all_comments, ""
 
     def forums_topic_show_cli(
         self,
         topic_ref=None,
         topic_id_arg=None,
+        page_size=None,
+        page_token=None,
         csv_display=False,
         quiet=False,
     ):
@@ -2467,7 +2494,7 @@ class KaggleApi:
                 raise ValueError("No topic specified. Usage: kaggle forums topics show <forum>/<topic-id>")
             topic_id = int(topic_ref)
 
-        topic, comments = self.forums_topic_show(topic_id)
+        topic, comments, next_page_token = self.forums_topic_show(topic_id, page_size=page_size, page_token=page_token)
 
         if topic is None:
             print("Topic not found")
@@ -2496,6 +2523,9 @@ class KaggleApi:
                 self._print_comment_tree(comments)
             elif not quiet:
                 print("No comments")
+
+        if not quiet and next_page_token:
+            print(f"Next page token: {next_page_token}")
 
     def _print_comment_tree(self, comments, depth=0):
         """Recursively print comments with indentation to show tree structure."""
