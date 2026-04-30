@@ -223,7 +223,7 @@ Use this command to update an existing dataset with new files or metadata change
 
 ## `kaggle datasets metadata`
 
-Downloads metadata for a dataset or updates existing local metadata.
+Downloads metadata for a dataset or updates existing from local metadata.
 
 **Usage:**
 
@@ -238,7 +238,7 @@ kaggle datasets metadata <DATASET> [options]
 **Options:**
 
 *   `-p, --path <PATH>`: Directory to download/update metadata file (`dataset-metadata.json`). Defaults to current working directory.
-*   `--update`: Update existing local metadata file instead of downloading anew.
+*   `--update`: Update the existing dataset version's metadata using the contents of the local metadata JSON file. (e.g. "push" from local)
 
 **Example:**
 

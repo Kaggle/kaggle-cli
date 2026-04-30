@@ -24,6 +24,10 @@ kaggle c submissions house-prices-advanced-regression-techniques -v -q
 echo "kaggle competitions leaderboard"
 kaggle c leaderboard titanic -v -q -d -p leaders
 kaggle c leaderboard titanic -s > leaderboard.txt
+echo "kaggle competitions pages"
+kaggle c pages titanic
+kaggle c pages titanic -v -q
+kaggle c pages titanic --page-name rules --content
 rm -r titanic.zip tost sample_submission.csv leaders leaderboard.txt
 
 echo "kaggle kernels list"

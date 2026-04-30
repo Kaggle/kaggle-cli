@@ -3,7 +3,34 @@ Changelog
 
 ### Next
 
-* Add `--sandbox` flag to `kaggle competitions submit` for sandbox submissions (competition hosts/admins only)
+### 2.1.0
+
+* Add `kaggle benchmarks init` command (#981)
+* Fix mypy typing checks (#979)
+* feat: Implement kaggle benchmark client (#955)
+* Update default Python version in cicd CB config
+* Make a list (#978)
+
+### 2.0.2
+
+* Add `kaggle benchmarks auth` command (#976)
+* Create Cloud Build script to run linter (#974)
+* Add `kaggle kernels logs` CLI command (#966)
+* Fix(benchmarks tasks push): handle 403  (#971)
+* Fix: respect Retry-After header on HTTP 429 responses (#938) (#940)
+* Update kagglesdk dependency version to 0.1.19 (#970)
+* Support `dataset-cover-image.png` upload for `datasets metadata --update` (#969)
+* Add CLI commands for simulation episodes and competition pages (#968)
+* Feature(benchmarks): implement Kaggle client (push/run functionality) (#960)
+
+### 2.0.1
+
+* Add `--sandbox` flag to `kaggle competitions submit` for sandbox submissions (competition hosts/admins only) (#932)
+* Optimize large dataset download functionality (#936, s/o katoue)
+* Fix 403s and null file handling when listing kernel session output (#951, s/o 4kaws)
+* Support updating more types of dataset metadata through `datasets metadata --update`:
+  * Expected update frequency, user specified sources (#958)
+  * Dataset images (#959)
 
 ### 2.0.0
 

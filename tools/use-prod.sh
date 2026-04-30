@@ -11,7 +11,7 @@ unset KAGGLE_API_ENVIRONMENT
 unset KAGGLE_CONFIG_DIR
 
 if ! [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/kaggle/kaggle.json" ]]; then
-  echo "Warning: Please download an API token at https://www.kaggle.com/settings and"
+  echo "Warning: Please download an API token at https://www.kaggle.com/settings/api and"
   echo "copy it to home directory to run the client against prod."
   echo
 else

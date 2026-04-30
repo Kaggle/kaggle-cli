@@ -20,4 +20,5 @@ kaggle-cli documentation
    models
    model_instances
    model_instances_versions
+   benchmarks
    tutorials

@@ -1,0 +1,5 @@
+# Lint dependencies from [tool.hatch.envs.lint] in pyproject.toml
+black >= 24.10.0
+mypy >= 1.15.0
+types-requests
+types-tqdm
