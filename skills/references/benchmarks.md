@@ -1,15 +1,6 @@
----
-name: kaggle-benchmarks
-description: >
-  How to use the kaggle CLI to manage Kaggle Benchmark tasks — pushing task files,
-  running them against LLM models, checking status, and downloading results.
-  Activate this skill when the user asks about kaggle benchmarks, benchmark tasks,
-  pushing/running/downloading benchmark results, or the kaggle-benchmarks Python library.
----
+# Kaggle Benchmarks CLI Reference
 
-# Using the Kaggle CLI for Benchmarks
-
-This skill covers how to use the `kaggle` CLI to manage Kaggle Benchmark tasks — pushing task files, running them against LLM models, checking status, and downloading results.
+This reference covers how to use the `kaggle` CLI to manage Kaggle Benchmark tasks — pushing task files, running them against LLM models, checking status, and downloading results.
 
 ## Prerequisites
 
