@@ -71,8 +71,7 @@ target/
 .idea/
 
 # Gemini
-.gemini/*
-!.gemini/skills/
+.gemini/
 
 # Claude Code
 .claude/

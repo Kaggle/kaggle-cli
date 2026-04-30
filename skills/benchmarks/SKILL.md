@@ -358,7 +358,40 @@ kaggle b t status my-task
 kaggle b t download my-task -o ./results
 ```
 
-### Quick Iteration Loop
+### Local Iteration Loop
+
+Before pushing to the server, you can test your task locally against the Model Proxy to catch errors early. This avoids the push → run → wait → download round-trip for every change.
+
+**1. Get credentials:**
+```bash
+kaggle b init -y
+# or just: kaggle b auth -y
+```
+
+**2. Load env vars and run locally:**
+```bash
+# Source the .env file to set MODEL_PROXY_URL, MODEL_PROXY_API_KEY, etc.
+set -a && source .env && set +a
+
+# Run your task file directly with Python
+python task.py
+```
+
+**3. Check the output:**
+- A successful run produces a `.run.json` file in the current directory
+- Assertions print pass/fail inline so you can iterate on prompts and thresholds
+- Errors surface immediately in your terminal — no need to wait for server execution
+
+**4. Once satisfied, push to the server:**
+```bash
+kaggle b t push my-task -f task.py --wait && \
+kaggle b t run my-task -m google/gemini-2.5-pro --wait && \
+kaggle b t download my-task -o ./results
+```
+
+**⚠ Note:** Local runs use the `LLM_DEFAULT` model from your `.env` file. Server runs use whatever model(s) you specify with `-m`. Behavior may differ between models, so always validate against your target model(s) on the server after local iteration.
+
+### Quick Push-Run-Download
 
 ```bash
 # Push and wait, then run and wait, all in sequence
