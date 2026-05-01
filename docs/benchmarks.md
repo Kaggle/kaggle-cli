@@ -362,7 +362,7 @@ kaggle benchmarks topics <BENCHMARK> [options]
 
 **Arguments:**
 
-*   `<BENCHMARK>`: Benchmark slug (e.g., `game-arena-chess`).
+*   `<BENCHMARK>`: Benchmark slug (e.g., `kaggle/chess`).
 
 **Options:**
 
@@ -376,7 +376,7 @@ kaggle benchmarks topics <BENCHMARK> [options]
 **Example:**
 
 ```bash
-kaggle benchmarks topics game-arena-chess
+kaggle benchmarks topics kaggle/chess
 ```
 
 **Purpose:**
@@ -396,7 +396,7 @@ kaggle benchmarks topics show <BENCHMARK>/<TOPIC_ID> [options]
 **Arguments:**
 
 *   `<TOPIC_REF>`: A topic reference, which can be:
-    *   `<benchmark>/<topic-id>` (e.g., `game-arena-chess/12345`)
+    *   `<benchmark>/<topic-id>` (e.g., `kaggle/chess/614080`)
     *   `<benchmark> <topic-id>` (two separate arguments)
     *   `<topic-id>` (bare numeric ID)
 
@@ -410,7 +410,7 @@ kaggle benchmarks topics show <BENCHMARK>/<TOPIC_ID> [options]
 **Example:**
 
 ```bash
-kaggle benchmarks topics show game-arena-chess/12345
+kaggle benchmarks topics show kaggle/chess/614080
 ```
 
 **Purpose:**
