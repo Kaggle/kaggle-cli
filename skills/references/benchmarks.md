@@ -6,7 +6,7 @@ This reference covers how to use the `kaggle` CLI to manage Kaggle Benchmark tas
 
 - Python 3.11+
 - `kaggle` CLI installed (`pip install kaggle` or `pip install -e .` from source)
-- Valid Kaggle credentials: either `~/.kaggle/kaggle.json`, `KAGGLE_API_TOKEN` env var, or OAuth via `kaggle auth login`
+- Valid Kaggle credentials: `KAGGLE_API_TOKEN` env var, `~/.kaggle/access_token` file, or OAuth via `kaggle auth login`
 
 ## Command Hierarchy
 
@@ -31,11 +31,11 @@ kaggle benchmarks (alias: kaggle b)
 The `init` command fetches Model Proxy credentials, writes default environment variables, generates a starter example task file, and a syntax reference document.
 
 ```bash
-# Initialize with defaults (writes .env, example_task.py, kaggle_benchmarks_reference.md)
+# Initialize with defaults (always writes .env, example_task.py, kaggle_benchmarks_reference.md)
 kaggle b init -y
 
-# Initialize with custom paths
-kaggle b init -y --env-file my_project/.env --example-file my_project/my_task.py
+# Use custom paths for env file and/or example file:
+# kaggle b init -y --env-file my_project/.env --example-file my_project/my_task.py
 ```
 
 **Options:**
@@ -51,7 +51,7 @@ kaggle b init -y --env-file my_project/.env --example-file my_project/my_task.py
 - `LLM_DEFAULT_EVAL` — Default eval model slug
 - `LLMS_AVAILABLE` — Comma-separated list of available model slugs
 
-**⚠ Note:** Environment variables are **appended** to the env file (not overwritten). Running `init` or `auth` multiple times will create duplicate entries. Manually clean up the file if needed.
+**⚠ Note:** Environment variables are **appended** to the env file. When loaded via `dotenv`, the last value wins, so re-running `init` or `auth` is safe. The file may accumulate duplicate entries over time; clean up manually if desired.
 
 **Files generated in the same directory as the example file:**
 - `example_task.py` — Starter benchmark task using `@task` decorator
@@ -64,8 +64,11 @@ If either file already exists, it is skipped without overwriting.
 If you just need the Model Proxy token (without the extra env vars and example files):
 
 ```bash
+# Refresh only the 3 credential variables (MODEL_PROXY_URL, MODEL_PROXY_API_KEY, MODEL_PROXY_EXPIRY_TIME)
 kaggle b auth -y
-kaggle b auth -y --env-file custom.env
+
+# Or write to a custom env file:
+# kaggle b auth -y --env-file custom.env
 ```
 
 ## Core Workflow: Push → Run → Status → Download
@@ -94,28 +97,6 @@ def my_test_task(llm):
 my_test_task.run(kbench.llm)
 ```
 
-**More complete example with assertions and pip install:**
-```python
-# %%
-!pip install numpy
-
-# %%
-import kaggle_benchmarks as kbench
-
-# %%
-@kbench.task(name="car_wash_decision_logic")
-def car_wash_decision_logic(llm):
-    prompt = "I want to wash my car today. If the car wash is 100 meters away, should I drive or should I walk?"
-    response = llm.prompt(prompt)
-    kbench.assertions.assert_contains_regex(
-        r"(?i)drive",
-        response,
-        expectation="The model should recommend driving because the car needs to be at the car wash."
-    )
-
-car_wash_decision_logic.run(kbench.llm)
-```
-
 **Task name defaults:** If you omit the `name=` argument from `@kbench.task()`, the task name defaults to the function name, title-cased with underscores replaced by spaces. For example, `@kbench.task()` on a function named `my_eval` produces the task name `"My Eval"`, which is slugified to `my-eval`.
 
 **Task file format rules:**
@@ -128,14 +109,14 @@ car_wash_decision_logic.run(kbench.llm)
 ### Step 2: Push the Task
 
 ```bash
-# Push and return immediately
-kaggle b t push my-task -f task.py
-
-# Push and wait for server-side creation to complete
+# Push and wait for server-side creation to complete (recommended)
 kaggle b t push my-task -f task.py --wait
 
 # Push with timeout (60s) and custom poll interval (5s)
 kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
+
+# Push without waiting (fire-and-forget; check status with `kaggle b t status`)
+# kaggle b t push my-task -f task.py
 ```
 
 **Arguments:**

@@ -22,8 +22,8 @@ pip install kaggle
 # Browser-based OAuth login
 kaggle auth login
 
-# Or place API token at ~/.kaggle/kaggle.json
 # Or set KAGGLE_API_TOKEN environment variable
+# Or place token in ~/.kaggle/access_token
 ```
 
 ## Command Groups
