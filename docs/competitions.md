@@ -223,3 +223,108 @@ kaggle competitions leaderboard <COMPETITION> [options]
 **Purpose:**
 
 This command lets you view your ranking and the scores of other participants in a competition.
+
+## `kaggle competitions topics`
+
+Lists discussion topics for a competition.
+
+**Usage:**
+
+```bash
+kaggle competitions topics <COMPETITION> [options]
+```
+
+**Arguments:**
+
+*   `<COMPETITION>`: Competition URL suffix (e.g., `titanic`).
+
+**Options:**
+
+*   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `-p, --page <PAGE>`: Page number (1-based).
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+List discussion topics for the "titanic" competition sorted by most recent:
+
+```bash
+kaggle competitions topics titanic --sort-by recent
+```
+
+**Purpose:**
+
+This command lets you browse discussion topics for a specific competition.
+
+## `kaggle competitions topics show`
+
+Displays a competition discussion topic with all comments in tree form.
+
+**Usage:**
+
+```bash
+kaggle competitions topics show <COMPETITION>/<TOPIC_ID> [options]
+```
+
+**Arguments:**
+
+*   `<TOPIC_REF>`: A topic reference, which can be:
+    *   `<competition>/<topic-id>` (e.g., `titanic/12345`)
+    *   `<competition> <topic-id>` (two separate arguments)
+    *   `<topic-id>` (bare numeric ID)
+
+**Options:**
+
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+*   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+
+**Example:**
+
+Show topic 12345 from the "titanic" competition:
+
+```bash
+kaggle competitions topics show titanic/12345
+```
+
+**Purpose:**
+
+This command displays a full discussion topic along with all of its comments rendered in an indented tree structure. This replaces the older `topic-messages` command.
+
+## `kaggle competitions topic-messages`
+
+Lists messages within a competition discussion topic.
+
+> **Deprecated:** This command is deprecated in favor of `kaggle competitions topics show`. It will be removed in a future release.
+
+**Usage:**
+
+```bash
+kaggle competitions topic-messages <COMPETITION> <TOPIC_ID> [options]
+```
+
+**Arguments:**
+
+*   `<COMPETITION>`: Competition URL suffix (e.g., `titanic`).
+*   `<TOPIC_ID>`: The discussion topic id.
+
+**Options:**
+
+*   `-s, --sort-by <SORT_BY>`: Sort order. Valid options: `best`, `new`, `old`.
+*   `-n, --page-size <PAGE_SIZE>`: Max top-level messages to return; `-1` for all.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+List all messages for topic 12345 in the "titanic" competition, sorted by newest first:
+
+```bash
+kaggle competitions topic-messages titanic 12345 -s new -n -1
+```
+
+**Purpose:**
+
+This command displays the messages within a specific competition discussion topic.

@@ -2204,6 +2204,9 @@ class KaggleApi:
         competition_opt=None,
         sort_by=None,
         page=None,
+        page_size=None,
+        page_token=None,
+        search=None,
         csv_display=False,
         quiet=False,
     ):
@@ -2217,14 +2220,22 @@ class KaggleApi:
         if competition is None:
             raise ValueError("No competition specified")
 
-        response = self.competition_list_topics(competition, sort_by=sort_by, page=page)
+        response = self.forums_list_topics(
+            forum_slug=competition,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
         topics = response.topics
         if topics:
-            fields = self.competition_topic_fields
+            fields = self.forum_topic_fields
             if csv_display:
                 self.print_csv(topics, fields)
             else:
                 self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
         else:
             print("No topics found")
 
@@ -2559,6 +2570,73 @@ class KaggleApi:
             if getattr(c, "replies", None):
                 flat.extend(self._flatten_discussion_comments(c.replies, depth + 1))
         return flat
+
+    # ------------------------------------------------------------------
+    # Generic entity topics CLI wrappers
+    #
+    # These allow datasets, models, and benchmarks to reuse the forums
+    # discussion API by passing the entity ref as the forum slug.
+    # ------------------------------------------------------------------
+
+    def entity_list_topics_cli(
+        self,
+        entity_ref=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """Generic CLI wrapper that lists discussion topics for any entity.
+
+        Args:
+            entity_ref (str): The entity identifier used as the forum slug
+                (e.g. 'titanic', 'zillow/zecon', 'google/gemma').
+        """
+        if entity_ref is None:
+            raise ValueError("No entity specified")
+
+        response = self.forums_list_topics(
+            forum_slug=entity_ref,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def entity_topic_show_cli(
+        self,
+        topic_ref=None,
+        topic_id_arg=None,
+        page_size=None,
+        page_token=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """Generic CLI wrapper that displays a discussion topic for any entity.
+
+        Delegates to forums_topic_show_cli with the same arguments.
+        """
+        self.forums_topic_show_cli(
+            topic_ref=topic_ref,
+            topic_id_arg=topic_id_arg,
+            page_size=page_size,
+            page_token=page_token,
+            csv_display=csv_display,
+            quiet=quiet,
+        )
 
     def dataset_list(
         self,

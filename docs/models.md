@@ -182,3 +182,70 @@ kaggle models delete $KAGGLE_DEVELOPER/test-model -y
 **Purpose:**
 
 This command permanently removes one of your models (and all its variations and versions) from Kaggle. Use with caution.
+
+## `kaggle models topics`
+
+Lists discussion topics for a model.
+
+**Usage:**
+
+```bash
+kaggle models topics <MODEL> [options]
+```
+
+**Arguments:**
+
+*   `<MODEL>`: Model ref in format `<owner>/<model-slug>` (e.g., `google/gemma`).
+
+**Options:**
+
+*   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `--page-size <PAGE_SIZE>`: Number of items per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for pagination.
+*   `-s, --search <SEARCH_TERM>`: Search query.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+```bash
+kaggle models topics google/gemma --sort-by hot
+```
+
+**Purpose:**
+
+This command lets you browse discussion topics for a specific model.
+
+## `kaggle models topics show`
+
+Displays a model discussion topic with all comments in tree form.
+
+**Usage:**
+
+```bash
+kaggle models topics show <MODEL>/<TOPIC_ID> [options]
+```
+
+**Arguments:**
+
+*   `<TOPIC_REF>`: A topic reference, which can be:
+    *   `<model>/<topic-id>` (e.g., `google/gemma/12345`)
+    *   `<model> <topic-id>` (two separate arguments)
+    *   `<topic-id>` (bare numeric ID)
+
+**Options:**
+
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+*   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+
+**Example:**
+
+```bash
+kaggle models topics show google/gemma/12345
+```
+
+**Purpose:**
+
+This command displays a full discussion topic along with all of its comments rendered in an indented tree structure.

@@ -449,6 +449,20 @@ class TestKaggleApi(unittest.TestCase):
         except ApiException as e:
             self.fail(f"competition_list_topic_messages failed: {e}")
 
+    def test_competition_k_topics_show(self):
+        if not getattr(self, "competition_topic_id", None):
+            self.test_competition_i_topics()
+        if not getattr(self, "competition_topic_id", None):
+            self.skipTest("No topics available to show")
+        try:
+            topic, comments, next_page_token = api.forums_topic_show(self.competition_topic_id)
+            self.assertIsNotNone(topic)
+            self.assertEqual(topic.id, self.competition_topic_id)
+            self.assertIsInstance(comments, list)
+            self.assertIsInstance(next_page_token, str)
+        except ApiException as e:
+            self.fail(f"forums_topic_show (competition) failed: {e}")
+
     # Forums
 
     def test_forums_a_list(self):

@@ -349,3 +349,70 @@ kaggle b t delete my-task -y
 **Purpose:**
 
 Deletes a benchmark task and all associated runs. **Note:** This command is not yet supported by the server.
+
+## `kaggle benchmarks topics`
+
+Lists discussion topics for a benchmark.
+
+**Usage:**
+
+```bash
+kaggle benchmarks topics <BENCHMARK> [options]
+```
+
+**Arguments:**
+
+*   `<BENCHMARK>`: Benchmark slug (e.g., `game-arena-chess`).
+
+**Options:**
+
+*   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `--page-size <PAGE_SIZE>`: Number of items per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for pagination.
+*   `-s, --search <SEARCH_TERM>`: Search query.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+```bash
+kaggle benchmarks topics game-arena-chess
+```
+
+**Purpose:**
+
+This command lets you browse discussion topics for a specific benchmark.
+
+## `kaggle benchmarks topics show`
+
+Displays a benchmark discussion topic with all comments in tree form.
+
+**Usage:**
+
+```bash
+kaggle benchmarks topics show <BENCHMARK>/<TOPIC_ID> [options]
+```
+
+**Arguments:**
+
+*   `<TOPIC_REF>`: A topic reference, which can be:
+    *   `<benchmark>/<topic-id>` (e.g., `game-arena-chess/12345`)
+    *   `<benchmark> <topic-id>` (two separate arguments)
+    *   `<topic-id>` (bare numeric ID)
+
+**Options:**
+
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+*   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+
+**Example:**
+
+```bash
+kaggle benchmarks topics show game-arena-chess/12345
+```
+
+**Purpose:**
+
+This command displays a full discussion topic along with all of its comments rendered in an indented tree structure.

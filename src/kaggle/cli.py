@@ -359,10 +359,13 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages._action_groups.append(parser_competitions_pages_optional)
     parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
 
-    # Competitions list discussion topics
+    # Competitions list discussion topics (with 'show' subcommand)
     parser_competitions_topics = subparsers_competitions.add_parser(
         "topics", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_topics
     )
+    subparsers_competitions_topics = parser_competitions_topics.add_subparsers(title="commands", dest="command")
+    subparsers_competitions_topics.choices = Help.entity_topics_choices
+
     parser_competitions_topics_optional = parser_competitions_topics._action_groups.pop()
     parser_competitions_topics_optional.add_argument(
         "competition", nargs="?", default=None, help=Help.param_competition
@@ -375,11 +378,15 @@ def parse_competitions(subparsers) -> None:
         "--sort-by",
         dest="sort_by",
         required=False,
-        help="Sort order. One of: " + ", ".join(KaggleApi.valid_topic_sort_by),
+        help="Sort order. One of: " + ", ".join(KaggleApi.valid_forum_topic_sort_by),
     )
     parser_competitions_topics_optional.add_argument(
-        "-p", "--page", dest="page", type=int, required=False, help="Page number (1-based)"
+        "--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size
     )
+    parser_competitions_topics_optional.add_argument(
+        "--page-token", dest="page_token", required=False, help=Help.param_page_token
+    )
+    parser_competitions_topics_optional.add_argument("--search", dest="search", required=False, help=Help.param_search)
     parser_competitions_topics_optional.add_argument(
         "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
     )
@@ -389,11 +396,14 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_topics._action_groups.append(parser_competitions_topics_optional)
     parser_competitions_topics.set_defaults(func=api.competition_list_topics_cli)
 
-    # Competitions list messages within a topic
+    # Competitions topics show
+    _add_topics_show_parser(subparsers_competitions_topics)
+
+    # Competitions list messages within a topic (DEPRECATED — hidden alias)
     parser_competitions_topic_messages = subparsers_competitions.add_parser(
         "topic-messages",
         formatter_class=argparse.RawTextHelpFormatter,
-        help=Help.command_competitions_topic_messages,
+        help=argparse.SUPPRESS,
     )
     parser_competitions_topic_messages_optional = parser_competitions_topic_messages._action_groups.pop()
     parser_competitions_topic_messages_optional.add_argument(
@@ -626,6 +636,14 @@ def parse_datasets(subparsers) -> None:
     )
     parser_datasets_status._action_groups.append(parser_datasets_status_optional)
     parser_datasets_status.set_defaults(func=api.dataset_status_cli)
+
+    # Datasets discussion topics
+    _add_entity_topics_parser(
+        subparsers_datasets,
+        entity_name="dataset",
+        entity_help=Help.command_datasets_topics,
+        entity_param_help=Help.param_dataset,
+    )
 
 
 def parse_kernels(subparsers) -> None:
@@ -888,6 +906,14 @@ def parse_models(subparsers) -> None:
     )
     parser_models_update._action_groups.append(parser_models_update_optional)
     parser_models_update.set_defaults(func=api.model_update_cli)
+
+    # Models discussion topics
+    _add_entity_topics_parser(
+        subparsers_models,
+        entity_name="model",
+        entity_help=Help.command_models_topics,
+        entity_param_help=Help.param_model,
+    )
 
 
 def parse_model_instances(subparsers) -> None:
@@ -1170,6 +1196,14 @@ def parse_benchmarks(subparsers) -> None:
     parse_benchmarks_auth(subparsers_benchmarks)
     parse_benchmarks_init(subparsers_benchmarks)
 
+    # Benchmarks discussion topics
+    _add_entity_topics_parser(
+        subparsers_benchmarks,
+        entity_name="benchmark",
+        entity_help=Help.command_benchmarks_topics,
+        entity_param_help=Help.param_benchmarks_task,
+    )
+
 
 def parse_benchmarks_auth(subparsers) -> None:
     parser_auth = subparsers.add_parser(
@@ -1409,6 +1443,73 @@ def parse_auth(subparsers) -> None:
     parser_auth_revoke_token.set_defaults(func=api.auth_revoke_token)
 
 
+# ------------------------------------------------------------------
+# Shared helpers for discussion topics across entity types
+# ------------------------------------------------------------------
+
+
+def _add_topics_show_parser(parent_subparsers) -> None:
+    """Add a 'show' subcommand for displaying a topic with threaded comments.
+
+    This is shared by competitions, datasets, models, benchmarks, and forums.
+    """
+    parser_show = parent_subparsers.add_parser(
+        "show", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_entity_topics_show
+    )
+    parser_show_optional = parser_show._action_groups.pop()
+    parser_show_optional.add_argument("topic_ref", help=Help.param_topic_ref)
+    parser_show_optional.add_argument(
+        "topic_id_arg",
+        nargs="?",
+        default=None,
+        type=int,
+        help="Topic ID (when using two-arg form: <entity-ref> <topic-id>)",
+    )
+    parser_show_optional.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    parser_show_optional.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
+    parser_show_optional.add_argument(
+        "--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size
+    )
+    parser_show_optional.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
+    parser_show._action_groups.append(parser_show_optional)
+    parser_show.set_defaults(func=api.entity_topic_show_cli)
+
+
+def _add_entity_topics_parser(parent_subparsers, entity_name, entity_help, entity_param_help) -> None:
+    """Add 'topics' and 'topics show' subcommands to an entity type.
+
+    This creates:
+      kaggle <entity> topics <entity_ref> [options]
+      kaggle <entity> topics show <topic_ref> [options]
+    """
+    parser_topics = parent_subparsers.add_parser(
+        "topics", formatter_class=argparse.RawTextHelpFormatter, help=f"List discussion topics for a {entity_name}"
+    )
+    subparsers_topics = parser_topics.add_subparsers(title="commands", dest="command")
+    subparsers_topics.choices = Help.entity_topics_choices
+
+    parser_topics_optional = parser_topics._action_groups.pop()
+    parser_topics_optional.add_argument("entity_ref", nargs="?", default=None, help=entity_param_help)
+    parser_topics_optional.add_argument(
+        "--sort-by",
+        dest="sort_by",
+        required=False,
+        help="Sort order. One of: " + ", ".join(KaggleApi.valid_forum_topic_sort_by),
+    )
+    parser_topics_optional.add_argument(
+        "--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size
+    )
+    parser_topics_optional.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
+    parser_topics_optional.add_argument("-s", "--search", dest="search", required=False, help=Help.param_search)
+    parser_topics_optional.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    parser_topics_optional.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
+    parser_topics._action_groups.append(parser_topics_optional)
+    parser_topics.set_defaults(func=api.entity_list_topics_cli)
+
+    # Add 'show' subcommand
+    _add_topics_show_parser(subparsers_topics)
+
+
 def parse_forums(subparsers) -> None:
     parser_forums = subparsers.add_parser(
         "forums", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_forums, aliases=["fo"]
@@ -1536,29 +1637,56 @@ class Help(object):
         "topics",
         "topic-messages",
     ]
-    datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
+    datasets_choices = [
+        "list",
+        "files",
+        "download",
+        "create",
+        "version",
+        "init",
+        "metadata",
+        "status",
+        "delete",
+        "topics",
+    ]
     kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "logs", "update", "delete"]
-    models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
+    models_choices = [
+        "instances",
+        "i",
+        "variations",
+        "v",
+        "get",
+        "list",
+        "init",
+        "create",
+        "delete",
+        "update",
+        "topics",
+    ]
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
-    benchmarks_choices = ["tasks", "t", "auth", "init"]
+    benchmarks_choices = ["tasks", "t", "auth", "init", "topics"]
     benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "models", "delete"]
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["show"]
+    entity_topics_choices = ["show"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
     kaggle = (
         "Use one of:\ncompetitions {"
         + ", ".join(competitions_choices)
-        + "}\ndatasets {"
+        + "}\ncompetitions topics {show}"
+        + "\ndatasets {"
         + ", ".join(datasets_choices)
-        + "}\nkernels {"
+        + "}\ndatasets topics {show}"
+        + "\nkernels {"
         + ", ".join(kernels_choices)
         + "}\nmodels {"
         + ", ".join(models_choices)
-        + "}\nmodels variations {"
+        + "}\nmodels topics {show}"
+        + "\nmodels variations {"
         + ", ".join(model_instances_choices)
         + "}\nmodels variations versions {"
         + ", ".join(model_instance_versions_choices)
@@ -1568,7 +1696,8 @@ class Help(object):
         + ", ".join(forums_topics_choices)
         + "}\nbenchmarks {"
         + ", ".join(benchmarks_choices)
-        + "}\nconfig {"
+        + "}\nbenchmarks topics {show}"
+        + "\nconfig {"
         + ", ".join(config_choices)
         + "}"
     )
@@ -1586,6 +1715,9 @@ class Help(object):
     group_benchmarks_tasks = "Commands related to benchmark tasks"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
+
+    # Entity topics commands (shared across entity types)
+    command_entity_topics_show = "Display a topic with all its comments in tree form"
 
     # Competitions commands
     command_competitions_list = "List available competitions"
@@ -1608,6 +1740,7 @@ class Help(object):
 
     # Datasets commands
     command_datasets_list = "List available datasets"
+    command_datasets_topics = "List discussion topics for a dataset"
     command_datasets_files = "List dataset files"
     command_datasets_download = "Download dataset files"
     command_datasets_new = "Create a new dataset"
@@ -1630,6 +1763,7 @@ class Help(object):
 
     # Models commands
     command_models_files = "List model files"
+    command_models_topics = "List discussion topics for a model"
     command_models_get = "Get a model"
     command_models_list = "List models"
     command_models_init = "Initialize metadata file for model creation"
@@ -1639,6 +1773,7 @@ class Help(object):
 
     # Benchmarks commands
     command_benchmarks_auth = "Fetch and persist Model Proxy credential information"
+    command_benchmarks_topics = "List discussion topics for a benchmark"
     command_benchmarks_init = (
         "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
     )
