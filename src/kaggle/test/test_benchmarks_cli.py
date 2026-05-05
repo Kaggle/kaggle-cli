@@ -1230,7 +1230,10 @@ class TestBenchmarksInit:
         assert "MODEL_PROXY_EXPIRY_TIME=2026-04-17T12:00:00Z\n" in content
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
         assert "LLM_DEFAULT_EVAL=google/gemini-3-flash-preview\n" in content
-        assert "LLMS_AVAILABLE=anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5\n" in content
+        assert (
+            "LLMS_AVAILABLE=anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5\n"
+            in content
+        )
         out = capsys.readouterr().out
         assert "MODEL_PROXY_API_KEY=****************oken" in out
         assert "LLM_DEFAULT=google/gemini-3-flash-preview" in out

@@ -6838,10 +6838,7 @@ class KaggleApi:
                 return
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
-                error = (
-                    getattr(task_info, "error", None)
-                    or getattr(task_info, "creation_error_message", None)
-                )
+                error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
                 if error:
                     error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
