@@ -3,6 +3,8 @@ Changelog
 
 ### Next
 
+* Add `kaggle hackathons` (alias `h`) command group with `get`, `writeups list`, `writeups download`, and `writeups resolve-links` subcommands — CLI parity for the new hackathon MCP tools (`get_hackathon_overview`, `list_hackathon_write_ups`, `download_hackathon_write_ups`, `get_resolved_writeup_links`)
+* Add `tools/check_mcp_cli_parity.py` and a CI gate that fails when a new MCP tool ships in `Kaggle.Sdk/mcp/McpClient.cs` without a corresponding CLI command (or an explicit `skip:` entry in `tools/mcp_cli_mapping.yaml`)
 * feat: add forums commands for browsing Kaggle discussions (#993)
 * Add competitions topics CLI command (#982)
 

@@ -55,6 +55,7 @@ def main() -> None:
     parse_models(subparsers)
     parse_files(subparsers)
     parse_forums(subparsers)
+    parse_hackathons(subparsers)
     parse_benchmarks(subparsers)
     parse_config(subparsers)
     parse_auth(subparsers)
@@ -1610,6 +1611,97 @@ def parse_forums(subparsers) -> None:
     parser_forums_topics_show.set_defaults(func=api.forums_topic_show_cli)
 
 
+def parse_hackathons(subparsers) -> None:
+    parser_hackathons = subparsers.add_parser(
+        "hackathons", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_hackathons, aliases=["h"]
+    )
+    subparsers_hackathons = parser_hackathons.add_subparsers(title="commands", dest="command")
+    subparsers_hackathons.required = True
+    subparsers_hackathons.choices = Help.hackathons_choices
+
+    # hackathons get <competition>
+    parser_get = subparsers_hackathons.add_parser(
+        "get",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_hackathons_get,
+    )
+    parser_get_optional = parser_get._action_groups.pop()
+    parser_get_required = parser_get.add_argument_group("required arguments")
+    parser_get_required.add_argument("competition", help=Help.param_competition_nonempty)
+    parser_get_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_get_optional.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
+    parser_get._action_groups.append(parser_get_optional)
+    parser_get.set_defaults(func=api.hackathon_get_overview_cli)
+
+    # hackathons writeups ...
+    parser_writeups = subparsers_hackathons.add_parser(
+        "writeups",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_hackathons_writeups,
+    )
+    subparsers_writeups = parser_writeups.add_subparsers(title="commands", dest="command")
+    subparsers_writeups.required = True
+    subparsers_writeups.choices = Help.hackathons_writeups_choices
+
+    # hackathons writeups list <competition>
+    parser_writeups_list = subparsers_writeups.add_parser(
+        "list",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_hackathons_writeups_list,
+    )
+    parser_writeups_list_optional = parser_writeups_list._action_groups.pop()
+    parser_writeups_list_required = parser_writeups_list.add_argument_group("required arguments")
+    parser_writeups_list_required.add_argument("competition", help=Help.param_competition_nonempty)
+    parser_writeups_list_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_writeups_list_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_writeups_list._action_groups.append(parser_writeups_list_optional)
+    parser_writeups_list.set_defaults(func=api.hackathon_list_writeups_cli)
+
+    # hackathons writeups download <competition> [-p <path>]
+    parser_writeups_download = subparsers_writeups.add_parser(
+        "download",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_hackathons_writeups_download,
+    )
+    parser_writeups_download_optional = parser_writeups_download._action_groups.pop()
+    parser_writeups_download_required = parser_writeups_download.add_argument_group("required arguments")
+    parser_writeups_download_required.add_argument("competition", help=Help.param_competition_nonempty)
+    parser_writeups_download_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_hackathons_writeups_download_path
+    )
+    parser_writeups_download_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_writeups_download._action_groups.append(parser_writeups_download_optional)
+    parser_writeups_download.set_defaults(func=api.hackathon_download_writeups_cli)
+
+    # hackathons writeups resolve-links <writeup_id>
+    parser_writeups_resolve = subparsers_writeups.add_parser(
+        "resolve-links",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_hackathons_writeups_resolve_links,
+    )
+    parser_writeups_resolve_optional = parser_writeups_resolve._action_groups.pop()
+    parser_writeups_resolve_required = parser_writeups_resolve.add_argument_group("required arguments")
+    parser_writeups_resolve_required.add_argument(
+        "writeup_id", help=Help.param_hackathons_writeup_id
+    )
+    parser_writeups_resolve_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_writeups_resolve_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_writeups_resolve._action_groups.append(parser_writeups_resolve_optional)
+    parser_writeups_resolve.set_defaults(func=api.hackathon_resolve_writeup_links_cli)
+
+
 class Help(object):
     kaggle_choices = [
         "competitions",
@@ -1624,6 +1716,8 @@ class Help(object):
         "f",
         "forums",
         "fo",
+        "hackathons",
+        "h",
         "benchmarks",
         "b",
         "config",
@@ -1676,6 +1770,8 @@ class Help(object):
     benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "models", "delete"]
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["show"]
+    hackathons_choices = ["get", "writeups"]
+    hackathons_writeups_choices = ["list", "download", "resolve-links"]
     entity_topics_choices = ["show"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
@@ -1700,6 +1796,10 @@ class Help(object):
         + ", ".join(forums_choices)
         + "}\nforums topics {"
         + ", ".join(forums_topics_choices)
+        + "}\nhackathons {"
+        + ", ".join(hackathons_choices)
+        + "}\nhackathons writeups {"
+        + ", ".join(hackathons_writeups_choices)
         + "}\nbenchmarks {"
         + ", ".join(benchmarks_choices)
         + "}\nbenchmarks topics {show}"
@@ -1716,6 +1816,7 @@ class Help(object):
     group_model_instances = "Commands related to Kaggle model variations"
     group_model_instance_versions = "Commands related to Kaggle model variations versions"
     group_forums = "Commands related to Kaggle discussion forums"
+    group_hackathons = "Commands related to Kaggle hackathons"
     group_files = "Commands related files"
     group_benchmarks = "Commands related to Kaggle benchmarks"
     group_benchmarks_tasks = "Commands related to benchmark tasks"
@@ -1743,6 +1844,17 @@ class Help(object):
     command_forums_list = "List all discussion forums"
     command_forums_topics = "List topics in a forum"
     command_forums_topics_show = "Display a topic with all its comments in tree form"
+
+    # Hackathons commands
+    command_hackathons_get = "Get the overview page content for a hackathon competition"
+    command_hackathons_writeups = "Manage hackathon write-up submissions"
+    command_hackathons_writeups_list = "List hackathon write-up submissions for a competition"
+    command_hackathons_writeups_download = (
+        "Download a CSV with all submitted write-ups for a closed hackathon competition"
+    )
+    command_hackathons_writeups_resolve_links = (
+        "Resolve all links inside a hackathon write-up (download URLs, summaries, metadata)"
+    )
 
     # Datasets commands
     command_datasets_list = "List available datasets"
@@ -1836,6 +1948,14 @@ class Help(object):
     param_page_token = "Page token for results paging."
     param_search = "Term(s) to search for"
     param_mine = "Display only my items"
+
+    # Hackathons params
+    param_hackathons_writeups_download_path = (
+        "Path to write the downloaded CSV to.\n"
+        "If omitted, defaults to ./<competition>-writeups.csv in the current working directory.\n"
+        "If the path is an existing directory, the CSV is written to <path>/<competition>-writeups.csv."
+    )
+    param_hackathons_writeup_id = "ID of a hackathon write-up (integer)"
 
     # Forums params
     param_forum = (
