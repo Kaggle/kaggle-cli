@@ -6579,7 +6579,7 @@ class KaggleApi:
         print(f"{'Task':<{max_task_len}} {'Version':<10} {'Status':<20} {'Created':<20}")
         print("-" * (max_task_len + 53))
         for t in tasks:
-            version = str(t.slug.version_number) if t.slug.version_number else "0"
+            version = str(t.slug.version_number) if t.slug.version_number else "unset"
             print(
                 f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
                 f" {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
@@ -6868,7 +6868,7 @@ class KaggleApi:
                     details = []
                     for r in errored:
                         slug = self._short_model_slug(r.model_version_slug)
-                        msg = r.error_message.strip() if r.error_message else "No error message"
+                        msg = (getattr(r, "error_message", None) or "").strip() or "No error message"
                         details.append(f"  [{slug}]\n    {msg}")
                     raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
                 return
@@ -7076,6 +7076,8 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
             print(f"Task:     {task_info.slug.task_slug}")
+            version = task_info.slug.version_number or "unset"
+            print(f"Version:  {version}")
             print(f"Status:   {self._clean_enum_str(task_info.creation_state)}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
             url = getattr(task_info, "url", None)
@@ -7096,7 +7098,7 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
-            version = str(task_info.slug.version_number) if task_info.slug.version_number else "0"
+            version = str(task_info.slug.version_number) if task_info.slug.version_number else "unset"
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:

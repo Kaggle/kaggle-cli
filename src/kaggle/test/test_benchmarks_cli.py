@@ -611,7 +611,8 @@ class TestStatus:
         api.benchmarks_tasks_status_cli("my-task")
         output = capsys.readouterr().out
         assert "Task:" in output
-        assert "Status:" in output
+        assert "Version:" in output
+        assert "Status:   COMPLETED" in output
         assert "Created:" in output
         assert "Task URL:" in output
 
@@ -915,7 +916,7 @@ class TestDownload:
         assert "Downloaded output for good-model to" in output
 
     def test_download_version_zero_uses_zero(self, api, capsys):
-        """When version_number is 0 (unset), directory uses '0'."""
+        """When version_number is 0 (unset), directory uses 'unset'."""
         task = _make_task(version_number=0)
         api._mock_benchmarks.get_benchmark_task.return_value = task
         _setup_runs_response(api, [_make_run(run_id=1)])
@@ -924,7 +925,7 @@ class TestDownload:
         with patch("zipfile.ZipFile"), patch("os.remove"):
             api.benchmarks_tasks_download_cli("my-task")
         zippath = api.download_file.call_args[0][1]
-        expected = os.path.join(".", "my-task", "0", "gemini-pro", "1.zip")
+        expected = os.path.join(".", "my-task", "unset", "gemini-pro", "1.zip")
         assert zippath == expected
 
 
