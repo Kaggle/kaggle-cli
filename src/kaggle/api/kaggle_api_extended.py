@@ -6836,7 +6836,11 @@ class KaggleApi:
                 return
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
-                if error := getattr(task_info, "error_message", None):
+                error = (
+                    getattr(task_info, "error", None)
+                    or getattr(task_info, "creation_error_message", None)
+                )
+                if error:
                     error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
 
@@ -6990,7 +6994,7 @@ class KaggleApi:
             request.text = notebook_content
 
             response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
-            error = getattr(response, "error_message", None) or getattr(response, "errorMessage", None)
+            error = response.error
             if error:
                 raise ValueError(f"Failed to push task: {error}")
 
@@ -7088,7 +7092,8 @@ class KaggleApi:
         output = output or "."
 
         with self.build_kaggle_client() as kaggle:
-            self._get_benchmark_task(task, kaggle)
+            task_info = self._get_benchmark_task(task, kaggle)
+            version = str(task_info.slug.version_number) if task_info.slug.version_number else "unknown"
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:
@@ -7113,8 +7118,8 @@ class KaggleApi:
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
                 slug = self._short_model_slug(r.model_version_slug)
-                # Hierarchical layout: {output}/{task}/{model}/{run_id}/
-                outdir = os.path.join(output, task, slug, str(r.id))
+                # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
+                outdir = os.path.join(output, task, version, slug, str(r.id))
 
                 if os.path.isdir(outdir):
                     print(f"Skipping {slug} (run {r.id}) — already downloaded to {outdir}")

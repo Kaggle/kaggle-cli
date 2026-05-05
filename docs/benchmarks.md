@@ -290,10 +290,10 @@ kaggle benchmarks tasks download <TASK> [options]
 
 **Purpose:**
 
-Downloads and extracts the output zip archive for each completed run. Files are organized in a hierarchical layout:
+Downloads and extracts the output zip archive for each completed run. Files are organized in a hierarchical layout that includes the task's version number:
 
 ```
-<output>/<task>/<model>/<run_id>/
+<output>/<task>/<version>/<model>/<run_id>/
 ```
 
 Already-downloaded runs (where the output directory exists) are automatically skipped.

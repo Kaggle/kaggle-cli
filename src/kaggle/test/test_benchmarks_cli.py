@@ -93,12 +93,15 @@ def _push(api, task, filepath):
     return jt
 
 
-def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00", url=None):
+def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00", url=None, version_number=1, error="", creation_error_message=""):
     t = MagicMock()
     t.slug.task_slug = slug
+    t.slug.version_number = version_number
     t.creation_state = state
     t.create_time = create_time
     t.url = url if url is not None else f"/benchmarks/{slug}"
+    t.error = error
+    t.creation_error_message = creation_error_message
     return t
 
 
@@ -133,8 +136,7 @@ def _setup_create_response(api, task_slug="my-task"):
     resp = MagicMock()
     resp.slug.task_slug = task_slug
     resp.url = f"https://kaggle.com/benchmarks/{task_slug}"
-    resp.error_message = None
-    resp.errorMessage = None
+    resp.error = None
     api._mock_benchmarks.create_benchmark_task.return_value = resp
 
 
@@ -275,8 +277,7 @@ class TestPush:
         filepath = _write_task_file(tmp_path)
         resp = MagicMock()
         resp.url = "/benchmarks/my-task"
-        resp.error_message = None
-        resp.errorMessage = None
+        resp.error = None
         api._mock_benchmarks.create_benchmark_task.return_value = resp
         _setup_completed_task(api)
         _push(api, "my-task", filepath)
@@ -326,16 +327,40 @@ class TestPush:
             _push(api, "my-task", filepath)
 
     def test_push_handles_api_error(self, api, tmp_path):
-        """Push raises ValueError when response contains error_message."""
+        """Push raises ValueError when response contains error."""
         filepath = _write_task_file(tmp_path)
         _setup_completed_task(api)
 
         resp = MagicMock()
-        resp.error_message = "Some backend error"
+        resp.error = "Some backend error"
         api._mock_benchmarks.create_benchmark_task.return_value = resp
 
         with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
             _push(api, "my-task", filepath)
+
+    @pytest.mark.parametrize(
+        "error_field, error_kwargs",
+        [
+            ("error", {"error": "Notebook execution failed"}),
+            ("creation_error_message", {"creation_error_message": "OOM during creation"}),
+        ],
+        ids=["error_field", "creation_error_message_field"],
+    )
+    def test_push_wait_creation_failed_shows_error(self, api, capsys, tmp_path, error_field, error_kwargs):
+        """When task creation fails, the error from either `error` or `creation_error_message` is shown."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+
+        errored_task = _make_task(state=ERRORED, **error_kwargs)
+        api._mock_benchmarks.get_benchmark_task.side_effect = [
+            _make_task(state=COMPLETED),  # initial check
+            errored_task,                 # poll -> errored
+        ]
+
+        with patch("time.sleep"), pytest.raises(ValueError, match="creation failed") as exc_info:
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
+
+        assert error_kwargs[error_field] in str(exc_info.value)
 
     def test_push_wait_polls_until_completion(self, api, capsys, tmp_path):
         filepath = _write_task_file(tmp_path)
@@ -718,7 +743,7 @@ class TestDownload:
         # download_file receives the .zip path
         call_args = api.download_file.call_args
         zippath = call_args[0][1]
-        expected = os.path.join(".", "my-task", "gemini-pro", "1.zip")
+        expected = os.path.join(".", "my-task", "1", "gemini-pro", "1.zip")
         assert zippath == expected
 
     def test_download_with_model_filter(self, api, capsys):
@@ -780,7 +805,7 @@ class TestDownload:
         self._mock_download(api)
         outdir = str(tmp_path / "out")
         # Pre-create the output directory to simulate a previous download
-        existing = os.path.join(outdir, "my-task", "gemini-pro", "42")
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
         os.makedirs(existing)
 
         api.benchmarks_tasks_download_cli("my-task", output=outdir)
@@ -821,7 +846,7 @@ class TestDownload:
         api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
 
         outdir = str(tmp_path / "out")
-        zip_path = os.path.join(outdir, "my-task", "gemini-pro", "42.zip")
+        zip_path = os.path.join(outdir, "my-task", "1", "gemini-pro", "42.zip")
 
         # Make download_file create a real zip so extraction works
         def fake_download(response, outfile, http_client, quiet=False):
@@ -836,8 +861,8 @@ class TestDownload:
 
         api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
-        # Verify extraction happened: {output}/{task}/{model}/{run_id}/
-        extracted_dir = os.path.join(outdir, "my-task", "gemini-pro", "42")
+        # Verify extraction happened: {output}/{task}/{version}/{model}/{run_id}/
+        extracted_dir = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
         assert os.path.isdir(extracted_dir)
         assert os.path.isfile(os.path.join(extracted_dir, "output.txt"))
         with open(os.path.join(extracted_dir, "output.txt")) as f:
@@ -902,13 +927,26 @@ class TestDownload:
         output = capsys.readouterr().out
         # Bad zip: warning printed, raw file kept
         assert "not a valid zip archive" in output
-        bad_zip_path = os.path.join(outdir, "my-task", "bad-model", "10.zip")
+        bad_zip_path = os.path.join(outdir, "my-task", "1", "bad-model", "10.zip")
         assert os.path.isfile(bad_zip_path)
         # Good zip: extracted successfully
-        good_dir = os.path.join(outdir, "my-task", "good-model", "11")
+        good_dir = os.path.join(outdir, "my-task", "1", "good-model", "11")
         assert os.path.isdir(good_dir)
         assert os.path.isfile(os.path.join(good_dir, "result.txt"))
         assert "Downloaded output for good-model to" in output
+
+    def test_download_version_zero_uses_unknown(self, api, capsys):
+        """When version_number is 0 (unset), directory uses 'unknown'."""
+        task = _make_task(version_number=0)
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+        _setup_runs_response(api, [_make_run(run_id=1)])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
+        api.download_file = MagicMock()
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task")
+        zippath = api.download_file.call_args[0][1]
+        expected = os.path.join(".", "my-task", "unknown", "gemini-pro", "1.zip")
+        assert zippath == expected
 
 
 # ============================================================
@@ -1235,7 +1273,7 @@ class TestBenchmarksInit:
         assert "MODEL_PROXY_EXPIRY_TIME=2026-04-17T12:00:00Z\n" in content
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
         assert "LLM_DEFAULT_EVAL=google/gemini-3-flash-preview\n" in content
-        assert "LLMS_AVAILABLE=google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview\n" in content
+        assert "LLMS_AVAILABLE=anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5\n" in content
         out = capsys.readouterr().out
         assert "MODEL_PROXY_API_KEY=****************oken" in out
         assert "LLM_DEFAULT=google/gemini-3-flash-preview" in out
