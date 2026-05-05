@@ -6576,13 +6576,13 @@ class KaggleApi:
         max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
         max_task_len = max(max_task_len, 40)
 
-        print(f"{'Task':<{max_task_len}} {'Version':<10}{'Status':<20} {'Created':<20}")
-        print("-" * (max_task_len + 50))
+        print(f"{'Task':<{max_task_len}} {'Version':<10} {'Status':<20} {'Created':<20}")
+        print("-" * (max_task_len + 53))
         for t in tasks:
-            version = str(t.slug.version_number) if t.slug.version_number else "-"
+            version = str(t.slug.version_number) if t.slug.version_number else "0"
             print(
                 f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
-                f"{KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
+                f" {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
             )
 
     @staticmethod
@@ -6995,7 +6995,7 @@ class KaggleApi:
             request.text = notebook_content
 
             response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
-            error = response.error
+            error = getattr(response, "error", None)
             if error:
                 raise ValueError(f"Failed to push task: {error}")
 
@@ -7096,7 +7096,7 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
-            version = str(task_info.slug.version_number) if task_info.slug.version_number else "unknown"
+            version = str(task_info.slug.version_number) if task_info.slug.version_number else "0"
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:

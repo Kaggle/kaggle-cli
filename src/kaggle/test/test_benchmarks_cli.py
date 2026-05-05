@@ -589,11 +589,11 @@ class TestList:
         assert "my-task" not in output
 
     def test_list_table_format(self, api, capsys):
-        """Table uses 40/10/20/20 column widths and 90-char separator."""
+        """Table uses 40/10/20/20 column widths and 93-char separator."""
         _setup_list_response(api, [_make_task()])
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        assert "-" * 90 in output
+        assert "-" * 93 in output
 
 
 # ============================================================
@@ -914,8 +914,8 @@ class TestDownload:
         assert os.path.isfile(os.path.join(good_dir, "result.txt"))
         assert "Downloaded output for good-model to" in output
 
-    def test_download_version_zero_uses_unknown(self, api, capsys):
-        """When version_number is 0 (unset), directory uses 'unknown'."""
+    def test_download_version_zero_uses_zero(self, api, capsys):
+        """When version_number is 0 (unset), directory uses '0'."""
         task = _make_task(version_number=0)
         api._mock_benchmarks.get_benchmark_task.return_value = task
         _setup_runs_response(api, [_make_run(run_id=1)])
@@ -924,7 +924,7 @@ class TestDownload:
         with patch("zipfile.ZipFile"), patch("os.remove"):
             api.benchmarks_tasks_download_cli("my-task")
         zippath = api.download_file.call_args[0][1]
-        expected = os.path.join(".", "my-task", "unknown", "gemini-pro", "1.zip")
+        expected = os.path.join(".", "my-task", "0", "gemini-pro", "1.zip")
         assert zippath == expected
 
 
