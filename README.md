@@ -42,7 +42,9 @@ See the [User documentation](docs/README.md) for more examples & tutorials.
 ### `kagglesdk` Updates
 
 New features that interact with `kaggle.com` probably require changes to the Python library, `kagglesdk`.
-Be sure to specify the new version in `pyproject.toml`. Make sure the required version is available on `pypi.org`.
+Make sure to bump the minimum version required for `kagglesdk` in the `dependencies` list specified in
+[pyproject.toml][pyproject.toml]]. Make sure the required version is available on the
+[pypi.org kagglesdk project](https://pypi.org/project/kagglesdk/#history).
 
 ### Prerequisites
 
