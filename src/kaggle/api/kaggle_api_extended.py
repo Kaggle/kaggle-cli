@@ -6576,11 +6576,13 @@ class KaggleApi:
         max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
         max_task_len = max(max_task_len, 40)
 
-        print(f"{'Task':<{max_task_len}} {'Status':<20} {'Created':<20}")
-        print("-" * (max_task_len + 40))
+        print(f"{'Task':<{max_task_len}} {'Version':<10}{'Status':<20} {'Created':<20}")
+        print("-" * (max_task_len + 50))
         for t in tasks:
+            version = str(t.slug.version_number) if t.slug.version_number else "-"
             print(
-                f"{t.slug.task_slug:<{max_task_len}} {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
+                f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
+                f"{KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
             )
 
     @staticmethod

@@ -213,7 +213,7 @@ kaggle benchmarks tasks list [options]
 
 **Purpose:**
 
-Displays a table of your benchmark tasks showing the task slug, creation status, and creation timestamp.
+Displays a table of your benchmark tasks showing the task slug, current version, creation status, and creation timestamp.
 
 ---
 
@@ -294,6 +294,7 @@ Downloads and extracts the output zip archive for each completed run. Files are 
 
 ```
 <output>/<task>/<version>/<model>/<run_id>/
+   ├── output files...
 ```
 
 Already-downloaded runs (where the output directory exists) are automatically skipped.

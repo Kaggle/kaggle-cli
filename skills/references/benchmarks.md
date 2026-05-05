@@ -262,7 +262,7 @@ kaggle b t list --name-regex "^math" --status errored
 
 **Status filter values:** `queued`, `running`, `completed`, `errored`
 
-**Output:** Aligned table with columns: Task, Status, Created
+**Output:** Aligned table with columns: Task, Version, Status, Created
 
 ### List Available Models
 

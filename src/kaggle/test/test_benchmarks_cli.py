@@ -548,6 +548,7 @@ class TestList:
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
         assert "Task" in output
+        assert "Version" in output
         assert "my-task" in output
 
     def test_list_with_name_regex_filter(self, api, capsys):
@@ -588,11 +589,11 @@ class TestList:
         assert "my-task" not in output
 
     def test_list_table_format(self, api, capsys):
-        """Table uses 40/20/20 column widths and 80-char separator."""
+        """Table uses 40/10/20/20 column widths and 90-char separator."""
         _setup_list_response(api, [_make_task()])
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        assert "-" * 80 in output
+        assert "-" * 90 in output
 
 
 # ============================================================
