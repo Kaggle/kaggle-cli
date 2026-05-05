@@ -1960,8 +1960,8 @@ class Help(object):
         "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
     )
     param_kernel_acc = "Specify the type of accelerator to use for the kernel run"
-    param_kernel_logs_follow = "Continuously poll and print new log lines (like tail -f)"
-    param_kernel_logs_interval = "Polling interval in seconds for follow mode (default 5)"
+    param_kernel_logs_follow = "Stream live execution logs from the running session (like tail -f)"
+    param_kernel_logs_interval = argparse.SUPPRESS  # Deprecated; live streaming is push-based.
 
     # Models params
     param_model = "Model URL suffix in format <owner>/<model-name>"
