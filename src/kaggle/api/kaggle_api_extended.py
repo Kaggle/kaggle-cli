@@ -6957,6 +6957,8 @@ class KaggleApi:
         self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)))
 
     def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10):
+        if poll_interval is not None and poll_interval <= 0:
+            raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
             raise ValueError(f"File {file} does not exist")
         if not file.endswith(".py"):
@@ -7009,6 +7011,8 @@ class KaggleApi:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
+        if poll_interval is not None and poll_interval <= 0:
+            raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)
         task = slugify(task)
 

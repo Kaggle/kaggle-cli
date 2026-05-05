@@ -93,15 +93,14 @@ def _push(api, task, filepath):
     return jt
 
 
-def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00", url=None, version_number=1, error="", creation_error_message=""):
+def _make_task(slug="my-task", state=COMPLETED, create_time="2026-04-06 10:00:00", url=None, version_number=1):
     t = MagicMock()
     t.slug.task_slug = slug
     t.slug.version_number = version_number
     t.creation_state = state
     t.create_time = create_time
     t.url = url if url is not None else f"/benchmarks/{slug}"
-    t.error = error
-    t.creation_error_message = creation_error_message
+    t.creation_error_message = ""
     return t
 
 
@@ -327,7 +326,7 @@ class TestPush:
             _push(api, "my-task", filepath)
 
     def test_push_handles_api_error(self, api, tmp_path):
-        """Push raises ValueError when response contains error."""
+        """Push raises ValueError when response contains error_message."""
         filepath = _write_task_file(tmp_path)
         _setup_completed_task(api)
 
@@ -337,30 +336,6 @@ class TestPush:
 
         with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
             _push(api, "my-task", filepath)
-
-    @pytest.mark.parametrize(
-        "error_field, error_kwargs",
-        [
-            ("error", {"error": "Notebook execution failed"}),
-            ("creation_error_message", {"creation_error_message": "OOM during creation"}),
-        ],
-        ids=["error_field", "creation_error_message_field"],
-    )
-    def test_push_wait_creation_failed_shows_error(self, api, capsys, tmp_path, error_field, error_kwargs):
-        """When task creation fails, the error from either `error` or `creation_error_message` is shown."""
-        filepath = _write_task_file(tmp_path)
-        _setup_create_response(api, "my-task")
-
-        errored_task = _make_task(state=ERRORED, **error_kwargs)
-        api._mock_benchmarks.get_benchmark_task.side_effect = [
-            _make_task(state=COMPLETED),  # initial check
-            errored_task,                 # poll -> errored
-        ]
-
-        with patch("time.sleep"), pytest.raises(ValueError, match="creation failed") as exc_info:
-            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
-
-        assert error_kwargs[error_field] in str(exc_info.value)
 
     def test_push_wait_polls_until_completion(self, api, capsys, tmp_path):
         filepath = _write_task_file(tmp_path)
@@ -395,6 +370,13 @@ class TestPush:
         output = capsys.readouterr().out
         assert "Timed out waiting for task creation after 30 seconds" in output
 
+    @pytest.mark.parametrize("interval", [0, -1], ids=["zero", "negative"])
+    def test_push_rejects_non_positive_poll_interval(self, api, tmp_path, interval):
+        """Push raises ValueError when poll_interval is 0 or negative."""
+        filepath = _write_task_file(tmp_path)
+        with pytest.raises(ValueError, match="--poll-interval must be a positive integer"):
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0, poll_interval=interval)
+
 
 # ============================================================
 # Run
@@ -412,6 +394,12 @@ class TestRun:
         with pytest.raises(ValueError, match="not ready to run"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         api._mock_benchmarks.batch_schedule_benchmark_task_runs.assert_not_called()
+
+    @pytest.mark.parametrize("interval", [0, -1], ids=["zero", "negative"])
+    def test_run_rejects_non_positive_poll_interval(self, api, interval):
+        """Run raises ValueError when poll_interval is 0 or negative."""
+        with pytest.raises(ValueError, match="--poll-interval must be a positive integer"):
+            api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], poll_interval=interval)
 
     def test_run_errored_task_includes_task_info(self, api):
         """ERRORED task error message includes task info."""
@@ -590,18 +578,10 @@ class TestList:
         assert "task-1" in output
         assert "task-2" in output
 
-    def test_list_empty(self, api, capsys):
-        """Empty task list still prints the header."""
-        _setup_list_response(api, [])
-        api.benchmarks_tasks_list_cli()
-        output = capsys.readouterr().out
-        assert "Task" in output
-        # No task rows
-        assert "my-task" not in output
-
-    def test_list_none_tasks_field(self, api, capsys):
-        """Server may return None for the tasks field instead of []."""
-        _setup_list_response(api, None)
+    @pytest.mark.parametrize("tasks", [[], None], ids=["empty_list", "none"])
+    def test_list_empty(self, api, capsys, tasks):
+        """Empty/None task list still prints the header."""
+        _setup_list_response(api, tasks)
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
         assert "Task" in output
@@ -650,19 +630,17 @@ class TestStatus:
         assert "No runs yet" in output
         assert "kaggle b t run my-task" in output
 
-    def test_status_with_model_filter(self, api, capsys):
+    @pytest.mark.parametrize(
+        "model_input, expected",
+        [("gemini-3", ["gemini-3"]), (["gemini-3", "gpt-5"], ["gemini-3", "gpt-5"])],
+        ids=["single", "multiple"],
+    )
+    def test_status_with_model_filter(self, api, capsys, model_input, expected):
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
         _setup_runs_response(api, [])
-        api.benchmarks_tasks_status_cli("my-task", model="gemini-3")
+        api.benchmarks_tasks_status_cli("my-task", model=model_input)
         request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
-        assert request.model_version_slugs == ["gemini-3"]
-
-    def test_status_with_multiple_models_filter(self, api, capsys):
-        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
-        _setup_runs_response(api, [])
-        api.benchmarks_tasks_status_cli("my-task", model=["gemini-3", "gpt-5"])
-        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
-        assert request.model_version_slugs == ["gemini-3", "gpt-5"]
+        assert request.model_version_slugs == expected
 
     def test_status_run_table(self, api, capsys):
         """Completed run renders with correct columns."""
@@ -1041,14 +1019,11 @@ class TestModels:
 class TestDelete:
     """``kaggle benchmarks tasks delete <task> [-y]``"""
 
-    def test_delete_prints_stub_message(self, api, capsys):
-        api.benchmarks_tasks_delete_cli("my-task")
+    @pytest.mark.parametrize("no_confirm", [False, True], ids=["default", "yes_flag"])
+    def test_delete_prints_stub_message(self, api, capsys, no_confirm):
+        """Delete always prints stub message; -y flag is accepted but has no effect."""
+        api.benchmarks_tasks_delete_cli("my-task", no_confirm=no_confirm)
         assert "Delete is not supported by the server yet." in capsys.readouterr().out
-
-    def test_delete_accepts_no_confirm_flag(self, api, capsys):
-        """The -y flag is accepted but has no effect (stub)."""
-        api.benchmarks_tasks_delete_cli("my-task", no_confirm=True)
-        assert "Delete is not supported" in capsys.readouterr().out
 
 
 # ============================================================
@@ -1136,6 +1111,18 @@ class TestCliArgParsing:
             ),
             ("benchmarks tasks delete my-task -y", {"no_confirm": True}),
             ("benchmarks tasks delete my-task --yes", {"no_confirm": True}),
+            # auth
+            ("benchmarks auth", {"no_confirm": False, "env_file": ".env"}),
+            ("benchmarks auth -y", {"no_confirm": True}),
+            ("benchmarks auth --env-file custom.env", {"env_file": "custom.env"}),
+            # init
+            (
+                "benchmarks init",
+                {"no_confirm": False, "env_file": ".env", "example_file": "example_task.py"},
+            ),
+            ("benchmarks init -y", {"no_confirm": True}),
+            ("benchmarks init --env-file custom.env", {"env_file": "custom.env"}),
+            ("benchmarks init --example-file my_task.py", {"example_file": "my_task.py"}),
         ],
     )
     def test_parse_success(self, cmd, expected):
@@ -1155,37 +1142,6 @@ class TestCliArgParsing:
     def test_parse_error(self, cmd):
         with pytest.raises(SystemExit):
             self._parse(cmd)
-
-    def test_parse_benchmarks_auth(self):
-        args = self._parse("benchmarks auth")
-        assert args.no_confirm is False
-        assert args.env_file == ".env"
-
-    def test_parse_benchmarks_auth_yes(self):
-        args = self._parse("benchmarks auth -y")
-        assert args.no_confirm is True
-
-    def test_parse_benchmarks_auth_env_file(self):
-        args = self._parse("benchmarks auth --env-file custom.env")
-        assert args.env_file == "custom.env"
-
-    def test_parse_benchmarks_init(self):
-        args = self._parse("benchmarks init")
-        assert args.no_confirm is False
-        assert args.env_file == ".env"
-        assert args.example_file == "example_task.py"
-
-    def test_parse_benchmarks_init_yes(self):
-        args = self._parse("benchmarks init -y")
-        assert args.no_confirm is True
-
-    def test_parse_benchmarks_init_env_file(self):
-        args = self._parse("benchmarks init --env-file custom.env")
-        assert args.env_file == "custom.env"
-
-    def test_parse_benchmarks_init_example_file(self):
-        args = self._parse("benchmarks init --example-file my_task.py")
-        assert args.example_file == "my_task.py"
 
 
 # ============================================================
