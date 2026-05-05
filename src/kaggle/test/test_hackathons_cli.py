@@ -1,21 +1,37 @@
 """Tests for ``kaggle hackathons`` CLI commands.
 
-The hackathon endpoints (``get_hackathon_overview``,
-``list_hackathon_write_ups``, ``export_hackathon_write_ups_csv``,
-``get_resolved_writeup_links``) may not yet exist on the installed
-``kagglesdk``. The CLI wrappers build their request objects via lazy
-imports and look up the SDK methods with ``getattr``, so the tests here
-mock ``KaggleApi.build_kaggle_client`` and the lazy ``_build_*`` request
-helpers — no SDK methods need to actually exist for the tests to run.
+The two CSV-export and resolve-links endpoints are not yet shipped by any
+released ``kagglesdk``, so those wrappers still import their request types
+lazily. The fixture pins a ``WriteUpsClient`` onto the mocked
+``kaggle.discussions`` so the resolve-links code path resolves cleanly.
 """
 
 import argparse
+import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kaggle import cli as kaggle_cli
+
+
+def _install_missing_sdk_modules():
+    """Inject stub modules for the two request types kagglesdk hasn't shipped yet."""
+    hackathon_mod = "kagglesdk.competitions.types.hackathon_service"
+    if not hasattr(sys.modules.get(hackathon_mod), "ExportHackathonWriteUpsCsvRequest"):
+        mod = sys.modules.get(hackathon_mod) or types.ModuleType(hackathon_mod)
+        mod.ExportHackathonWriteUpsCsvRequest = type("ExportHackathonWriteUpsCsvRequest", (), {})
+        sys.modules[hackathon_mod] = mod
+    writeups_mod = "kagglesdk.discussions.types.writeups_service"
+    if writeups_mod not in sys.modules:
+        mod = types.ModuleType(writeups_mod)
+        mod.GetResolvedWriteUpLinksRequest = type("GetResolvedWriteUpLinksRequest", (), {})
+        sys.modules[writeups_mod] = mod
+
+
+_install_missing_sdk_modules()
 
 # ---- Fixtures & helpers ----
 
@@ -27,26 +43,13 @@ def api():
     mock_client = MagicMock()
     a.build_kaggle_client = MagicMock()
     a.build_kaggle_client.return_value.__enter__.return_value = mock_client
-    a._mock_client = mock_client
     a._mock_competitions = mock_client.competitions.competition_api_client
     a._mock_hackathon = mock_client.competitions.hackathon_client
     # The current SDK has no WriteUpsClient — pin one onto the mock so the
     # production lookup (`getattr(...)`) finds it.
     a._mock_writeups = MagicMock()
     mock_client.discussions.writeups_client = a._mock_writeups
-    # Stub the lazy request builders so the tests don't depend on the SDK
-    # exposing the new request types.
-    a._build_hackathon_overview_request = MagicMock(side_effect=lambda c: _Req(c))
-    a._build_list_hackathon_writeups_request = MagicMock(side_effect=lambda c: _Req(c))
-    a._build_export_hackathon_writeups_csv_request = MagicMock(side_effect=lambda c: _Req(c))
-    a._build_get_resolved_writeup_links_request = MagicMock(side_effect=lambda wid: _Req(write_up_id=wid))
     return a
-
-
-class _Req:
-    def __init__(self, competition_name=None, write_up_id=None):
-        self.competition_name = competition_name
-        self.write_up_id = write_up_id
 
 
 def _make_overview_response(pages):
@@ -131,13 +134,6 @@ class TestHackathonsGet:
     def test_missing_competition(self, api):
         with pytest.raises(ValueError, match="No competition specified"):
             api.hackathon_get_overview_cli(None)
-
-    def test_missing_sdk_method(self, api):
-        # Strip the method off the client to force the missing-method path.
-        del api._mock_competitions.get_hackathon_overview
-        api._mock_competitions.mock_add_spec(["other_method"])
-        with pytest.raises(ValueError, match="newer kagglesdk"):
-            api.hackathon_get_overview("titanic")
 
 
 # ---- hackathons writeups list ----

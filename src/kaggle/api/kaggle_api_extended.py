@@ -97,6 +97,8 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionTopicsResponse,
     ApiListTopicMessagesRequest,
     ApiListTopicMessagesResponse,
+    ApiGetHackathonOverviewRequest,
+    ApiListHackathonWriteUpsRequest,
 )
 from kagglesdk.discussions.types.discussions_api_service import (
     ApiDiscussionComment,
@@ -2652,65 +2654,6 @@ class KaggleApi:
     hackathon_overview_page_fields = ["name"]
     hackathon_writeup_link_fields = ["url", "type", "title"]
 
-    def _require_sdk_method(self, client, method_name: str, hint: str):
-        """Return ``client.method_name`` or raise a clear error.
-
-        The hackathon endpoints landed in kagglesdk after this CLI release
-        was cut, so older SDK installs may not have them yet.
-        """
-        method = getattr(client, method_name, None)
-        if method is None:
-            raise ValueError(
-                f"This command requires a newer kagglesdk that exposes " f"`{hint}`. Please upgrade kagglesdk."
-            )
-        return method
-
-    def _build_hackathon_overview_request(self, competition: str):
-        try:
-            from kagglesdk.competitions.types.competition_api_service import (  # type: ignore
-                ApiGetHackathonOverviewRequest,
-            )
-        except ImportError as exc:
-            raise ValueError("kagglesdk is missing ApiGetHackathonOverviewRequest; please upgrade kagglesdk.") from exc
-        request = ApiGetHackathonOverviewRequest()
-        request.competition_name = competition
-        return request
-
-    def _build_list_hackathon_writeups_request(self, competition: str):
-        try:
-            from kagglesdk.competitions.types.competition_api_service import (  # type: ignore
-                ApiListHackathonWriteUpsRequest,
-            )
-        except ImportError as exc:
-            raise ValueError("kagglesdk is missing ApiListHackathonWriteUpsRequest; please upgrade kagglesdk.") from exc
-        request = ApiListHackathonWriteUpsRequest()
-        request.competition_name = competition
-        return request
-
-    def _build_export_hackathon_writeups_csv_request(self, competition: str):
-        try:
-            from kagglesdk.competitions.types.hackathon_service import (  # type: ignore
-                ExportHackathonWriteUpsCsvRequest,
-            )
-        except ImportError as exc:
-            raise ValueError(
-                "kagglesdk is missing ExportHackathonWriteUpsCsvRequest; please upgrade kagglesdk."
-            ) from exc
-        request = ExportHackathonWriteUpsCsvRequest()
-        request.competition_name = competition
-        return request
-
-    def _build_get_resolved_writeup_links_request(self, write_up_id: int):
-        try:
-            from kagglesdk.discussions.types.writeups_service import (  # type: ignore
-                GetResolvedWriteUpLinksRequest,
-            )
-        except ImportError as exc:
-            raise ValueError("kagglesdk is missing GetResolvedWriteUpLinksRequest; please upgrade kagglesdk.") from exc
-        request = GetResolvedWriteUpLinksRequest()
-        request.write_up_id = write_up_id
-        return request
-
     def hackathon_get_overview(self, competition: str):
         """Get the overview page content for a hackathon competition.
 
@@ -2718,15 +2661,10 @@ class KaggleApi:
         """
         if not competition:
             raise ValueError("No competition specified")
+        request = ApiGetHackathonOverviewRequest()
+        request.competition_name = competition
         with self.build_kaggle_client() as kaggle:
-            request = self._build_hackathon_overview_request(competition)
-            client = kaggle.competitions.competition_api_client
-            method = self._require_sdk_method(
-                client,
-                "get_hackathon_overview",
-                "CompetitionApiClient.get_hackathon_overview",
-            )
-            return method(request)
+            return kaggle.competitions.competition_api_client.get_hackathon_overview(request)
 
     def hackathon_get_overview_cli(self, competition=None, csv_display=False, quiet=False):
         """CLI wrapper for ``kaggle hackathons get <competition>``."""
@@ -2757,15 +2695,10 @@ class KaggleApi:
         """
         if not competition:
             raise ValueError("No competition specified")
+        request = ApiListHackathonWriteUpsRequest()
+        request.competition_name = competition
         with self.build_kaggle_client() as kaggle:
-            request = self._build_list_hackathon_writeups_request(competition)
-            client = kaggle.competitions.competition_api_client
-            method = self._require_sdk_method(
-                client,
-                "list_hackathon_write_ups",
-                "CompetitionApiClient.list_hackathon_write_ups",
-            )
-            return method(request)
+            return kaggle.competitions.competition_api_client.list_hackathon_write_ups(request)
 
     def hackathon_list_writeups_cli(self, competition=None, csv_display=False, quiet=False):
         """CLI wrapper for ``kaggle hackathons writeups list <competition>``."""
@@ -2815,15 +2748,16 @@ class KaggleApi:
         """
         if not competition:
             raise ValueError("No competition specified")
+        # Not yet exported by any released kagglesdk; import lazily so the
+        # rest of the module still loads. Drop this once kagglesdk ships it.
+        from kagglesdk.competitions.types.hackathon_service import (  # type: ignore
+            ExportHackathonWriteUpsCsvRequest,
+        )
+
+        request = ExportHackathonWriteUpsCsvRequest()
+        request.competition_name = competition
         with self.build_kaggle_client() as kaggle:
-            request = self._build_export_hackathon_writeups_csv_request(competition)
-            client = kaggle.competitions.hackathon_client
-            method = self._require_sdk_method(
-                client,
-                "export_hackathon_write_ups_csv",
-                "HackathonClient.export_hackathon_write_ups_csv",
-            )
-            response = method(request)
+            response = kaggle.competitions.hackathon_client.export_hackathon_write_ups_csv(request)
 
         csv_body = (
             getattr(response, "csv", None)
@@ -2869,19 +2803,21 @@ class KaggleApi:
         """
         if write_up_id is None:
             raise ValueError("No write_up_id specified")
+        # Not yet exported by any released kagglesdk; import lazily so the
+        # rest of the module still loads. Drop this once kagglesdk ships it.
+        from kagglesdk.discussions.types.writeups_service import (  # type: ignore
+            GetResolvedWriteUpLinksRequest,
+        )
+
+        request = GetResolvedWriteUpLinksRequest()
+        request.write_up_id = int(write_up_id)
         with self.build_kaggle_client() as kaggle:
-            request = self._build_get_resolved_writeup_links_request(int(write_up_id))
             client = getattr(kaggle.discussions, "writeups_client", None) or getattr(
                 kaggle.discussions, "write_ups_client", None
             )
             if client is None:
                 raise ValueError("kagglesdk is missing the WriteUpsClient; please upgrade kagglesdk.")
-            method = self._require_sdk_method(
-                client,
-                "get_resolved_writeup_links",
-                "WriteUpsClient.get_resolved_writeup_links",
-            )
-            return method(request)
+            return client.get_resolved_writeup_links(request)
 
     def hackathon_resolve_writeup_links_cli(self, writeup_id=None, csv_display=False, quiet=False):
         """CLI wrapper for ``kaggle hackathons writeups resolve-links <writeup_id>``."""
