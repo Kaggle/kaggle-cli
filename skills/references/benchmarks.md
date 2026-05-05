@@ -230,7 +230,7 @@ kaggle b t download my-task -o ./results
 
 **Output directory structure:**
 ```
-<output>/<task>/<version>/<model>/<run_id>/
+<output>/<task>/<version>/<model>/<run_id>/    (version is "unset" if unavailable)
    ├── output files...
 ```
 
@@ -262,7 +262,7 @@ kaggle b t list --name-regex "^math" --status errored
 
 **Status filter values:** `queued`, `running`, `completed`, `errored`
 
-**Output:** Aligned table with columns: Task, Version, Status, Created
+**Output:** Aligned table with columns: Task, Version (or `unset`), Status, Created
 
 ### List Available Models
 
