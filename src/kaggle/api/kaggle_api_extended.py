@@ -4629,13 +4629,15 @@ class KaggleApi:
     _LOG_STREAM_END_SENTINEL = "END_OF_LOG"
 
     def kernels_logs_stream(self, kernel: str) -> Iterator[Dict[str, str]]:
-        """Stream live execution logs for a kernel via the midtier SSE proxy.
+        """Stream execution logs for a kernel via the midtier logs endpoint.
 
-        The midtier endpoint (`GET /api/v1/kernels/{owner}/{slug}/logs/stream`)
-        resolves the kernel's active session, waits for the upstream LogsURL to
-        be published, and pipes the SSE feed back to us. Each event payload is
-        a JSON object with `stream_name`, `time`, and `data` keys; the server
-        terminates the stream by emitting an `END_OF_LOG` sentinel.
+        `GET /api/v1/kernels/{owner}/{slug}/logs/stream` adapts to the session
+        state: while the session is running it proxies the upstream SSE feed
+        (`Content-Type: text/event-stream`, JSON `{stream_name, time, data}`
+        events terminated by an `END_OF_LOG` sentinel); once the session is
+        done it returns the persisted log blob from GCS with a non-SSE
+        content type. We branch on `Content-Type` and yield uniform
+        `{"data": ...}` events either way.
 
         Args:
             kernel: The kernel identifier in the format owner/kernel-slug.
@@ -4652,7 +4654,7 @@ class KaggleApi:
             url = f"{base}/v1/kernels/{owner_slug}/{kernel_slug}/logs/stream"
 
             headers = dict(http._session.headers)
-            headers["Accept"] = "text/event-stream"
+            headers["Accept"] = "text/event-stream, */*"
             headers.pop("Content-Type", None)
 
             try:
@@ -4669,18 +4671,33 @@ class KaggleApi:
                 raise
 
             try:
-                for raw_line in response.iter_lines(decode_unicode=True):
-                    if not raw_line or not raw_line.startswith("data:"):
-                        continue
-                    payload = raw_line[len("data:") :].lstrip()
-                    if payload == self._LOG_STREAM_END_SENTINEL:
-                        return
-                    try:
-                        yield json.loads(payload)
-                    except json.JSONDecodeError:
-                        yield {"data": payload}
+                content_type = (response.headers.get("Content-Type") or "").lower()
+                if content_type.startswith("text/event-stream"):
+                    yield from self._iter_sse_events(response)
+                else:
+                    yield from self._iter_blob_lines(response)
             finally:
                 response.close()
+
+    def _iter_sse_events(self, response) -> Iterator[Dict[str, str]]:
+        """Parse `data:` lines from a live SSE response, stopping on the sentinel."""
+        for raw_line in response.iter_lines(decode_unicode=True):
+            if not raw_line or not raw_line.startswith("data:"):
+                continue
+            payload = raw_line[len("data:") :].lstrip()
+            if payload == self._LOG_STREAM_END_SENTINEL:
+                return
+            try:
+                yield json.loads(payload)
+            except json.JSONDecodeError:
+                yield {"data": payload}
+
+    def _iter_blob_lines(self, response) -> Iterator[Dict[str, str]]:
+        """Yield one event per line from a non-SSE blob (completed session fallback)."""
+        for raw_line in response.iter_lines(decode_unicode=True):
+            if raw_line is None:
+                continue
+            yield {"data": raw_line}
 
     def kernels_logs_cli(self, kernel, kernel_opt=None, follow=False, interval=None):
         """Print kernel execution logs to stdout.
