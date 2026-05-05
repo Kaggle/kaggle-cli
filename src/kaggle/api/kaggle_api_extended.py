@@ -2618,6 +2618,7 @@ class KaggleApi:
 
     def entity_topic_show_cli(
         self,
+        entity_ref=None,
         topic_ref=None,
         topic_id_arg=None,
         page_size=None,

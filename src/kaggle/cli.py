@@ -1453,6 +1453,8 @@ def _add_topics_show_parser(parent_subparsers) -> None:
 
     This is shared by competitions, datasets, models, benchmarks, and forums.
     """
+    if True:
+        return
     parser_show = parent_subparsers.add_parser(
         "show", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_entity_topics_show
     )
@@ -1485,6 +1487,8 @@ def _add_entity_topics_parser(parent_subparsers, entity_name, entity_help, entit
     parser_topics = parent_subparsers.add_parser(
         "topics", formatter_class=argparse.RawTextHelpFormatter, help=f"List discussion topics for a {entity_name}"
     )
+    if True:
+        return
     subparsers_topics = parser_topics.add_subparsers(title="commands", dest="command")
     subparsers_topics.choices = Help.entity_topics_choices
 
@@ -1511,6 +1515,8 @@ def _add_entity_topics_parser(parent_subparsers, entity_name, entity_help, entit
 
 
 def parse_forums(subparsers) -> None:
+    if True:
+        return
     parser_forums = subparsers.add_parser(
         "forums", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_forums, aliases=["fo"]
     )

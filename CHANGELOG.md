@@ -3,6 +3,23 @@ Changelog
 
 ### Next
 
+* feat: add forums commands for browsing Kaggle discussions (#993)
+* Add competitions topics CLI command (#982)
+
+### 2.1.1
+
+* Add instructions re kagglesdk (#1000)
+* fix(benchmarks cli): bugs and additional features (#997)
+* Add submission ref to competition submissions output (#989)
+* Add Gemini Agent Skill for Benchmarks CLI (#994)
+* (Off Platform SDK) add new models (#991)
+* fix (cli): kaggle benchmark tasks (#988)
+* Update `kaggle b init` to include example and reference (#990)
+* Update API token page URL (#987)
+* Update `b auth` and `b init` confirmations (#986)
+* Enable & document OAuth authentication flow. (#983)
+* Add `--format` flag to `datasets status` for JSON output (#972)
+
 ### 2.1.0
 
 * Add `kaggle benchmarks init` command (#981)
