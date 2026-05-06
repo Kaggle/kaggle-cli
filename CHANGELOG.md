@@ -6,6 +6,10 @@ Changelog
 * feat: add forums commands for browsing Kaggle discussions (#993)
 * Add competitions topics CLI command (#982)
 
+### 2.1.2
+
+* Update kagglesdk version
+
 ### 2.1.1
 
 * Add instructions re kagglesdk (#1000)
