@@ -115,6 +115,16 @@ To get the output in CSV format for scripting:
 kaggle competitions episodes 12345678 -v
 ```
 
+### Studying a specific opponent
+
+The leaderboard surfaces `teamId` but not the team's `submissionId`, and you can only call `episodes` on submissions you have access to. To find an opponent's `submissionId`, scan your own episodes for agents whose `teamId` matches:
+
+```bash
+kaggle competitions episodes 12345678 --team-id 15648364
+```
+
+This filters to episodes where teamId `15648364` was an opponent and prints one row per match, exposing that team's `submissionId`. Pass that `submissionId` back into `episodes`/`replay`/`logs` to study their other matches.
+
 ## 7. Download an Episode Replay
 
 To download the replay data for a specific episode (useful for visualizing what happened):

@@ -287,6 +287,17 @@ def parse_competitions(subparsers) -> None:
         help='Submission ID (find yours with "kaggle competitions submissions <competition>")',
     )
     parser_competitions_episodes_optional.add_argument(
+        "--team-id",
+        dest="team_id",
+        required=False,
+        type=int,
+        help=(
+            "Filter to episodes that include an opponent agent with this teamId. "
+            "Output rows show the opponent's submissionId, which can be passed back into "
+            "this command (or replay/logs) to study that team's other matches."
+        ),
+    )
+    parser_competitions_episodes_optional.add_argument(
         "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
     )
     parser_competitions_episodes_optional.add_argument(

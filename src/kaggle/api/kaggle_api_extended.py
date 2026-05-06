@@ -34,6 +34,7 @@ import sys
 import tarfile
 import tempfile
 import time
+from types import SimpleNamespace
 import zipfile
 from dateutil.relativedelta import relativedelta
 from os.path import expanduser
@@ -814,6 +815,15 @@ class KaggleApi:
     model_instance_version_labels = ["version", "variation", "title", "private"]
     episode_fields = ["id", "createTime", "endTime", "state", "type"]
     episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
+    episode_team_match_fields = [
+        "episodeId",
+        "submissionId",
+        "teamId",
+        "teamName",
+        "reward",
+        "state",
+        "createTime",
+    ]
     competition_page_fields = ["name"]
     competition_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
     competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
@@ -2022,42 +2032,78 @@ class KaggleApi:
             else:
                 print("No results found")
 
-    def competition_list_episodes(self, submission_id: int):
+    def competition_list_episodes(self, submission_id: int, team_id: Optional[int] = None):
         """List episodes for a submission in a simulation competition.
 
         Args:
             submission_id (int): The submission ID to list episodes for.
+            team_id (Optional[int]): If set, return one row per opponent agent
+                whose teamId matches, instead of one row per episode. Each row
+                exposes the opponent's submissionId, which can be passed back
+                into this command (or replay/logs) to study that team's matches.
 
         Returns:
-            list: A list of ApiEpisode objects.
+            list: A list of ApiEpisode objects, or, when team_id is set, a list
+                of SimpleNamespace rows describing matching opponent agents.
         """
         with self.build_kaggle_client() as kaggle:
             request = ApiListSubmissionEpisodesRequest()
             request.submission_id = submission_id
             response = kaggle.competitions.competition_api_client.list_submission_episodes(request)
-            return response.episodes
+            episodes = response.episodes or []
+        if team_id is None:
+            return episodes
+        matches = []
+        for episode in episodes:
+            for agent in episode.agents or []:
+                if agent.team_id != team_id:
+                    continue
+                matches.append(
+                    SimpleNamespace(
+                        episode_id=episode.id,
+                        submission_id=agent.submission_id,
+                        team_id=agent.team_id,
+                        team_name=agent.team_name,
+                        reward=agent.reward,
+                        state=agent.state,
+                        create_time=episode.create_time,
+                    )
+                )
+        return matches
 
-    def competition_list_episodes_cli(self, submission_id, csv_display=False, quiet=False):
+    def competition_list_episodes_cli(self, submission_id, team_id=None, csv_display=False, quiet=False):
         """CLI wrapper for competition_list_episodes.
 
         Args:
             submission_id (int): The submission ID.
+            team_id (Optional[int]): If set, only show opponent agents matching
+                this teamId, surfacing their submissionId.
             csv_display (bool): If True, print CSV instead of table.
             quiet (bool): Suppress verbose output.
         """
-        episodes = self.competition_list_episodes(submission_id)
-        if episodes:
-            if csv_display:
-                self.print_csv(episodes, self.episode_fields)
+        results = self.competition_list_episodes(submission_id, team_id=team_id)
+        if not results:
+            if team_id is not None:
+                print(f"No episodes found with an agent on teamId={team_id}")
             else:
-                self.print_table(episodes, self.episode_fields)
-            if not quiet:
+                print("No episodes found")
+            return
+        fields = self.episode_team_match_fields if team_id is not None else self.episode_fields
+        if csv_display:
+            self.print_csv(results, fields)
+        else:
+            self.print_table(results, fields)
+        if not quiet:
+            if team_id is not None:
+                print(
+                    '\nPass any submissionId above back into "kaggle competitions episodes <submission_id>" '
+                    "to list that team's other episodes."
+                )
+            else:
                 print(
                     '\nUse "kaggle competitions replay <episode_id>" to download a replay, '
                     'or "kaggle competitions logs <episode_id> <agent_index>" for agent logs.'
                 )
-        else:
-            print("No episodes found")
 
     def competition_episode_replay(self, episode_id: int, path: Optional[str] = None, quiet: bool = True):
         """Download the replay for an episode.
