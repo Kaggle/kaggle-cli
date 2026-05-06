@@ -681,20 +681,19 @@ def print_auth_help() -> None:
         "First, you will need a Kaggle account. You can sign up at\n"
         "  https://www.kaggle.com/account/login\n"
         "\n"
-        "After login, generate an API token at\n"
-        '  https://www.kaggle.com/settings/api  (click "Generate New Token" under "API")\n'
-        "\n"
-        "Then authenticate using one of the following options:\n"
-        "\n"
-        "Option 1: OAuth (recommended)\n"
-        "  Obtains access credentials via a web-based authorization flow.\n"
+        "Recommended: log in with OAuth via a web-based authorization flow.\n"
+        "No token to manage; credentials are cached locally for you.\n"
         "    kaggle auth login\n"
         "\n"
-        "Option 2: Environment variable\n"
+        "If you'd rather not use OAuth, generate an API token at\n"
+        '  https://www.kaggle.com/settings/api  (click "Generate New Token" under "API")\n'
+        "and supply it to the CLI in one of these ways:\n"
+        "\n"
+        "  Option A: Environment variable\n"
         "    export KAGGLE_API_TOKEN=xxxxxxxxxxxxxx  # token copied from the settings UI\n"
         "\n"
-        "Option 3: API token file\n"
-        "  Save the token to ~/.kaggle/access_token"
+        "  Option B: API token file\n"
+        "    Save the token to ~/.kaggle/access_token"
     )
 
 
