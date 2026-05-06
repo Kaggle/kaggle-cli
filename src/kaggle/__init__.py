@@ -2,7 +2,7 @@
 from __future__ import absolute_import
 from kaggle.api.kaggle_api_extended import KaggleApi
 
-__version__ = "2.1.1"
+__version__ = "2.1.2"
 
 api = KaggleApi()
 api.authenticate()
