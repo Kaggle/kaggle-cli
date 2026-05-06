@@ -20,9 +20,12 @@ from __future__ import print_function
 import argparse
 import json
 
+from requests.exceptions import HTTPError
+
 import kaggle
 from kaggle import KaggleApi
 from kaggle import api
+from kaggle.api.kaggle_api_extended import print_auth_help
 
 # from rest import ApiException
 ApiException = IOError
@@ -69,6 +72,13 @@ def main() -> None:
     error = False
     try:
         out = args.func(**command_args)
+    except HTTPError as e:
+        if e.response is not None and e.response.status_code == 401:
+            print_auth_help()
+        else:
+            print(e)
+        out = None
+        error = True
     except ApiException as e:
         print(e)
         out = None

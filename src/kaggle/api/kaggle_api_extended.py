@@ -673,6 +673,31 @@ class FileList(object):
         return ""
 
 
+def print_auth_help() -> None:
+    """Print friendly instructions for setting up Kaggle authentication."""
+    print(
+        "Authentication required to call the Kaggle API.\n"
+        "\n"
+        "First, you will need a Kaggle account. You can sign up at\n"
+        "  https://www.kaggle.com/account/login\n"
+        "\n"
+        "After login, generate an API token at\n"
+        '  https://www.kaggle.com/settings/api  (click "Generate New Token" under "API")\n'
+        "\n"
+        "Then authenticate using one of the following options:\n"
+        "\n"
+        "Option 1: OAuth (recommended)\n"
+        "  Obtains access credentials via a web-based authorization flow.\n"
+        "    kaggle auth login\n"
+        "\n"
+        "Option 2: Environment variable\n"
+        "    export KAGGLE_API_TOKEN=xxxxxxxxxxxxxx  # token copied from the settings UI\n"
+        "\n"
+        "Option 3: API token file\n"
+        "  Save the token to ~/.kaggle/access_token"
+    )
+
+
 class KaggleApi:
     """
     KaggleApi provides methods for interacting with Kaggle's public API.
@@ -958,11 +983,7 @@ class KaggleApi:
             return
         if self._authenticate_with_oauth_creds():
             return
-        print("You must authenticate before you can call the Kaggle API.")
-        print('Please run "kaggle auth login" to log in via OAuth')
-        print(
-            "Or use one of the alternate ways to authenticate: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
-        )
+        print_auth_help()
         exit(1)
 
     def _authenticate_with_legacy_apikey(self) -> bool:
