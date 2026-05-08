@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Small changes to improve debugging (#1008)
 * feat: add forums commands for browsing Kaggle discussions (#993)
 * Add competitions topics CLI command (#982)
 

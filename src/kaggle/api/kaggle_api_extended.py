@@ -2505,6 +2505,7 @@ class KaggleApi:
         page_token=None,
         csv_display=False,
         quiet=False,
+        **kwargs,
     ):
         """CLI wrapper for forums_topic_show.
 
@@ -2514,16 +2515,56 @@ class KaggleApi:
         # Support both 'forum-slug/topic-id' and 'forum-slug topic-id' forms
         if topic_id_arg is not None:
             # Two separate positional args: forum-slug topic-id
-            topic_id = int(topic_id_arg)
+            try:
+                topic_id = int(topic_id_arg)
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"Invalid topic ID: {topic_id_arg!r}. "
+                    "Expected a numeric topic ID.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <slug>/<topic-id>"
+                )
         elif topic_ref and "/" in topic_ref:
             # Single arg with slash: forum-slug/topic-id
-            parts = topic_ref.rsplit("/", 1)
-            topic_id = int(parts[1])
+            parts = topic_ref.split("/")
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Invalid topic reference: {topic_ref!r}. "
+                    "Expected format <forum-slug>/<topic-id> (one slash only).\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <forum-slug>/<topic-id>\n"
+                    "To list topics for an entity, omit 'show':\n"
+                    "       kaggle <entity> topics <entity-ref>"
+                )
+            try:
+                topic_id = int(parts[1])
+            except ValueError:
+                raise ValueError(
+                    f"Invalid topic reference: {topic_ref!r}. "
+                    f"The part after '/' must be a numeric topic ID, got {parts[1]!r}.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <forum-slug>/<topic-id>\n"
+                    "To list topics for an entity, omit 'show':\n"
+                    "       kaggle <entity> topics <entity-ref>"
+                )
         else:
             # Just a bare topic-id
             if topic_ref is None:
-                raise ValueError("No topic specified. Usage: kaggle forums topics show <forum>/<topic-id>")
-            topic_id = int(topic_ref)
+                raise ValueError(
+                    "No topic specified.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <slug>/<topic-id>"
+                )
+            try:
+                topic_id = int(topic_ref)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid topic reference: {topic_ref!r}. Expected a numeric topic ID.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <slug>/<topic-id>\n"
+                    "To list topics for an entity, omit 'show':\n"
+                    "       kaggle <entity> topics <entity-ref>"
+                )
 
         topic, comments, next_page_token = self.forums_topic_show(topic_id, page_size=page_size, page_token=page_token)
 
@@ -2592,13 +2633,15 @@ class KaggleApi:
         return flat
 
     # ------------------------------------------------------------------
-    # Generic entity topics CLI wrappers
+    # Entity-specific topics CLI wrappers
     #
-    # These allow datasets, models, and benchmarks to reuse the forums
-    # discussion API by passing the entity ref as the forum slug.
+    # Each entity type (dataset, model, benchmark) gets its own CLI
+    # wrapper that delegates to forums_list_topics.  This avoids the
+    # generic "entity" approach whose signature didn't match the
+    # argparse namespace for each entity type.
     # ------------------------------------------------------------------
 
-    def entity_list_topics_cli(
+    def dataset_list_topics_cli(
         self,
         entity_ref=None,
         sort_by=None,
@@ -2608,14 +2651,13 @@ class KaggleApi:
         csv_display=False,
         quiet=False,
     ):
-        """Generic CLI wrapper that lists discussion topics for any entity.
+        """CLI wrapper that lists discussion topics for a dataset.
 
         Args:
-            entity_ref (str): The entity identifier used as the forum slug
-                (e.g. 'titanic', 'zillow/zecon', 'google/gemma').
+            entity_ref (str): Dataset slug (e.g. 'zillow/zecon').
         """
         if entity_ref is None:
-            raise ValueError("No entity specified")
+            raise ValueError("No dataset specified")
 
         response = self.forums_list_topics(
             forum_slug=entity_ref,
@@ -2636,28 +2678,79 @@ class KaggleApi:
         else:
             print("No topics found")
 
-    def entity_topic_show_cli(
+    def model_list_topics_cli(
         self,
         entity_ref=None,
-        topic_ref=None,
-        topic_id_arg=None,
+        sort_by=None,
         page_size=None,
         page_token=None,
+        search=None,
         csv_display=False,
         quiet=False,
     ):
-        """Generic CLI wrapper that displays a discussion topic for any entity.
+        """CLI wrapper that lists discussion topics for a model.
 
-        Delegates to forums_topic_show_cli with the same arguments.
+        Args:
+            entity_ref (str): Model slug (e.g. 'google/gemma').
         """
-        self.forums_topic_show_cli(
-            topic_ref=topic_ref,
-            topic_id_arg=topic_id_arg,
+        if entity_ref is None:
+            raise ValueError("No model specified")
+
+        response = self.forums_list_topics(
+            forum_slug=entity_ref,
+            sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
-            csv_display=csv_display,
-            quiet=quiet,
+            search=search,
         )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def benchmark_list_topics_cli(
+        self,
+        entity_ref=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper that lists discussion topics for a benchmark.
+
+        Args:
+            entity_ref (str): Benchmark slug.
+        """
+        if entity_ref is None:
+            raise ValueError("No benchmark specified")
+
+        response = self.forums_list_topics(
+            forum_slug=entity_ref,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
 
     def dataset_list(
         self,
