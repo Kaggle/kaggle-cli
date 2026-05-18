@@ -916,7 +916,9 @@ class KaggleApi:
 
     def _calculate_backoff_delay(self, attempt, initial_delay_millis, retry_multiplier, randomness_factor):
         delay_ms = initial_delay_millis * (retry_multiplier**attempt)
-        random_wait_ms = (random() - 0.5) * 2 * delay_ms * randomness_factor
+        # TODO: int() truncates (random() - 0.5) to 0 for all values in [-0.5, 0.5),
+        # making jitter always zero. Apply int() to the whole expression instead.
+        random_wait_ms = int(random() - 0.5) * 2 * delay_ms * randomness_factor
         total_delay = (delay_ms + random_wait_ms) / 1000.0
         return total_delay
 
