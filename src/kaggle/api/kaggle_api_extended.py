@@ -6846,24 +6846,24 @@ class KaggleApi:
                 except (ValueError, IndexError):
                     raise ValueError(f"Invalid selection: {selection}")
 
+    _ADAPTIVE_POLL_START = 5  # Initial adaptive polling interval in seconds
+
     @staticmethod
     def _adaptive_sleep(current_interval, poll_interval, verbose=False):
         """Sleep for the current interval and return the next adaptive interval.
 
-        The interval increases by 50% each call, capped at 60s (or poll_interval
-        if the user requested a value larger than 60s).
+        The interval increases by 50% each call, capped at poll_interval.
         """
         if verbose:
             print(f"  Adaptive polling sleep: {current_interval}s")
         time.sleep(current_interval)
-        poll_cap = max(60, poll_interval)
-        return min(poll_cap, int(current_interval * 1.5))
+        return min(poll_interval, int(current_interval * 1.5))
 
     def _poll_task_creation(self, kaggle, task, wait, poll_interval, verbose=False):
         """Poll task creation status until terminal or timeout."""
         print("Waiting for task to be processed...")
         start_time = time.time()
-        current_interval = poll_interval
+        current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
         while True:
             task_info = self._get_benchmark_task(task, kaggle)
             state = task_info.creation_state
@@ -6890,7 +6890,7 @@ class KaggleApi:
         """Poll run status until all runs are terminal or timeout."""
         print("Waiting for run(s) to complete...")
         start_time = time.time()
-        current_interval = poll_interval
+        current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
         while True:
             all_runs = self._fetch_task_runs(kaggle, task, models)
 

@@ -2054,7 +2054,9 @@ class Help(object):
         "Wait for runs to complete. Optionally specify a timeout in seconds (0 or omit value = wait indefinitely)"
     )
     param_benchmarks_output = "Directory to download output files into"
-    param_benchmarks_poll_interval = "Seconds between status polls when using --wait (default: 10)"
+    param_benchmarks_poll_interval = (
+        "Maximum seconds between status polls (default: 10). Polling starts at 5s and increases automatically"
+    )
     param_benchmarks_verbose = "Enable verbose polling logs"
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
 
