@@ -125,7 +125,7 @@ kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 
 **Options:**
 - `--wait [TIMEOUT]`: Wait for creation to complete. `--wait` alone = wait indefinitely. `--wait 60` = timeout after 60s.
-- `--poll-interval <SECONDS>`: Seconds between status polls (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting, unless overridden to a larger value.
+- `--poll-interval <SECONDS>`: Seconds between status polls (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting. If overridden to a value larger than 60s, it remains constant at that specified value.
 - `-v, --verbose`: Enable verbose polling logs.
 
 **What happens:**
@@ -166,7 +166,7 @@ kaggle b t run my-task -m google/gemini-2.5-pro --wait 30 --poll-interval 5
 **Options:**
 - `-m, --model <MODEL> [MODEL ...]`: One or more model slugs. If omitted, shows interactive picker.
 - `--wait [TIMEOUT]`: Wait for runs to complete. `0` or omit value = indefinite.
-- `--poll-interval <SECONDS>`: Seconds between polls (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting, unless overridden to a larger value.
+- `--poll-interval <SECONDS>`: Seconds between polls (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting. If overridden to a value larger than 60s, it remains constant at that specified value.
 - `-v, --verbose`: Enable verbose polling logs.
 
 **Interactive model selection:**

@@ -108,7 +108,7 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 
 *   `-f, --file <FILE>` *(required)*: Path to the source Python file defining the task.
 *   `--wait [TIMEOUT]`: Wait for the task creation to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
-*   `--poll-interval <SECONDS>`: Seconds between status polls when using `--wait` (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting, unless overridden to a larger value.
+*   `--poll-interval <SECONDS>`: Seconds between status polls when using `--wait` (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting. If overridden to a value larger than 60s, it remains constant at that specified value.
 *   `-v, --verbose`: Enable verbose polling logs.
 
 **Examples:**
@@ -155,7 +155,7 @@ kaggle benchmarks tasks run <TASK> [options]
 
 *   `-m, --model <MODEL> [MODEL ...]`: One or more model slugs to run against. If omitted, an interactive model picker is displayed.
 *   `--wait [TIMEOUT]`: Wait for runs to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
-*   `--poll-interval <SECONDS>`: Seconds between status polls when using `--wait` (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting, unless overridden to a larger value.
+*   `--poll-interval <SECONDS>`: Seconds between status polls when using `--wait` (default: `10`). The polling interval increases adaptively by 50% on each iteration (capped at 60s) to prevent rate limiting. If overridden to a value larger than 60s, it remains constant at that specified value.
 *   `-v, --verbose`: Enable verbose polling logs.
 
 **Examples:**
