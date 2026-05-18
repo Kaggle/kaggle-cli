@@ -6846,7 +6846,7 @@ class KaggleApi:
                 except (ValueError, IndexError):
                     raise ValueError(f"Invalid selection: {selection}")
 
-    def _poll_task_creation(self, kaggle, task, wait, poll_interval):
+    def _poll_task_creation(self, kaggle, task, wait, poll_interval, verbose=False):
         """Poll task creation status until terminal or timeout."""
         print("Waiting for task to be processed...")
         start_time = time.time()
@@ -6871,10 +6871,12 @@ class KaggleApi:
                 print(f"Timed out waiting for task creation after {wait} seconds.")
                 return
 
+            if verbose:
+                print(f"  Adaptive polling sleep: {current_interval}s")
             time.sleep(current_interval)
             current_interval = min(max(poll_interval, 60), int(current_interval * 1.5))
 
-    def _poll_runs(self, kaggle, task, models, wait, poll_interval):
+    def _poll_runs(self, kaggle, task, models, wait, poll_interval, verbose=False):
         """Poll run status until all runs are terminal or timeout."""
         print("Waiting for run(s) to complete...")
         start_time = time.time()
@@ -6904,6 +6906,8 @@ class KaggleApi:
                 print(f"Timed out waiting for runs after {wait} seconds.")
                 return
 
+            if verbose:
+                print(f"  Adaptive polling sleep: {current_interval}s")
             time.sleep(current_interval)
             current_interval = min(max(poll_interval, 60), int(current_interval * 1.5))
 
@@ -6980,7 +6984,7 @@ class KaggleApi:
         self._write_benchmarks_example(example_file)
         self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)))
 
-    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10):
+    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
@@ -7012,7 +7016,7 @@ class KaggleApi:
                         f"Use --wait to monitor the existing creation."
                     )
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
-                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
                 print(f"Pushing new version of '{task_slug}'...")
 
             request = ApiCreateBenchmarkTaskRequest()
@@ -7032,9 +7036,9 @@ class KaggleApi:
             if wait is None:
                 print(f"To check creation status, use: kaggle b t status {task_slug}")
             else:
-                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
 
-    def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
+    def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)
@@ -7060,7 +7064,9 @@ class KaggleApi:
             request.model_version_slugs = models
 
             try:
-                response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs)(request)
+                response = self.with_retry(
+                    kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs
+                )(request)
             except HTTPError as e:
                 if e.response.status_code == 404:
                     raise ValueError(
@@ -7078,7 +7084,7 @@ class KaggleApi:
             if wait is None:
                 print(f"To check status later, use: kaggle b t status {task}")
             else:
-                self._poll_runs(kaggle, task, models, wait, poll_interval)
+                self._poll_runs(kaggle, task, models, wait, poll_interval, verbose=verbose)
 
     def benchmarks_tasks_list_cli(self, name_regex=None, status=None):
         request = ApiListBenchmarkTasksRequest()
@@ -7156,7 +7162,9 @@ class KaggleApi:
                     continue
 
                 print(f"Downloading output for run {r.id} ({slug})...")
-                response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output)(dl_request)
+                response = self.with_retry(
+                    kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output
+                )(dl_request)
                 zipfile_path = outdir + ".zip"
                 self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
                 # Extract the zip archive into the output directory.

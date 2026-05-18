@@ -588,7 +588,7 @@ class TestList:
         """When list receives 429, it retries and succeeds, printing retry log to stderr."""
         api._mock_benchmarks.list_benchmark_tasks.side_effect = [
             HTTPError(response=MagicMock(status_code=429, headers={})),
-            MagicMock(tasks=[_make_task()], next_page_token="")
+            MagicMock(tasks=[_make_task()], next_page_token=""),
         ]
         with patch("time.sleep") as mock_sleep:
             api.benchmarks_tasks_list_cli()

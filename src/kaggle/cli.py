@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import argparse
 import json
+import sys
 
 from requests.exceptions import HTTPError
 
@@ -1281,6 +1282,13 @@ def parse_benchmark_tasks(subparsers) -> None:
         required=False,
         help=Help.param_benchmarks_poll_interval,
     )
+    parser_push_optional.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Enable verbose polling logs",
+    )
     parser_push._action_groups.append(parser_push_optional)
     parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
 
@@ -1314,6 +1322,13 @@ def parse_benchmark_tasks(subparsers) -> None:
         default=10,
         required=False,
         help=Help.param_benchmarks_poll_interval,
+    )
+    parser_run_optional.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Enable verbose polling logs",
     )
     parser_run._action_groups.append(parser_run_optional)
     parser_run.set_defaults(func=api.benchmarks_tasks_run_cli)
