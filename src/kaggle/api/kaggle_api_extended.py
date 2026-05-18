@@ -6993,7 +6993,7 @@ class KaggleApi:
         self._write_benchmarks_example(example_file)
         self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)))
 
-    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10, verbose=False):
+    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
@@ -7047,7 +7047,7 @@ class KaggleApi:
             else:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
 
-    def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10, verbose=False):
+    def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)

@@ -108,7 +108,7 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 
 *   `-f, --file <FILE>` *(required)*: Path to the source Python file defining the task.
 *   `--wait [TIMEOUT]`: Wait for the task creation to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
-*   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `10`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
+*   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
 
 **Examples:**
@@ -155,7 +155,7 @@ kaggle benchmarks tasks run <TASK> [options]
 
 *   `-m, --model <MODEL> [MODEL ...]`: One or more model slugs to run against. If omitted, an interactive model picker is displayed.
 *   `--wait [TIMEOUT]`: Wait for runs to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
-*   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `10`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
+*   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
 
 **Examples:**

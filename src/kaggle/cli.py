@@ -1278,7 +1278,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "--poll-interval",
         dest="poll_interval",
         type=int,
-        default=10,
+        default=60,
         required=False,
         help=Help.param_benchmarks_poll_interval,
     )
@@ -1319,7 +1319,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "--poll-interval",
         dest="poll_interval",
         type=int,
-        default=10,
+        default=60,
         required=False,
         help=Help.param_benchmarks_poll_interval,
     )
@@ -2055,7 +2055,7 @@ class Help(object):
     )
     param_benchmarks_output = "Directory to download output files into"
     param_benchmarks_poll_interval = (
-        "Maximum seconds between status polls (default: 10). Polling starts at 5s and increases automatically"
+        "Maximum seconds between status polls (default: 60). Polling starts at 5s and increases automatically"
     )
     param_benchmarks_verbose = "Enable verbose polling logs"
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
