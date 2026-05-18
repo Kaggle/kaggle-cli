@@ -76,15 +76,15 @@ def main() -> None:
         if e.response is not None and e.response.status_code == 401:
             print_auth_help()
         else:
-            print(e)
+            print(e, file=sys.stderr)
         out = None
         error = True
     except ApiException as e:
-        print(e)
+        print(e, file=sys.stderr)
         out = None
         error = True
     except ValueError as e:
-        print(e)
+        print(e, file=sys.stderr)
         out = None
         error = True
     except KeyboardInterrupt:
