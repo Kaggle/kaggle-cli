@@ -6874,7 +6874,10 @@ class KaggleApi:
             if verbose:
                 print(f"  Adaptive polling sleep: {current_interval}s")
             time.sleep(current_interval)
-            current_interval = min(max(poll_interval, 60), int(current_interval * 1.5))
+            # Cap polling interval at 60s, unless the user requested a larger poll_interval.
+            # If poll_interval > 60s, the interval remains at its starting value.
+            poll_cap = max(60, poll_interval)
+            current_interval = min(poll_cap, int(current_interval * 1.5))
 
     def _poll_runs(self, kaggle, task, models, wait, poll_interval, verbose=False):
         """Poll run status until all runs are terminal or timeout."""
@@ -6909,7 +6912,10 @@ class KaggleApi:
             if verbose:
                 print(f"  Adaptive polling sleep: {current_interval}s")
             time.sleep(current_interval)
-            current_interval = min(max(poll_interval, 60), int(current_interval * 1.5))
+            # Cap polling interval at 60s, unless the user requested a larger poll_interval.
+            # If poll_interval > 60s, the interval remains at its starting value.
+            poll_cap = max(60, poll_interval)
+            current_interval = min(poll_cap, int(current_interval * 1.5))
 
     # -- Public CLI methods --
 
