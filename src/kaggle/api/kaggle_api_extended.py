@@ -916,7 +916,7 @@ class KaggleApi:
 
     def _calculate_backoff_delay(self, attempt, initial_delay_millis, retry_multiplier, randomness_factor):
         delay_ms = initial_delay_millis * (retry_multiplier**attempt)
-        random_wait_ms = int(random() - 0.5) * 2 * delay_ms * randomness_factor
+        random_wait_ms = (random() - 0.5) * 2 * delay_ms * randomness_factor
         total_delay = (delay_ms + random_wait_ms) / 1000.0
         return total_delay
 
@@ -6846,6 +6846,19 @@ class KaggleApi:
                 except (ValueError, IndexError):
                     raise ValueError(f"Invalid selection: {selection}")
 
+    @staticmethod
+    def _adaptive_sleep(current_interval, poll_interval, verbose=False):
+        """Sleep for the current interval and return the next adaptive interval.
+
+        The interval increases by 50% each call, capped at 60s (or poll_interval
+        if the user requested a value larger than 60s).
+        """
+        if verbose:
+            print(f"  Adaptive polling sleep: {current_interval}s")
+        time.sleep(current_interval)
+        poll_cap = max(60, poll_interval)
+        return min(poll_cap, int(current_interval * 1.5))
+
     def _poll_task_creation(self, kaggle, task, wait, poll_interval, verbose=False):
         """Poll task creation status until terminal or timeout."""
         print("Waiting for task to be processed...")
@@ -6871,13 +6884,7 @@ class KaggleApi:
                 print(f"Timed out waiting for task creation after {wait} seconds.")
                 return
 
-            if verbose:
-                print(f"  Adaptive polling sleep: {current_interval}s")
-            time.sleep(current_interval)
-            # Cap polling interval at 60s, unless the user requested a larger poll_interval.
-            # If poll_interval > 60s, the interval remains at its starting value.
-            poll_cap = max(60, poll_interval)
-            current_interval = min(poll_cap, int(current_interval * 1.5))
+            current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
 
     def _poll_runs(self, kaggle, task, models, wait, poll_interval, verbose=False):
         """Poll run status until all runs are terminal or timeout."""
@@ -6909,13 +6916,7 @@ class KaggleApi:
                 print(f"Timed out waiting for runs after {wait} seconds.")
                 return
 
-            if verbose:
-                print(f"  Adaptive polling sleep: {current_interval}s")
-            time.sleep(current_interval)
-            # Cap polling interval at 60s, unless the user requested a larger poll_interval.
-            # If poll_interval > 60s, the interval remains at its starting value.
-            poll_cap = max(60, poll_interval)
-            current_interval = min(poll_cap, int(current_interval * 1.5))
+            current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
 
     # -- Public CLI methods --
 

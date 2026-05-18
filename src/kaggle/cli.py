@@ -1258,7 +1258,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "push",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_benchmarks_tasks_push,
-        usage="%(prog)s [-h] task -f FILE [--wait [WAIT]] [--poll-interval POLL_INTERVAL]",
+        usage="%(prog)s [-h] task -f FILE [--wait [WAIT]] [--poll-interval POLL_INTERVAL] [-v]",
     )
     parser_push_optional = parser_push._action_groups.pop()
     parser_push_required = parser_push.add_argument_group("required arguments")
@@ -1287,7 +1287,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "--verbose",
         dest="verbose",
         action="store_true",
-        help="Enable verbose polling logs",
+        help=Help.param_benchmarks_verbose,
     )
     parser_push._action_groups.append(parser_push_optional)
     parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
@@ -1297,7 +1297,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "run",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_benchmarks_tasks_run,
-        usage="%(prog)s [-h] task [-m MODEL [MODEL ...]] [--wait [WAIT]] [--poll-interval POLL_INTERVAL]",
+        usage="%(prog)s [-h] task [-m MODEL [MODEL ...]] [--wait [WAIT]] [--poll-interval POLL_INTERVAL] [-v]",
     )
     parser_run_optional = parser_run._action_groups.pop()
     parser_run_required = parser_run.add_argument_group("required arguments")
@@ -1328,7 +1328,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         "--verbose",
         dest="verbose",
         action="store_true",
-        help="Enable verbose polling logs",
+        help=Help.param_benchmarks_verbose,
     )
     parser_run._action_groups.append(parser_run_optional)
     parser_run.set_defaults(func=api.benchmarks_tasks_run_cli)
@@ -2055,6 +2055,7 @@ class Help(object):
     )
     param_benchmarks_output = "Directory to download output files into"
     param_benchmarks_poll_interval = "Seconds between status polls when using --wait (default: 10)"
+    param_benchmarks_verbose = "Enable verbose polling logs"
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
 
     # Files params
