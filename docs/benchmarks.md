@@ -301,6 +301,19 @@ Downloads and extracts the output zip archive for each completed run. Files are 
 
 Already-downloaded runs (where the output directory exists) are automatically skipped.
 
+### Model Slug Normalization
+
+Benchmark model names are automatically normalized on both input and output. This makes it easy to pass various formats interchangeably while keeping displays and directories clean.
+
+*   **Flexible Inputs**: The CLI accepts prefixed and proxy-style model names:
+    *   **With Provider Prefix**: `google/gemini-2.5-pro` or `anthropic/claude-sonnet-4`
+    *   **With Version/Proxy `@` symbols**: `anthropic/claude-haiku-4-5@20251001` or `claude-sonnet-4-6@default`
+    *   **Canonical Slugs**: `gemini-2.5-pro` or `claude-haiku-4-5-20251001`
+*   **Unified Normalization**: The client automatically strips any provider prefix (e.g., `google/` or `anthropic/`) and replaces `@` characters with `-` to match the server's canonical database slug format.
+*   **Clean Outputs**:
+    *   **Status Display**: Tables and error logs display the canonical, hyphenated slugs (e.g., `claude-haiku-4-5-20251001` and `gemini-2.0-flash-lite-001`) for readability.
+    *   **Hierarchical Downloads**: Run outputs are extracted into clean folders using the canonical slugs (e.g., `./<task>/<version>/claude-haiku-4-5-20251001/<run_id>/`), with no `@` or `/` symbols in folder names.
+
 ---
 
 ### `kaggle benchmarks tasks models`

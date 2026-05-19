@@ -298,16 +298,18 @@ When the CLI normalizes a name, it prints a yellow warning:
 
 The slug must match between the `@task(name=...)` decorator in the file and the CLI command. Comparison is done on slugified names, so `@task(name="My Task")` matches `kaggle b t push my-task -f file.py`.
 
-## Model Slug Format
+## Model Slug Normalization
 
-Models use an `owner/model-name` format:
-- `google/gemini-2.5-pro`
-- `anthropic/claude-sonnet-4`
-- `openai/gpt-oss-120b`
+Benchmark model names are automatically normalized on both input and output. This makes it easy to pass various formats interchangeably while keeping displays and directories clean.
 
-When displaying model names, the owner prefix is stripped for readability (e.g. `gemini-2.5-pro`).
-
-The server may sometimes return model slugs in different formats (e.g. `anthropic/claude-sonnet-4-6@default`). The CLI handles this with client-side normalization, replacing `@` with `-` for matching.
+- **Flexible Inputs**: The CLI accepts prefixed and proxy-style model names:
+  - **With Provider Prefix**: `google/gemini-2.5-pro` or `anthropic/claude-sonnet-4`
+  - **With Version/Proxy `@` symbols**: `anthropic/claude-haiku-4-5@20251001` or `claude-sonnet-4-6@default`
+  - **Canonical Slugs**: `gemini-2.5-pro` or `claude-haiku-4-5-20251001`
+- **Unified Normalization**: The client automatically strips any provider prefix (e.g., `google/` or `anthropic/`) and replaces `@` characters with `-` to match the server's canonical database slug format.
+- **Clean Outputs**:
+  - **Status Display**: Tables and error logs display the canonical, hyphenated slugs (e.g., `claude-haiku-4-5-20251001` and `gemini-2.0-flash-lite-001`) for readability.
+  - **Hierarchical Downloads**: Run outputs are extracted into clean folders using the canonical slugs (e.g., `./<task>/<version>/claude-haiku-4-5-20251001/<run_id>/`), with no `@` or `/` symbols in folder names.
 
 ## Common Workflows
 
