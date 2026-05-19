@@ -23,7 +23,6 @@ This reference covers how to use the `kaggle` CLI to manage Kaggle Benchmark tas
 
 ## Prerequisites
 
-- Python 3.11+
 - `kaggle` CLI installed (`pip install kaggle` or `pip install -e .` from source)
 - `kaggle-benchmarks` SDK installed (`pip install kaggle-benchmarks`)
 - Valid Kaggle credentials: `KAGGLE_API_TOKEN` env var, `~/.kaggle/access_token` file, or OAuth via `kaggle auth login`
