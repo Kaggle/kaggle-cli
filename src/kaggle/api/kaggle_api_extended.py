@@ -6551,19 +6551,23 @@ class KaggleApi:
         return slug
 
     @staticmethod
-    def _normalize_model_list(model) -> list:
-        """Normalize a model argument (str, list, or None) into a list."""
-        if isinstance(model, list):
-            return model
-        return [model] if model else []
+    def _normalize_model_slug(slug: str) -> str:
+        """Normalize a model slug (possibly in proxy/provider format) to the database format.
+
+        e.g. 'xai/grok-4.3' -> 'grok-4.3'
+             'anthropic/claude-sonnet-4-6@default' -> 'claude-sonnet-4-6-default'
+        """
+        slug = slug.split("/")[-1] if "/" in slug else slug
+        return slug.replace("@", "-")
 
     @staticmethod
-    def _short_model_slug(slug: str) -> str:
-        """Strip the owner prefix from a model slug for display.
-
-        e.g. 'google/gemini-2.5-pro' -> 'gemini-2.5-pro'
-        """
-        return slug.split("/")[-1] if "/" in slug else slug
+    def _normalize_model_list(model) -> list:
+        """Normalize a model argument (str, list, or None) into a list of normalized slugs."""
+        if isinstance(model, list):
+            raw_list = model
+        else:
+            raw_list = [model] if model else []
+        return [KaggleApi._normalize_model_slug(m) for m in raw_list]
 
     @staticmethod
     def _paginate(fetch_page, get_items):
@@ -6611,7 +6615,7 @@ class KaggleApi:
     @staticmethod
     def _print_run_table(runs):
         """Print a list of benchmark task runs in an aligned table."""
-        model_col = max((len(KaggleApi._short_model_slug(r.model_version_slug)) for r in runs), default=20)
+        model_col = max((len(KaggleApi._normalize_model_slug(r.model_version_slug)) for r in runs), default=20)
         model_col = max(model_col, 20)
         time_col = 21
         sep = model_col + 15 + time_col + time_col
@@ -6619,7 +6623,7 @@ class KaggleApi:
         print("-" * sep)
         errors = []
         for r in runs:
-            slug = KaggleApi._short_model_slug(r.model_version_slug)
+            slug = KaggleApi._normalize_model_slug(r.model_version_slug)
             print(
                 f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state):<15} "
                 f"{KaggleApi._format_time(r.start_time):<{time_col}} {KaggleApi._format_time(r.end_time):<{time_col}}"
@@ -6788,26 +6792,25 @@ class KaggleApi:
             runs = [
                 r
                 for r in runs
-                if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
-                # TODO(dolaameng): Remove this fallback once the server returns
-                # BenchmarkModelVersion.Slug (e.g. "claude-sonnet-4-6-default")
-                # instead of ModelProxySlug (e.g. "anthropic/claude-sonnet-4-6@default")
-                # in ApiBenchmarkTaskRun.model_version_slug.
-                or r.model_version_slug.split("/")[-1].replace("@", "-") in model_set
+                if self._normalize_model_slug(r.model_version_slug) in model_set
             ]
 
         return runs
 
-    def _select_models_interactively(self, kaggle, page_size=20):
-        """Prompt the user to pick benchmark models from a paginated list."""
+    def _fetch_all_benchmark_models(self, kaggle):
+        """Fetch all available benchmark models from the server."""
 
-        def _fetch_models(page_token):
+        def _fetch_page(page_token):
             req = ApiListBenchmarkModelsRequest()
             if page_token:
                 req.page_token = page_token
             return self.with_retry(kaggle.benchmarks.benchmarks_api_client.list_benchmark_models)(req)
 
-        available = self._paginate(_fetch_models, lambda r: r.benchmark_models)
+        return self._paginate(_fetch_page, lambda r: r.benchmark_models)
+
+    def _select_models_interactively(self, kaggle, page_size=20):
+        """Prompt the user to pick benchmark models from a paginated list."""
+        available = self._fetch_all_benchmark_models(kaggle)
         if not available:
             raise ValueError("No benchmark models available. Cannot schedule runs.")
 
@@ -6905,13 +6908,13 @@ class KaggleApi:
             if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
                 print("All runs completed:")
                 for r in all_runs:
-                    print(f"  {self._short_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
+                    print(f"  {self._normalize_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
 
                 errored = [r for r in all_runs if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED]
                 if errored:
                     details = []
                     for r in errored:
-                        slug = self._short_model_slug(r.model_version_slug)
+                        slug = self._normalize_model_slug(r.model_version_slug)
                         msg = (getattr(r, "error_message", None) or "").strip() or "No error message"
                         details.append(f"  [{slug}]\n    {msg}")
                     raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
@@ -7168,7 +7171,7 @@ class KaggleApi:
             for r in downloadable:
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
-                slug = self._short_model_slug(r.model_version_slug)
+                slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
                 outdir = os.path.join(output, task, version, slug, str(r.id))
 
@@ -7200,14 +7203,7 @@ class KaggleApi:
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""
         with self.build_kaggle_client() as kaggle:
-
-            def _fetch_models(page_token):
-                req = ApiListBenchmarkModelsRequest()
-                if page_token:
-                    req.page_token = page_token
-                return self.with_retry(kaggle.benchmarks.benchmarks_api_client.list_benchmark_models)(req)
-
-            models = self._paginate(_fetch_models, lambda r: r.benchmark_models)
+            models = self._fetch_all_benchmark_models(kaggle)
             if not models:
                 print("No benchmark models available.")
                 return

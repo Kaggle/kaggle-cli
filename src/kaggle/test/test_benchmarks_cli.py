@@ -1155,6 +1155,95 @@ class TestDownloadFile:
 
 
 # ============================================================
+# Model Slug Normalization
+# ============================================================
+
+
+class TestModelSlugNormalization:
+    """Tests for model slug normalization helpers."""
+
+    # -- _normalize_model_slug --
+
+    @pytest.mark.parametrize(
+        "input_slug, expected",
+        [
+            # Already canonical — no change
+            ("gemini-pro", "gemini-pro"),
+            ("grok-4.3", "grok-4.3"),
+            # Provider prefix stripped
+            ("xai/grok-4.3", "grok-4.3"),
+            ("google/gemini-2.5-pro", "gemini-2.5-pro"),
+            # @ replaced with -
+            ("claude-sonnet-4-6@default", "claude-sonnet-4-6-default"),
+            # Both prefix and @
+            ("anthropic/claude-sonnet-4-6@default", "claude-sonnet-4-6-default"),
+        ],
+        ids=[
+            "canonical_plain",
+            "canonical_with_dot",
+            "strip_xai_prefix",
+            "strip_google_prefix",
+            "at_to_dash",
+            "prefix_and_at",
+        ],
+    )
+    def test_normalize_model_slug(self, input_slug, expected):
+        assert KaggleApi._normalize_model_slug(input_slug) == expected
+
+    # -- _normalize_model_list --
+
+    def test_normalize_model_list_none(self):
+        assert KaggleApi._normalize_model_list(None) == []
+
+    def test_normalize_model_list_single_string(self):
+        assert KaggleApi._normalize_model_list("xai/grok-4.3") == ["grok-4.3"]
+
+    def test_normalize_model_list_list_of_strings(self):
+        result = KaggleApi._normalize_model_list(
+            ["xai/grok-4.3", "anthropic/claude-sonnet-4-6@default", "gemini-pro"]
+        )
+        assert result == ["grok-4.3", "claude-sonnet-4-6-default", "gemini-pro"]
+
+
+    # -- End-to-end: run sends normalized slugs to the API --
+
+    def test_run_normalizes_prefixed_model_for_api(self, api, capsys):
+        """Running with 'xai/grok-4.3' should send 'grok-4.3' to the server."""
+        _setup_completed_task(api)
+        _setup_batch_schedule(api, [_make_run_result()])
+        api.benchmarks_tasks_run_cli("my-task", ["xai/grok-4.3"])
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["grok-4.3"]
+
+    def test_run_normalizes_at_sign_model_for_api(self, api, capsys):
+        """Running with 'anthropic/claude-sonnet-4-6@default' normalizes to 'claude-sonnet-4-6-default'."""
+        _setup_completed_task(api)
+        _setup_batch_schedule(api, [_make_run_result()])
+        api.benchmarks_tasks_run_cli("my-task", ["anthropic/claude-sonnet-4-6@default"])
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["claude-sonnet-4-6-default"]
+
+    def test_status_normalizes_model_filter(self, api, capsys):
+        """Status with prefixed model filter normalizes slugs for the API request."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task", model="google/gemini-2.5-pro")
+        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["gemini-2.5-pro"]
+
+    def test_download_normalizes_model_filter(self, api, capsys):
+        """Download with prefixed model filter normalizes slugs for the API request."""
+        _setup_completed_task(api)
+        _setup_runs_response(api, [_make_run()])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
+        api.download_file = MagicMock()
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", model="xai/grok-4.3")
+        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["grok-4.3"]
+
+
+# ============================================================
 # Models
 # ============================================================
 
