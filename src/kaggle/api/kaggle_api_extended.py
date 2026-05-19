@@ -6789,11 +6789,7 @@ class KaggleApi:
         # Client-side filter as fallback since the server may ignore model_version_slugs.
         if models:
             model_set = set(models)
-            runs = [
-                r
-                for r in runs
-                if self._normalize_model_slug(r.model_version_slug) in model_set
-            ]
+            runs = [r for r in runs if self._normalize_model_slug(r.model_version_slug) in model_set]
 
         return runs
 

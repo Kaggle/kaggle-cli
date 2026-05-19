@@ -1199,11 +1199,8 @@ class TestModelSlugNormalization:
         assert KaggleApi._normalize_model_list("xai/grok-4.3") == ["grok-4.3"]
 
     def test_normalize_model_list_list_of_strings(self):
-        result = KaggleApi._normalize_model_list(
-            ["xai/grok-4.3", "anthropic/claude-sonnet-4-6@default", "gemini-pro"]
-        )
+        result = KaggleApi._normalize_model_list(["xai/grok-4.3", "anthropic/claude-sonnet-4-6@default", "gemini-pro"])
         assert result == ["grok-4.3", "claude-sonnet-4-6-default", "gemini-pro"]
-
 
     # -- End-to-end: run sends normalized slugs to the API --
 
