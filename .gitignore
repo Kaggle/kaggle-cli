@@ -79,3 +79,6 @@ target/
 
 # Kagent
 .kagent-context/**
+
+# Jetski
+.jetskicli/

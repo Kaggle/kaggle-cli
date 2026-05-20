@@ -224,24 +224,28 @@ kaggle competitions leaderboard <COMPETITION> [options]
 
 This command lets you view your ranking and the scores of other participants in a competition.
 
-## `kaggle competitions topics`
+## `kaggle competitions topics list`
 
 Lists discussion topics for a competition.
 
 **Usage:**
 
 ```bash
-kaggle competitions topics <COMPETITION> [options]
+kaggle competitions topics list [COMPETITION] [options]
 ```
+
+Note: `kaggle competitions topics` (without `list` subcommand) is supported as a shortcut to list topics for the default competition (configured via `kaggle config set competition`).
 
 **Arguments:**
 
-*   `<COMPETITION>`: Competition URL suffix (e.g., `titanic`).
+*   `[COMPETITION]`: Competition URL suffix (e.g., `titanic`). Optional if default competition is configured.
 
 **Options:**
 
-*   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
-*   `-p, --page <PAGE>`: Page number (1-based).
+*   `-s, --sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `--search <SEARCH>`: Search query to filter topics.
+*   `--page-size <PAGE_SIZE>`: Number of items to show on a page. Default is 20, max is 200.
+*   `--page-token <PAGE_TOKEN>`: Page token for results paging.
 *   `-v, --csv`: Print results in CSV format.
 *   `-q, --quiet`: Suppress verbose output.
 
@@ -250,7 +254,7 @@ kaggle competitions topics <COMPETITION> [options]
 List discussion topics for the "titanic" competition sorted by most recent:
 
 ```bash
-kaggle competitions topics titanic --sort-by recent
+kaggle competitions topics list titanic -s recent
 ```
 
 **Purpose:**
@@ -264,22 +268,22 @@ Displays a competition discussion topic with all comments in tree form.
 **Usage:**
 
 ```bash
-kaggle competitions topics show <COMPETITION>/<TOPIC_ID> [options]
+kaggle competitions topics show <TOPIC_REF> [options]
 ```
 
 **Arguments:**
 
 *   `<TOPIC_REF>`: A topic reference, which can be:
     *   `<competition>/<topic-id>` (e.g., `titanic/12345`)
-    *   `<competition> <topic-id>` (two separate arguments)
+    *   `<competition> <topic-id>` (two separate arguments, where `<topic-id>` is passed as second argument)
     *   `<topic-id>` (bare numeric ID)
 
 **Options:**
 
-*   `-v, --csv`: Print results in CSV format.
-*   `-q, --quiet`: Suppress verbose output.
 *   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 
@@ -291,7 +295,7 @@ kaggle competitions topics show titanic/12345
 
 **Purpose:**
 
-This command displays a full discussion topic along with all of its comments rendered in an indented tree structure. This replaces the older `topic-messages` command.
+This command displays a full discussion topic along with all of its comments rendered in an indented tree structure.
 
 ## `kaggle competitions topic-messages`
 

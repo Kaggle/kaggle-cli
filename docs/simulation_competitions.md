@@ -27,25 +27,22 @@ kaggle competitions pages connectx --content
 You can also browse the competition's discussion forum to see what other participants are talking about — top strategies, common pitfalls, environment quirks. List the topics with:
 
 ```bash
-kaggle competitions topics connectx
+kaggle competitions topics list connectx
 ```
 
-This prints a table of topics with `id`, `title`, `authorName`, `commentCount`, `votes`, and `postDate`. Sort and paginate with `-s/--sort-by` (one of `hot`, `top`, `new`, `recent`, `active`, `relevance`) and `-p/--page`:
+This prints a table of topics with `id`, `title`, `authorName`, `commentCount`, `votes`, and `postDate`. Sort and paginate with `-s/--sort-by` (one of `hot`, `top`, `new`, `recent`, `active`, `relevance`) and `--page-size`:
 
 ```bash
-kaggle competitions topics connectx -s top -p 1
+kaggle competitions topics list connectx -s top --page-size 10
 ```
 
-To read the full discussion under a topic, pass the topic id to `topic-messages`:
+To read the full discussion under a topic, use the `show` subcommand:
 
 ```bash
-kaggle competitions topic-messages connectx 12345
+kaggle competitions topics show connectx 12345
 ```
 
-By default this returns the top 30 top-level messages (replies are flattened in-order beneath their parent). Use `-n -1` to fetch them all, or `-s` (one of `hot`, `new`, `old`, `top`) to change ordering:
-
-```bash
-kaggle competitions topic-messages connectx 12345 -s new -n -1
+This returns the topic content and all its comments rendered in an indented tree structure.
 ```
 
 ## 2. Accept the Competition Rules

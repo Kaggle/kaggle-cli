@@ -2525,23 +2525,15 @@ class KaggleApi:
                     "       kaggle <entity> topics show <slug>/<topic-id>"
                 )
         elif topic_ref and "/" in topic_ref:
-            # Single arg with slash: forum-slug/topic-id
+            # Single arg with slash: forum-slug/topic-id (forum-slug may contain slashes)
             parts = topic_ref.split("/")
-            if len(parts) != 2:
-                raise ValueError(
-                    f"Invalid topic reference: {topic_ref!r}. "
-                    "Expected format <forum-slug>/<topic-id> (one slash only).\n"
-                    "Usage: kaggle <entity> topics show <topic-id>\n"
-                    "       kaggle <entity> topics show <forum-slug>/<topic-id>\n"
-                    "To list topics for an entity, omit 'show':\n"
-                    "       kaggle <entity> topics <entity-ref>"
-                )
+            topic_id_str = parts[-1]
             try:
-                topic_id = int(parts[1])
+                topic_id = int(topic_id_str)
             except ValueError:
                 raise ValueError(
                     f"Invalid topic reference: {topic_ref!r}. "
-                    f"The part after '/' must be a numeric topic ID, got {parts[1]!r}.\n"
+                    f"The part after the last '/' must be a numeric topic ID, got {topic_id_str!r}.\n"
                     "Usage: kaggle <entity> topics show <topic-id>\n"
                     "       kaggle <entity> topics show <forum-slug>/<topic-id>\n"
                     "To list topics for an entity, omit 'show':\n"

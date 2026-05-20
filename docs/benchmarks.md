@@ -351,14 +351,14 @@ kaggle b t delete my-task -y
 
 Deletes a benchmark task and all associated runs. **Note:** This command is not yet supported by the server.
 
-## `kaggle benchmarks topics`
+## `kaggle benchmarks topics list`
 
 Lists discussion topics for a benchmark.
 
 **Usage:**
 
 ```bash
-kaggle benchmarks topics <BENCHMARK> [options]
+kaggle benchmarks topics list <BENCHMARK> [options]
 ```
 
 **Arguments:**
@@ -368,16 +368,16 @@ kaggle benchmarks topics <BENCHMARK> [options]
 **Options:**
 
 *   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `-s, --search <SEARCH_TERM>`: Search query to filter topics.
 *   `--page-size <PAGE_SIZE>`: Number of items per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for pagination.
-*   `-s, --search <SEARCH_TERM>`: Search query.
 *   `-v, --csv`: Print results in CSV format.
 *   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 
 ```bash
-kaggle benchmarks topics kaggle/chess
+kaggle benchmarks topics list kaggle/chess
 ```
 
 **Purpose:**
@@ -391,22 +391,22 @@ Displays a benchmark discussion topic with all comments in tree form.
 **Usage:**
 
 ```bash
-kaggle benchmarks topics show <BENCHMARK>/<TOPIC_ID> [options]
+kaggle benchmarks topics show <TOPIC_REF> [options]
 ```
 
 **Arguments:**
 
 *   `<TOPIC_REF>`: A topic reference, which can be:
-    *   `<benchmark>/<topic-id>` (e.g., `kaggle/chess/614080`)
-    *   `<benchmark> <topic-id>` (two separate arguments)
+    *   `<benchmark>/<topic-id>` (e.g., `kaggle/chess/614080` - note that this supports multi-slash benchmark slugs)
+    *   `<benchmark> <topic-id>` (two separate arguments, where `<topic-id>` is passed as second argument)
     *   `<topic-id>` (bare numeric ID)
 
 **Options:**
 
-*   `-v, --csv`: Print results in CSV format.
-*   `-q, --quiet`: Suppress verbose output.
 *   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 

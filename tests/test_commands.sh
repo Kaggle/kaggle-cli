@@ -9,6 +9,11 @@
 
 kaggle --version
 
+kaggle forums
+kaggle forums topics
+kaggle forums topics list
+kaggle forums topics show 695158
+
 echo "kaggle competitions files"
 kaggle competitions files titanic --page-size=3 --page-token=abcd -v -q
 echo "kaggle competitions list"

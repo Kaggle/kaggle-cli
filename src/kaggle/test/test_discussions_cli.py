@@ -37,8 +37,11 @@ def api():
 
 
 @pytest.fixture
-def parser():
+def parser(monkeypatch, api):
     """Build the full argument parser tree for testing argparse dispatch."""
+    import kaggle
+    monkeypatch.setattr(kaggle, "api", api)
+
     from kaggle.cli import (
         Help,
         parse_benchmarks,
@@ -47,6 +50,9 @@ def parser():
         parse_forums,
         parse_models,
     )
+    import kaggle.cli
+    monkeypatch.setattr(kaggle.cli, "api", api)
+
 
     root = argparse.ArgumentParser()
     root.add_argument("-W", "--no-warn", dest="disable_version_warning", action="store_true")
@@ -109,7 +115,7 @@ class TestTopicsListParsing:
     @pytest.mark.parametrize(
         "entity, extra_args",
         [
-            ("datasets", ["--sort-by", "hot", "-s", "keyword"]),
+            ("datasets", ["list", "--sort-by", "hot", "-s", "keyword"]),
             ("models", ["--page-size", "50"]),
             ("benchmarks", ["--page-token", "abc"]),
         ],
@@ -347,10 +353,15 @@ class TestForumsTopicShowCliKwargs:
 
         api.forums_topic_show.assert_called_once_with(12345, page_size=None, page_token=None)
 
-    def test_topic_id_multi_slash_raises_value_error(self, api):
-        """Multi-slash ref like 'google/gemma-4/1' raises ValueError."""
-        with pytest.raises(ValueError, match="one slash only"):
-            api.forums_topic_show_cli(topic_ref="google/gemma-4/1")
+    def test_topic_id_multi_slash_parses_correctly(self, api):
+        """Multi-slash ref like 'google/gemma-4/1' extracts the topic ID."""
+        mock_topic = MagicMock()
+        mock_topic.content = None
+        api.forums_topic_show = MagicMock(return_value=(mock_topic, [], ""))
+
+        api.forums_topic_show_cli(topic_ref="google/gemma-4/1")
+
+        api.forums_topic_show.assert_called_once_with(1, page_size=None, page_token=None)
 
     def test_topic_id_parsing_two_arg_form(self, api):
         """Two-arg form uses topic_id_arg."""
@@ -376,3 +387,51 @@ class TestForumsTopicShowCliKwargs:
         """Non-numeric bare ref raises ValueError with helpful message."""
         with pytest.raises(ValueError, match="Expected a numeric topic ID"):
             api.forums_topic_show_cli(topic_ref="not-a-number")
+
+
+# ============================================================
+# Arg parsing: topics list — correct func + kwargs
+# ============================================================
+
+
+class TestTopicsListSubcommand:
+    """Verify that ``<entity> topics list [ref]`` parses correctly
+    and dispatches to the correct list-topics CLI method.
+    """
+
+    @pytest.mark.parametrize(
+        "entity, expected_func",
+        [
+            ("competitions", "competition_list_topics_cli"),
+            ("datasets", "dataset_list_topics_cli"),
+            ("models", "model_list_topics_cli"),
+            ("benchmarks", "benchmark_list_topics_cli"),
+            ("forums", "forums_list_topics_cli"),
+        ],
+    )
+    def test_topics_list_subcommand_dispatches_correctly(self, parser, entity, expected_func):
+        """All entities dispatch 'topics list' to their respective list func."""
+        func, kwargs = _dispatch(parser, [entity, "topics", "list"])
+        assert func.__name__ == expected_func
+
+    @pytest.mark.parametrize(
+        "entity, ref_key",
+        [
+            ("competitions", "competition"),
+            ("datasets", "entity_ref"),
+            ("models", "entity_ref"),
+            ("benchmarks", "entity_ref"),
+            ("forums", "forum"),
+        ],
+    )
+    def test_topics_list_subcommand_with_ref(self, parser, entity, ref_key):
+        """Position ref is parsed correctly inside 'list' subcommand."""
+        func, kwargs = _dispatch(parser, [entity, "topics", "list", "my-special-ref"])
+        assert kwargs[ref_key] == "my-special-ref"
+
+    def test_competitions_topics_list_with_c_option(self, parser):
+        """Competitions topics list supports -c option."""
+        func, kwargs = _dispatch(parser, ["competitions", "topics", "list", "-c", "titanic"])
+        assert func.__name__ == "competition_list_topics_cli"
+        assert kwargs["competition_opt"] == "titanic"
+

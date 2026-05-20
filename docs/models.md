@@ -183,14 +183,14 @@ kaggle models delete $KAGGLE_DEVELOPER/test-model -y
 
 This command permanently removes one of your models (and all its variations and versions) from Kaggle. Use with caution.
 
-## `kaggle models topics`
+## `kaggle models topics list`
 
 Lists discussion topics for a model.
 
 **Usage:**
 
 ```bash
-kaggle models topics <MODEL> [options]
+kaggle models topics list <MODEL> [options]
 ```
 
 **Arguments:**
@@ -200,16 +200,16 @@ kaggle models topics <MODEL> [options]
 **Options:**
 
 *   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `-s, --search <SEARCH_TERM>`: Search query to filter topics.
 *   `--page-size <PAGE_SIZE>`: Number of items per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for pagination.
-*   `-s, --search <SEARCH_TERM>`: Search query.
 *   `-v, --csv`: Print results in CSV format.
 *   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 
 ```bash
-kaggle models topics google/gemma --sort-by hot
+kaggle models topics list google/gemma --sort-by hot
 ```
 
 **Purpose:**
@@ -223,22 +223,22 @@ Displays a model discussion topic with all comments in tree form.
 **Usage:**
 
 ```bash
-kaggle models topics show <MODEL>/<TOPIC_ID> [options]
+kaggle models topics show <TOPIC_REF> [options]
 ```
 
 **Arguments:**
 
 *   `<TOPIC_REF>`: A topic reference, which can be:
-    *   `<model>/<topic-id>` (e.g., `google/gemma/12345`)
-    *   `<model> <topic-id>` (two separate arguments)
+    *   `<model>/<topic-id>` (e.g., `google/gemma/12345` - note that this supports multi-slash model slugs)
+    *   `<model> <topic-id>` (two separate arguments, where `<topic-id>` is passed as second argument)
     *   `<topic-id>` (bare numeric ID)
 
 **Options:**
 
-*   `-v, --csv`: Print results in CSV format.
-*   `-q, --quiet`: Suppress verbose output.
 *   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 
