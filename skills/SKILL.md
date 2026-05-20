@@ -34,6 +34,8 @@ kaggle
 ├── datasets (alias: d)      — Create, download, and manage datasets
 ├── kernels (alias: k)       — Run and manage notebooks/scripts
 ├── models (alias: m)        — Upload and version models
+├── forums (alias: fo)       — Browse Kaggle discussion forums
+├── hackathons (alias: h)    — Browse hackathon overviews and write-ups
 └── benchmarks (alias: b)    — Benchmark LLM models on tasks
 ```
 
@@ -42,3 +44,4 @@ kaggle
 For detailed reference on specific command groups, see:
 
 - [Benchmarks](references/benchmarks.md) — Push tasks, run against LLM models, check status, download results
+- [Hackathons](references/hackathons.md) — Get hackathon overviews, list write-ups, download CSV exports, resolve write-up links

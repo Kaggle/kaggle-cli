@@ -97,6 +97,8 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionTopicsResponse,
     ApiListTopicMessagesRequest,
     ApiListTopicMessagesResponse,
+    ApiGetHackathonOverviewRequest,
+    ApiListHackathonWriteUpsRequest,
 )
 from kagglesdk.discussions.types.discussions_api_service import (
     ApiDiscussionComment,
@@ -2660,6 +2662,202 @@ class KaggleApi:
             csv_display=csv_display,
             quiet=quiet,
         )
+
+    # ── Hackathons ───────────────────────────────────────────────────────
+
+    hackathon_writeup_fields = [
+        "id",
+        "team",
+        "title",
+        "url",
+        "competitionId",
+        "template",
+    ]
+    hackathon_overview_page_fields = ["name"]
+    hackathon_writeup_link_fields = ["url", "type", "title"]
+
+    def hackathon_get_overview(self, competition: str):
+        """Get the overview page content for a hackathon competition.
+
+        Mirrors the ``get_hackathon_overview`` MCP tool.
+        """
+        if not competition:
+            raise ValueError("No competition specified")
+        request = ApiGetHackathonOverviewRequest()
+        request.competition_name = competition
+        with self.build_kaggle_client() as kaggle:
+            return kaggle.competitions.competition_api_client.get_hackathon_overview(request)
+
+    def hackathon_get_overview_cli(self, competition=None, csv_display=False, quiet=False):
+        """CLI wrapper for ``kaggle hackathons get <competition>``."""
+        if competition is None:
+            raise ValueError("No competition specified")
+        response = self.hackathon_get_overview(competition)
+        pages = getattr(response, "pages", None) or []
+        if not pages:
+            print("No hackathon overview pages found")
+            return
+        if csv_display:
+            self.print_csv(pages, self.hackathon_overview_page_fields)
+        else:
+            for page in pages:
+                name = getattr(page, "name", "")
+                content = getattr(page, "content", "")
+                if name:
+                    print(f"## {name}")
+                if content:
+                    cleaned = bleach.clean(content, tags=[], strip=True).strip()
+                    print(cleaned)
+                print()
+
+    def hackathon_list_writeups(self, competition: str):
+        """List hackathon write-up submissions for a competition.
+
+        Mirrors the ``list_hackathon_write_ups`` MCP tool.
+        """
+        if not competition:
+            raise ValueError("No competition specified")
+        request = ApiListHackathonWriteUpsRequest()
+        request.competition_name = competition
+        with self.build_kaggle_client() as kaggle:
+            return kaggle.competitions.competition_api_client.list_hackathon_write_ups(request)
+
+    def hackathon_list_writeups_cli(self, competition=None, csv_display=False, quiet=False):
+        """CLI wrapper for ``kaggle hackathons writeups list <competition>``."""
+        if competition is None:
+            raise ValueError("No competition specified")
+        response = self.hackathon_list_writeups(competition)
+        writeups = getattr(response, "hackathon_write_ups", None) or []
+        flat = [self._flatten_hackathon_writeup(w) for w in writeups]
+        if not flat:
+            print("No hackathon write-ups found")
+            return
+        if csv_display:
+            self.print_csv(flat, self.hackathon_writeup_fields)
+        else:
+            self.print_table(flat, self.hackathon_writeup_fields)
+        if not quiet:
+            total = getattr(response, "total_count", None)
+            if total:
+                print(f"Total: {total}")
+            next_page = getattr(response, "next_page_token", "") or ""
+            if next_page:
+                print(f"Next page token: {next_page}")
+
+    def _flatten_hackathon_writeup(self, w):
+        """Convert a HackathonWriteUp proto into a flat object for printing."""
+
+        class _Flat:
+            pass
+
+        flat = _Flat()
+        flat.id = getattr(w, "id", None)
+        team = getattr(w, "team", None)
+        flat.team = getattr(team, "name", None) or getattr(team, "team_name", None) if team else None
+        write_up = getattr(w, "write_up", None)
+        flat.title = getattr(write_up, "title", None) if write_up else None
+        flat.url = getattr(write_up, "url", None) if write_up else None
+        flat.competition_id = getattr(w, "competition_id", None)
+        flat.template = getattr(w, "template", False)
+        return flat
+
+    def hackathon_download_writeups(self, competition: str, path: Optional[str] = None, quiet: bool = False) -> str:
+        """Download the CSV of hackathon write-ups for a competition.
+
+        Mirrors the ``download_hackathon_write_ups`` MCP tool. Writes the CSV
+        body to ``<path>`` (or ``./<competition>-writeups.csv`` by default)
+        and returns the absolute path to the saved file.
+        """
+        if not competition:
+            raise ValueError("No competition specified")
+        # Not yet exported by any released kagglesdk; import lazily so the
+        # rest of the module still loads. Drop this once kagglesdk ships it.
+        from kagglesdk.competitions.types.hackathon_service import (  # type: ignore
+            ExportHackathonWriteUpsCsvRequest,
+        )
+
+        request = ExportHackathonWriteUpsCsvRequest()
+        request.competition_name = competition
+        with self.build_kaggle_client() as kaggle:
+            response = kaggle.competitions.hackathon_client.export_hackathon_write_ups_csv(request)
+
+        csv_body = (
+            getattr(response, "csv", None)
+            or getattr(response, "csv_content", None)
+            or getattr(response, "content", None)
+            or ""
+        )
+        if not csv_body:
+            raise ValueError("Empty CSV response from server")
+
+        if path is None:
+            outfile = os.path.join(os.getcwd(), f"{competition}-writeups.csv")
+        elif os.path.isdir(path):
+            outfile = os.path.join(path, f"{competition}-writeups.csv")
+        else:
+            outfile = path
+
+        outdir = os.path.dirname(outfile)
+        if outdir and not os.path.exists(outdir):
+            os.makedirs(outdir, exist_ok=True)
+
+        if isinstance(csv_body, bytes):
+            with open(outfile, "wb") as f:
+                f.write(csv_body)
+        else:
+            with open(outfile, "w", newline="", encoding="utf-8") as f:
+                f.write(csv_body)
+
+        if not quiet:
+            print(f"Downloaded hackathon write-ups CSV to {outfile}")
+        return outfile
+
+    def hackathon_download_writeups_cli(self, competition=None, path=None, quiet=False):
+        """CLI wrapper for ``kaggle hackathons writeups download <competition>``."""
+        if competition is None:
+            raise ValueError("No competition specified")
+        self.hackathon_download_writeups(competition, path=path, quiet=quiet)
+
+    def hackathon_resolve_writeup_links(self, write_up_id: int):
+        """Resolve all links inside a write-up.
+
+        Mirrors the ``get_resolved_writeup_links`` MCP tool.
+        """
+        if write_up_id is None:
+            raise ValueError("No write_up_id specified")
+        # Not yet exported by any released kagglesdk; import lazily so the
+        # rest of the module still loads. Drop this once kagglesdk ships it.
+        from kagglesdk.discussions.types.writeups_service import (  # type: ignore
+            GetResolvedWriteUpLinksRequest,
+        )
+
+        request = GetResolvedWriteUpLinksRequest()
+        request.write_up_id = int(write_up_id)
+        with self.build_kaggle_client() as kaggle:
+            client = getattr(kaggle.discussions, "writeups_client", None) or getattr(
+                kaggle.discussions, "write_ups_client", None
+            )
+            if client is None:
+                raise ValueError("kagglesdk is missing the WriteUpsClient; please upgrade kagglesdk.")
+            return client.get_resolved_writeup_links(request)
+
+    def hackathon_resolve_writeup_links_cli(self, writeup_id=None, csv_display=False, quiet=False):
+        """CLI wrapper for ``kaggle hackathons writeups resolve-links <writeup_id>``."""
+        if writeup_id is None:
+            raise ValueError("No writeup_id specified")
+        try:
+            wid = int(writeup_id)
+        except (TypeError, ValueError):
+            raise ValueError(f"writeup_id must be an integer (got {writeup_id!r})")
+        response = self.hackathon_resolve_writeup_links(wid)
+        links = getattr(response, "resolved_links", None) or getattr(response, "links", None) or []
+        if not links:
+            print("No links found")
+            return
+        if csv_display:
+            self.print_csv(links, self.hackathon_writeup_link_fields)
+        else:
+            self.print_table(links, self.hackathon_writeup_link_fields)
 
     def dataset_list(
         self,

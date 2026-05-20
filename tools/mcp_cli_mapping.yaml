@@ -1,0 +1,95 @@
+# MCP tool ↔ kaggle CLI command mapping.
+#
+# Each MCP tool advertised by Kaggle.Sdk/mcp/McpClient.cs MUST appear here.
+# The value is either:
+#   - a kaggle CLI command path (e.g. "hackathons writeups download"), which
+#     must match a registered argparse subcommand chain, OR
+#   - "skip: <reason>" — skip the parity check for tools that have no CLI
+#     surface (browser-only flows, internal RPCs, or work-in-progress).
+#
+# Adding a new MCP tool? `tools/check_mcp_cli_parity.py` will fail with
+# "MISSING" until you add a row here. See `tools/README.md` for details.
+
+# ── auth / browser-only ─────────────────────────────────────────────────
+authorize: "skip: browser-based OAuth, exposed via `kaggle auth login`"
+
+# ── competitions ────────────────────────────────────────────────────────
+search_competitions: competitions list
+get_competition: "skip: not yet implemented (TODO)"
+list_competition_pages: competitions pages
+list_competition_data_files: competitions files
+list_competition_data_tree_files: "skip: not yet implemented (TODO)"
+get_competition_data_files_summary: "skip: not yet implemented (TODO)"
+download_competition_data_file: competitions download
+download_competition_data_files: competitions download
+download_competition_leaderboard: competitions leaderboard
+get_competition_leaderboard: competitions leaderboard
+get_competition_submission: competitions submissions
+search_competition_submissions: competitions submissions
+submit_to_competition: competitions submit
+create_code_competition_submission: competitions submit
+start_competition_submission_upload: "skip: internal upload-handshake RPC, exposed transparently via `kaggle competitions submit`"
+list_submission_episodes: competitions episodes
+get_episode_replay: competitions replay
+get_episode_agent_logs: competitions logs
+
+# ── datasets ────────────────────────────────────────────────────────────
+search_datasets: datasets list
+get_dataset_info: "skip: not yet implemented (TODO)"
+get_dataset_metadata: datasets metadata
+update_dataset_metadata: datasets metadata
+get_dataset_status: datasets status
+list_dataset_files: datasets files
+list_dataset_tree_files: "skip: not yet implemented (TODO)"
+get_dataset_files_summary: "skip: not yet implemented (TODO)"
+download_dataset: datasets download
+upload_dataset_file: "skip: not yet implemented as a standalone CLI (use `kaggle datasets create` / `kaggle datasets version`)"
+
+# ── notebooks (kernels) ─────────────────────────────────────────────────
+search_notebooks: kernels list
+get_notebook_info: kernels get
+list_notebook_files: kernels files
+save_notebook: kernels push
+create_notebook_session: "skip: server-side notebook session, exposed via `kaggle kernels push`"
+cancel_notebook_session: "skip: not yet implemented (TODO)"
+get_notebook_session_status: kernels status
+list_notebook_session_output: kernels output
+download_notebook_output: kernels output
+download_notebook_output_zip: "skip: not yet implemented (TODO)"
+
+# ── models / variations ─────────────────────────────────────────────────
+list_models: models list
+get_model: models get
+create_model: models create
+update_model: models update
+list_model_variations: models variations list
+get_model_variation: models variations get
+update_model_variation: models variations update
+list_model_variation_versions: models variations versions list
+list_model_variation_version_files: models variations versions files
+download_model_variation_version: models variations versions download
+
+# ── forums / discussions / writeups ─────────────────────────────────────
+list_forums: forums list
+get_forum: "skip: no per-forum CLI; `kaggle forums list` enumerates all forums"
+list_forum_topics: forums topics
+get_forum_topic: forums topics show
+get_writeup: "skip: not yet implemented (TODO)"
+get_writeup_by_slug: "skip: not yet implemented (TODO)"
+get_writeup_by_topic: "skip: not yet implemented (TODO)"
+get_resolved_writeup_links: hackathons writeups resolve-links
+
+# ── hackathons ──────────────────────────────────────────────────────────
+get_hackathon_overview: hackathons get
+list_hackathon_tracks: "skip: not yet implemented (TODO)"
+list_hackathon_write_ups: hackathons writeups list
+download_hackathon_write_ups: hackathons writeups download
+get_hackathon_write_up: "skip: not yet implemented (TODO)"
+
+# ── benchmarks ──────────────────────────────────────────────────────────
+get_benchmark_leaderboard: "skip: not yet implemented (TODO)"
+create_benchmark_task_from_prompt: "skip: not yet implemented (TODO)"
+
+# ── search / profile (no CLI) ───────────────────────────────────────────
+search_content: "skip: cross-content site search, no CLI equivalent"
+get_user_profile: "skip: no CLI equivalent"

@@ -1,0 +1,44 @@
+name: MCP ↔ CLI parity
+
+on:
+  pull_request:
+    paths:
+      - "src/kaggle/cli.py"
+      - "tools/check_mcp_cli_parity.py"
+      - "tools/mcp_cli_mapping.yaml"
+      - ".github/workflows/mcp-cli-parity.yaml"
+  push:
+    branches: [main]
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install kaggle CLI (editable)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run MCP ↔ CLI parity check
+        env:
+          # Read-only token for the private Kaggle/kaggleazure repo.
+          # Configure under: Settings → Secrets and variables → Actions.
+          GITHUB_TOKEN: ${{ secrets.KAGGLEAZURE_READ_TOKEN }}
+        run: |
+          python tools/check_mcp_cli_parity.py \
+            --mcp-client-url https://raw.githubusercontent.com/Kaggle/kaggleazure/ci/Kaggle.Sdk/mcp/McpClient.cs \
+            | tee parity-report.md
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-cli-parity-report
+          path: parity-report.md
