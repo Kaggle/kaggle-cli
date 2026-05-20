@@ -169,13 +169,13 @@ kaggle benchmarks tasks run <TASK> [options]
 2.  Run a task against specific models:
 
     ```bash
-    kaggle b t run my-task -m google/gemini-2.5-pro anthropic/claude-sonnet-4
+    kaggle b t run my-task -m gemini-2.5-pro claude-sonnet-4
     ```
 
 3.  Run a task and wait for all runs to finish:
 
     ```bash
-    kaggle b t run my-task -m google/gemini-2.5-pro --wait
+    kaggle b t run my-task -m gemini-2.5-pro --wait
     ```
 
 **Purpose:**
@@ -248,7 +248,7 @@ kaggle benchmarks tasks status <TASK> [options]
 2.  Show status for specific models only:
 
     ```bash
-    kaggle b t status my-task -m google/gemini-2.5-pro
+    kaggle b t status my-task -m gemini-2.5-pro
     ```
 
 **Purpose:**
@@ -287,7 +287,7 @@ kaggle benchmarks tasks download <TASK> [options]
 2.  Download outputs for a specific model into a custom directory:
 
     ```bash
-    kaggle b t download my-task -m google/gemini-2.5-pro -o ./results
+    kaggle b t download my-task -m gemini-2.5-pro -o ./results
     ```
 
 **Purpose:**
@@ -305,10 +305,10 @@ Already-downloaded runs (where the output directory exists) are automatically sk
 
 Benchmark model names are automatically normalized on both input and output. This makes it easy to pass various formats interchangeably while keeping displays and directories clean.
 
-*   **Flexible Inputs**: The CLI accepts prefixed and proxy-style model names:
+*   **Flexible Inputs**: The CLI accepts model names in several formats:
+    *   **Canonical Slugs (recommended)**: `gemini-2.5-pro` or `claude-sonnet-4`
     *   **With Provider Prefix**: `google/gemini-2.5-pro` or `anthropic/claude-sonnet-4`
     *   **With Version/Proxy `@` symbols**: `anthropic/claude-haiku-4-5@20251001` or `claude-sonnet-4-6@default`
-    *   **Canonical Slugs**: `gemini-2.5-pro` or `claude-haiku-4-5-20251001`
 *   **Unified Normalization**: The client automatically strips any provider prefix (e.g., `google/` or `anthropic/`) and replaces `@` characters with `-` to match the server's canonical database slug format.
 *   **Clean Outputs**:
     *   **Status Display**: Tables and error logs display the canonical, hyphenated slugs (e.g., `claude-haiku-4-5-20251001` and `gemini-2.0-flash-lite-001`) for readability.

@@ -151,13 +151,13 @@ kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 kaggle b t run my-task
 
 # Run against specific models
-kaggle b t run my-task -m google/gemini-2.5-pro anthropic/claude-sonnet-4
+kaggle b t run my-task -m gemini-2.5-pro claude-sonnet-4
 
 # Run against a model and wait for completion
-kaggle b t run my-task -m google/gemini-2.5-pro --wait
+kaggle b t run my-task -m gemini-2.5-pro --wait
 
 # Run with timeout and custom poll interval
-kaggle b t run my-task -m google/gemini-2.5-pro --wait 30 --poll-interval 5
+kaggle b t run my-task -m gemini-2.5-pro --wait 30 --poll-interval 5
 ```
 
 **Arguments:**
@@ -188,8 +188,8 @@ kaggle b t run my-task -m google/gemini-2.5-pro --wait 30 --poll-interval 5
 kaggle b t status my-task
 
 # Filter to specific models
-kaggle b t status my-task -m google/gemini-2.5-pro
-kaggle b t status my-task -m google/gemini-2.5-pro anthropic/claude-sonnet-4
+kaggle b t status my-task -m gemini-2.5-pro
+kaggle b t status my-task -m gemini-2.5-pro claude-sonnet-4
 ```
 
 **Output format:**
@@ -220,7 +220,7 @@ If no runs exist: `No runs yet. Use 'kaggle b t run my-task' to start one.`
 kaggle b t download my-task
 
 # Download for specific model(s)
-kaggle b t download my-task -m google/gemini-2.5-pro
+kaggle b t download my-task -m gemini-2.5-pro
 
 # Download to a custom directory
 kaggle b t download my-task -o ./results
@@ -302,10 +302,10 @@ The slug must match between the `@task(name=...)` decorator in the file and the 
 
 Benchmark model names are automatically normalized on both input and output. This makes it easy to pass various formats interchangeably while keeping displays and directories clean.
 
-- **Flexible Inputs**: The CLI accepts prefixed and proxy-style model names:
+- **Flexible Inputs**: The CLI accepts model names in several formats:
+  - **Canonical Slugs (recommended)**: `gemini-2.5-pro` or `claude-sonnet-4`
   - **With Provider Prefix**: `google/gemini-2.5-pro` or `anthropic/claude-sonnet-4`
   - **With Version/Proxy `@` symbols**: `anthropic/claude-haiku-4-5@20251001` or `claude-sonnet-4-6@default`
-  - **Canonical Slugs**: `gemini-2.5-pro` or `claude-haiku-4-5-20251001`
 - **Unified Normalization**: The client automatically strips any provider prefix (e.g., `google/` or `anthropic/`) and replaces `@` characters with `-` to match the server's canonical database slug format.
 - **Clean Outputs**:
   - **Status Display**: Tables and error logs display the canonical, hyphenated slugs (e.g., `claude-haiku-4-5-20251001` and `gemini-2.0-flash-lite-001`) for readability.
@@ -325,7 +325,7 @@ kaggle b init -y
 kaggle b t push my-task -f task.py --wait
 
 # 4. Run against models
-kaggle b t run my-task -m google/gemini-2.5-pro anthropic/claude-sonnet-4 --wait
+kaggle b t run my-task -m gemini-2.5-pro claude-sonnet-4 --wait
 
 # 5. Check status
 kaggle b t status my-task
@@ -361,7 +361,7 @@ python task.py
 **4. Once satisfied, push to the server:**
 ```bash
 kaggle b t push my-task -f task.py --wait && \
-kaggle b t run my-task -m google/gemini-2.5-pro --wait && \
+kaggle b t run my-task -m gemini-2.5-pro --wait && \
 kaggle b t download my-task -o ./results
 ```
 
@@ -372,7 +372,7 @@ kaggle b t download my-task -o ./results
 ```bash
 # Push and wait, then run and wait, all in sequence
 kaggle b t push my-task -f task.py --wait && \
-kaggle b t run my-task -m google/gemini-2.5-pro --wait && \
+kaggle b t run my-task -m gemini-2.5-pro --wait && \
 kaggle b t download my-task -o ./results
 ```
 
@@ -397,7 +397,7 @@ d.run(kbench.llm)
 kaggle b t push d -f t.py --wait
 
 # Run — will complete with ERRORED status
-kaggle b t run d -m google/gemini-3-flash-preview --wait
+kaggle b t run d -m gemini-3-flash-preview --wait
 
 # Status shows clean table + separate Errors section
 kaggle b t status d
