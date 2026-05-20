@@ -110,18 +110,10 @@ def __parse_body(body) -> Any:
 
 def _get_shared_topics_parser() -> argparse.ArgumentParser:
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument(
-        "--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size
-    )
-    shared.add_argument(
-        "--page-token", dest="page_token", required=False, help=Help.param_page_token
-    )
-    shared.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
-    shared.add_argument(
-        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
-    )
+    shared.add_argument("--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size)
+    shared.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
+    shared.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    shared.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     return shared
 
 
@@ -1287,9 +1279,7 @@ def parse_model_instance_versions(subparsers) -> None:
 
 
 def parse_files(subparsers) -> None:
-    parser_files = subparsers.add_parser(
-        "files", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_files
-    )
+    parser_files = subparsers.add_parser("files", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_files)
 
     subparsers_files = parser_files.add_subparsers(title="commands", dest="command")
     subparsers_files.required = True
@@ -1637,7 +1627,6 @@ def parse_auth(subparsers) -> None:
 # ------------------------------------------------------------------
 # Shared helpers for discussion topics across entity types
 # ------------------------------------------------------------------
-
 
 
 def parse_forums(subparsers) -> None:

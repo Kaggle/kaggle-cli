@@ -40,6 +40,7 @@ def api():
 def parser(monkeypatch, api):
     """Build the full argument parser tree for testing argparse dispatch."""
     import kaggle
+
     monkeypatch.setattr(kaggle, "api", api)
 
     from kaggle.cli import (
@@ -51,8 +52,8 @@ def parser(monkeypatch, api):
         parse_models,
     )
     import kaggle.cli
-    monkeypatch.setattr(kaggle.cli, "api", api)
 
+    monkeypatch.setattr(kaggle.cli, "api", api)
 
     root = argparse.ArgumentParser()
     root.add_argument("-W", "--no-warn", dest="disable_version_warning", action="store_true")
@@ -434,4 +435,3 @@ class TestTopicsListSubcommand:
         func, kwargs = _dispatch(parser, ["competitions", "topics", "list", "-c", "titanic"])
         assert func.__name__ == "competition_list_topics_cli"
         assert kwargs["competition_opt"] == "titanic"
-
