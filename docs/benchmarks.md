@@ -275,6 +275,7 @@ kaggle benchmarks tasks download <TASK> [options]
 
 *   `-m, --model <MODEL> [MODEL ...]`: Download outputs only for specific model slug(s).
 *   `-o, --output <DIRECTORY>`: Directory to download output files into (defaults to current working directory).
+*   `-s, --include-source`: Also download the kernel session's source notebooks.
 
 **Examples:**
 
@@ -290,6 +291,12 @@ kaggle benchmarks tasks download <TASK> [options]
     kaggle b t download my-task -m gemini-2.5-pro -o ./results
     ```
 
+3.  Download outputs with source notebooks included:
+
+    ```bash
+    kaggle b t download my-task --include-source
+    ```
+
 **Purpose:**
 
 Downloads and extracts the output zip archive for each completed run. Files are organized in a hierarchical layout that includes the task's version number (or `unset` if unavailable):
@@ -300,6 +307,59 @@ Downloads and extracts the output zip archive for each completed run. Files are 
 ```
 
 Already-downloaded runs (where the output directory exists) are automatically skipped.
+
+When `--include-source` is used, the downloaded zip also contains the kernel session's source files (e.g., `__notebook__.ipynb` and `__notebook_source__.ipynb`).
+
+---
+
+### `kaggle benchmarks tasks log`
+
+Get execution logs for benchmark task run(s).
+
+**Usage:**
+
+```bash
+kaggle benchmarks tasks log <TASK> [options]
+```
+
+**Arguments:**
+
+*   `<TASK>`: Task name (slug).
+
+**Options:**
+
+*   `-m, --model <MODEL> [MODEL ...]`: Filter logs to specific model slug(s). If omitted, logs for all runs are shown.
+
+**Aliases:** `log`, `logs`
+
+**Examples:**
+
+1.  Show logs for all runs of a task:
+
+    ```bash
+    kaggle b t log my-task
+    ```
+
+2.  Show logs for a specific model's run(s):
+
+    ```bash
+    kaggle b t log my-task -m gemini-2.5-pro
+    ```
+
+3.  Show logs for multiple models:
+
+    ```bash
+    kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
+    ```
+
+**Purpose:**
+
+Fetches and displays execution logs for benchmark task runs. When multiple runs match, each run's logs are printed with a header showing the model name and run ID. For a single matching run, the header is omitted for clean output.
+
+The command handles two response types from the server:
+
+*   **Active runs**: Logs are streamed in real-time via Server-Sent Events (SSE).
+*   **Completed runs**: The persisted log file is returned and printed.
 
 ### Model Slug Normalization
 

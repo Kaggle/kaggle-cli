@@ -1552,8 +1552,32 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_download_optional.add_argument(
         "-o", "--output", dest="output", required=False, help=Help.param_benchmarks_output
     )
+    parser_download_optional.add_argument(
+        "-s",
+        "--include-source",
+        dest="include_source",
+        action="store_true",
+        required=False,
+        help="Also download the kernel session's source notebooks.",
+    )
     parser_download._action_groups.append(parser_download_optional)
     parser_download.set_defaults(func=api.benchmarks_tasks_download_cli)
+
+    # log / logs
+    parser_log = subparsers_tasks.add_parser(
+        "log",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_benchmarks_tasks_log,
+        aliases=["logs"],
+    )
+    parser_log_optional = parser_log._action_groups.pop()
+    parser_log_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_log_optional.add_argument(
+        "-m", "--model", dest="model", nargs="+", required=False,
+        help=Help.param_benchmarks_model,
+    )
+    parser_log._action_groups.append(parser_log_optional)
+    parser_log.set_defaults(func=api.benchmarks_tasks_log_cli)
 
     # models
     parser_models = subparsers_tasks.add_parser(
@@ -1808,7 +1832,7 @@ class Help(object):
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
     benchmarks_choices = ["tasks", "t", "auth", "init", "topics"]
-    benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "models", "delete"]
+    benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "log", "logs", "models", "delete"]
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
@@ -1938,6 +1962,7 @@ class Help(object):
     command_benchmarks_tasks_status = "Show task details and per-model run status"
 
     command_benchmarks_tasks_download = "Download output files for completed runs"
+    command_benchmarks_tasks_log = "Get execution logs for a benchmark task run"
     command_benchmarks_tasks_models = "List available benchmark models"
     command_benchmarks_tasks_delete = "Remove a task"
 

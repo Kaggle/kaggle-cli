@@ -63,6 +63,7 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiCreateBenchmarkTaskRequest,
     ApiListBenchmarkTasksRequest,
     ApiGetBenchmarkTaskRequest,
+    ApiGetBenchmarkTaskRunLogsRequest,
     ApiListBenchmarkTaskRunsRequest,
     ApiBenchmarkTaskSlug,
     ApiBatchScheduleBenchmarkTaskRunsRequest,
@@ -7374,7 +7375,7 @@ class KaggleApi:
 
             self._print_run_table(runs)
 
-    def benchmarks_tasks_download_cli(self, task, model=None, output=None):
+    def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False):
         task = slugify(task)
         output = output or "."
 
@@ -7431,6 +7432,7 @@ class KaggleApi:
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
+                dl_request.include_source = include_source
                 response = self.with_retry(
                     kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output
                 )(dl_request)
@@ -7470,6 +7472,85 @@ class KaggleApi:
                 if os.path.isfile(fp):
                     total += os.path.getsize(fp)
         return total
+
+    def benchmarks_tasks_log_cli(self, task, model=None):
+        """Print execution logs for benchmark task run(s)."""
+        task = slugify(task)
+
+        with self.build_kaggle_client() as kaggle:
+            runs = self._fetch_task_runs(kaggle, task, model)
+
+            if not runs:
+                model_hint = ""
+                if isinstance(model, str):
+                    model_hint = f" for model '{model}'"
+                elif model:
+                    model_hint = f" for model(s) {', '.join(model)}"
+                raise ValueError(
+                    f"No runs found for task '{task}'{model_hint}. "
+                    f"Use 'kaggle b t run {task}' to start one."
+                )
+
+            show_headers = len(runs) > 1
+
+            for run in runs:
+                slug = self._normalize_model_slug(run.model_version_slug)
+
+                if show_headers:
+                    print(f"\n═══ Logs for {slug} (Run {run.id}) ═══")
+
+                request = ApiGetBenchmarkTaskRunLogsRequest()
+                request.run_id = run.id
+
+                response = self.with_retry(
+                    kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task_run_logs
+                )(request)
+
+                content_type = response.headers.get("Content-Type", "")
+                if "text/event-stream" in content_type:
+                    # Active run — stream SSE events in real-time
+                    last_ended_with_newline = True
+                    for line in response.iter_lines():
+                        decoded = line.decode("utf-8") if isinstance(line, bytes) else line
+                        if decoded.startswith("data:"):
+                            event_data = decoded[5:].lstrip()
+                            try:
+                                log_entry = json.loads(event_data)
+                                if isinstance(log_entry, dict) and "data" in log_entry:
+                                    text = log_entry["data"]
+                                    print(text, end="", flush=True)
+                                    last_ended_with_newline = text.endswith("\n")
+                                else:
+                                    print(event_data, flush=True)
+                                    last_ended_with_newline = True
+                            except Exception:
+                                print(event_data, flush=True)
+                                last_ended_with_newline = True
+                        elif decoded.strip():
+                            print(decoded, flush=True)
+                            last_ended_with_newline = True
+                    if not last_ended_with_newline:
+                        print()
+                else:
+                    # Completed/errored run — persisted log
+                    try:
+                        logs = json.loads(response.text)
+                        if isinstance(logs, list):
+                            last_ended_with_newline = True
+                            for log_entry in logs:
+                                if isinstance(log_entry, dict) and "data" in log_entry:
+                                    text = log_entry["data"]
+                                    print(text, end="")
+                                    last_ended_with_newline = text.endswith("\n")
+                                else:
+                                    print(log_entry)
+                                    last_ended_with_newline = True
+                            if not last_ended_with_newline:
+                                print()
+                        else:
+                            print(response.text)
+                    except Exception:
+                        print(response.text)
 
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""

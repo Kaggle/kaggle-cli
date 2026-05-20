@@ -5,7 +5,8 @@ Organized by command (matching the spec):
   TestRun       – ``kaggle benchmarks tasks run <task> [-m ...] [--wait]``
   TestList      – ``kaggle benchmarks tasks list [--name-regex] [--status]``
   TestStatus    – ``kaggle benchmarks tasks status <task> [-m ...]``
-  TestDownload  – ``kaggle benchmarks tasks download <task> [-m ...] [-o ...]``
+  TestDownload  – ``kaggle benchmarks tasks download <task> [-m ...] [-o ...] [-s]``
+  TestLog       – ``kaggle benchmarks tasks log <task> [-m ...]``
   TestDelete    – ``kaggle benchmarks tasks delete <task> [-y]``
   TestCliArgParsing – argparse wiring for all subcommands
 """
@@ -1196,6 +1197,126 @@ class TestDownload:
         expected = os.path.join(".", "my-task", "unset", "gemini-pro", "1.zip")
         assert zippath == expected
 
+    def test_download_include_source_flag(self, api, capsys):
+        """--include-source passes include_source=True to the SDK request."""
+        _setup_runs_response(api, [_make_run()])
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", include_source=True)
+        request = api._mock_benchmarks.download_benchmark_task_run_output.call_args[0][0]
+        assert request.include_source is True
+
+    def test_download_include_source_default_false(self, api, capsys):
+        """Without --include-source, include_source defaults to False."""
+        _setup_runs_response(api, [_make_run()])
+        self._mock_download(api)
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task")
+        request = api._mock_benchmarks.download_benchmark_task_run_output.call_args[0][0]
+        assert request.include_source is False
+
+
+# ============================================================
+# Log
+# ============================================================
+
+
+class TestLog:
+    """``kaggle benchmarks tasks log <task> [-m <model> ...]``"""
+
+    def _mock_log_response(self, api, content="log output", content_type="application/json"):
+        """Set up a mock log response."""
+        _setup_completed_task(api)
+        response = MagicMock()
+        response.headers = {"Content-Type": content_type}
+        response.text = content
+        response.iter_lines.return_value = []
+        api._mock_benchmarks.get_benchmark_task_run_logs.return_value = response
+        return response
+
+    @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
+    def test_log_task_not_found(self, api, status_code):
+        """Log gives friendly error when task doesn't exist (403/404)."""
+        api._mock_benchmarks.list_benchmark_task_runs.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
+        with pytest.raises(HTTPError):
+            api.benchmarks_tasks_log_cli("no-such-task")
+
+    def test_log_no_runs(self, api):
+        """No runs raises ValueError with helpful message."""
+        _setup_completed_task(api)
+        _setup_runs_response(api, [])
+        with pytest.raises(ValueError, match="No runs found"):
+            api.benchmarks_tasks_log_cli("my-task")
+
+    def test_log_no_runs_with_model_filter(self, api):
+        """No runs for a specific model gives descriptive error."""
+        _setup_completed_task(api)
+        _setup_runs_response(api, [])
+        with pytest.raises(ValueError, match="No runs found.*model"):
+            api.benchmarks_tasks_log_cli("my-task", model=["nonexistent-model"])
+
+    def test_log_single_run_no_header(self, api, capsys):
+        """Single run prints logs without header."""
+        _setup_runs_response(api, [_make_run()])
+        self._mock_log_response(api, content="hello world")
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        assert "hello world" in output
+        assert "═══" not in output  # No header for single run
+
+    def test_log_multiple_runs_with_headers(self, api, capsys):
+        """Multiple runs print logs with model headers."""
+        _setup_runs_response(
+            api,
+            [
+                _make_run(model="gemini-pro", run_id=1),
+                _make_run(model="claude-4", run_id=2),
+            ],
+        )
+        self._mock_log_response(api, content="log output")
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        assert "═══ Logs for gemini-pro (Run 1) ═══" in output
+        assert "═══ Logs for claude-4 (Run 2) ═══" in output
+
+    def test_log_with_model_filter(self, api, capsys):
+        """Model filter is passed to _fetch_task_runs."""
+        _setup_runs_response(api, [_make_run(model="gemini-pro")])
+        self._mock_log_response(api, content="filtered logs")
+        api.benchmarks_tasks_log_cli("my-task", model=["gemini-pro"])
+        request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["gemini-pro"]
+        output = capsys.readouterr().out
+        assert "filtered logs" in output
+
+    def test_log_sse_stream(self, api, capsys):
+        """SSE responses are streamed line by line."""
+        _setup_runs_response(api, [_make_run()])
+        _setup_completed_task(api)
+        response = MagicMock()
+        response.headers = {"Content-Type": "text/event-stream"}
+        response.iter_lines.return_value = [
+            b"data: Starting benchmark...",
+            b"",
+            b"data: Running task function...",
+            b"event: done",
+        ]
+        api._mock_benchmarks.get_benchmark_task_run_logs.return_value = response
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Starting benchmark..." in output
+        assert "Running task function..." in output
+
+    def test_log_json_response(self, api, capsys):
+        """JSON responses are printed as text."""
+        _setup_runs_response(api, [_make_run()])
+        self._mock_log_response(api, content='{"logs": "some data"}')
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        assert '{"logs": "some data"}' in output
+
 
 # ============================================================
 # download_file (Content-Length handling)
@@ -1453,13 +1574,39 @@ class TestCliArgParsing:
             # download
             (
                 "benchmarks tasks download my-task",
-                {"task": "my-task", "model": None, "output": None},
+                {"task": "my-task", "model": None, "output": None, "include_source": False},
             ),
-            ("benchmarks tasks download my-task -o ./results", {"output": "./results"}),
+            ("benchmarks tasks download my-task -o ./results", {"output": "./results", "include_source": False}),
             (
                 "benchmarks tasks download my-task -m gemini-3 -o ./results",
-                {"model": ["gemini-3"], "output": "./results"},
+                {"model": ["gemini-3"], "output": "./results", "include_source": False},
             ),
+            (
+                "benchmarks tasks download my-task --include-source",
+                {"task": "my-task", "include_source": True},
+            ),
+            (
+                "benchmarks tasks download my-task -s -m gemini-3",
+                {"model": ["gemini-3"], "include_source": True},
+            ),
+            # log
+            (
+                "benchmarks tasks log my-task",
+                {"task": "my-task", "model": None},
+            ),
+            (
+                "benchmarks tasks log my-task -m gemini-3",
+                {"task": "my-task", "model": ["gemini-3"]},
+            ),
+            (
+                "benchmarks tasks log my-task -m gemini-3 claude-4",
+                {"model": ["gemini-3", "claude-4"]},
+            ),
+            (
+                "benchmarks tasks logs my-task",
+                {"task": "my-task", "model": None},
+            ),
+            ("b t log my-task", {"task": "my-task", "model": None}),
             # delete
             (
                 "benchmarks tasks delete my-task",
@@ -1493,6 +1640,7 @@ class TestCliArgParsing:
             "benchmarks tasks run my-task -m",  # -m requires at least one arg
             "benchmarks tasks status my-task -m",  # -m requires at least one arg
             "benchmarks tasks download my-task -m",  # -m requires at least one arg
+            "benchmarks tasks log my-task -m",  # -m requires at least one arg
         ],
     )
     def test_parse_error(self, cmd):

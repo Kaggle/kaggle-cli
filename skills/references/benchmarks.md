@@ -224,11 +224,15 @@ kaggle b t download my-task -m gemini-2.5-pro
 
 # Download to a custom directory
 kaggle b t download my-task -o ./results
+
+# Download with source notebooks included
+kaggle b t download my-task --include-source
 ```
 
 **Options:**
 - `-m, --model <MODEL> [MODEL ...]`: Download only for specific models
 - `-o, --output <DIRECTORY>`: Output directory (default: current directory)
+- `-s, --include-source`: Also download the kernel session's source notebooks (`__notebook__.ipynb`, `__notebook_source__.ipynb`)
 
 **Output directory structure:**
 ```
@@ -243,6 +247,34 @@ kaggle b t download my-task -o ./results
 - Corrupt zips: Warning printed, raw `.zip` file kept, continues with other models
 - No downloadable runs (all still in progress): `No downloadable runs yet — N run(s) still in progress. Use 'kaggle b t status my-task' to check progress.`
 - No runs at all: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
+
+### Step 6: View Logs
+
+```bash
+# Show logs for all runs of a task
+kaggle b t log my-task
+
+# Show logs for a specific model's run(s)
+kaggle b t log my-task -m gemini-2.5-pro
+
+# Show logs for multiple models
+kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
+```
+
+**Arguments:**
+- `<TASK>` (positional, required): Task name/slug
+
+**Options:**
+- `-m, --model <MODEL> [MODEL ...]`: Filter logs to specific model(s). If omitted, logs for all runs are shown.
+
+**Aliases:** `log`, `logs`
+
+**Behavior details:**
+- When multiple runs match, each run's logs are printed with a header: `═══ Logs for gemini-2.5-pro (Run 456) ═══`
+- For a single matching run, the header is omitted for clean output
+- Active runs: Logs are streamed in real-time via Server-Sent Events (SSE)
+- Completed runs: The persisted log file is returned and printed
+- No runs found: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
 
 ## Additional Commands
 
