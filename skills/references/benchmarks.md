@@ -275,6 +275,7 @@ kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
 - Each run's logs are printed with a header including run state: `═══ Logs for gemini-2.5-pro (Run 456) [COMPLETED] ═══`
 - Each run ends with a line count footer: `═══ (42 lines) ═══`
 - A summary is printed at the end: `Showed logs for N run(s) across N model(s).`
+- Runs are logged **sequentially** in the loop: If the first run is active, the CLI blocks and streams it in real-time until completion before printing or streaming the next run's logs. This prevents terminal log interleaving.
 - Active runs: Logs are streamed in real-time via Server-Sent Events (SSE)
 - Completed runs: The persisted log file is returned and printed
 - No runs found: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`

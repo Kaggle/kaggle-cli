@@ -7436,8 +7436,6 @@ class KaggleApi:
                     print(f"{row_prefix} {size_str:<{size_col}} {'Skipped':<{prog_col}}")
                     skipped += 1
                     continue
-                if os.path.isdir(outdir):
-                    shutil.rmtree(outdir)
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
@@ -7447,23 +7445,37 @@ class KaggleApi:
                 )(dl_request)
                 zipfile_path = outdir + ".zip"
                 size_str = ""
+                # Download and extract to a staging directory, then swap on
+                # success so a failed download doesn't destroy a previous
+                # good output when using --force.
+                tmp_outdir = outdir + ".download"
+                if os.path.isdir(tmp_outdir):
+                    shutil.rmtree(tmp_outdir)
                 try:
+                    # quiet=True: intermediate zip, extracted and removed below
                     self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
                     size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
-                    # Extract the zip archive into the output directory.
                     # Note: extractall() is safe here because the zip originates from
                     # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
-                        zf.extractall(outdir)
+                        zf.extractall(tmp_outdir)
                 except zipfile.BadZipFile:
                     print(f"{row_prefix} {size_str:<{size_col}} {'Bad zip':<{prog_col}}")
+                    if os.path.isdir(tmp_outdir):
+                        shutil.rmtree(tmp_outdir)
                     continue
                 except Exception:
-                    # Clean up partial zip on network/download failure
+                    # Clean up partial zip and staging dir on failure
                     if os.path.exists(zipfile_path):
                         os.remove(zipfile_path)
+                    if os.path.isdir(tmp_outdir):
+                        shutil.rmtree(tmp_outdir)
                     raise
                 os.remove(zipfile_path)
+                # Swap: remove old output only after new download succeeds
+                if os.path.isdir(outdir):
+                    shutil.rmtree(outdir)
+                os.rename(tmp_outdir, outdir)
                 downloaded += 1
                 print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
 
@@ -7504,7 +7516,12 @@ class KaggleApi:
         if isinstance(log_entry, dict) and "data" in log_entry:
             text = log_entry["data"]
             print(text, end="", flush=flush)
-            return text.count("\n"), text.endswith("\n")
+            # Count visual lines: newlines, plus one for a partial trailing
+            # line that is printed but has no newline terminator.
+            lines = text.count("\n")
+            if text and not text.endswith("\n"):
+                lines += 1
+            return lines, text.endswith("\n")
         print(log_entry, flush=flush)
         return 1, True
 
@@ -7537,7 +7554,10 @@ class KaggleApi:
                 line_count = 0
                 content_type = response.headers.get("Content-Type", "")
                 if "text/event-stream" in content_type:
-                    # Active run — stream SSE events in real-time
+                    # Active run — stream SSE events in real-time.
+                    # Note: the SSE spec allows multi-line data: continuation,
+                    # but currently the server emits one data: line per event
+                    # so we treat each line independently.
                     last_ended_with_newline = True
                     for line in response.iter_lines():
                         decoded = line.decode("utf-8") if isinstance(line, bytes) else line

@@ -975,7 +975,7 @@ class TestDownload:
     def test_download_to_specific_output(self, api, capsys):
         _setup_runs_response(api, [_make_run()])
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", output="my_output_dir")
         output = capsys.readouterr().out
         assert "Downloading output runs for my-task" in output
@@ -987,7 +987,7 @@ class TestDownload:
         """Default output is ./{task}/{model}/{run_id}.zip."""
         _setup_runs_response(api, [_make_run(run_id=1)])
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task")
         # download_file receives the .zip path
         call_args = api.download_file.call_args
@@ -998,7 +998,7 @@ class TestDownload:
     def test_download_with_model_filter(self, api, capsys):
         _setup_runs_response(api, [_make_run()])
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", model="gemini-pro")
         request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro"]
@@ -1014,7 +1014,7 @@ class TestDownload:
             ],
         )
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task")
         # Only the completed run should be downloaded
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
@@ -1078,7 +1078,7 @@ class TestDownload:
         existing = os.path.join(outdir, "my-task", "1", "old-model", "2")
         os.makedirs(existing)
 
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
         output = capsys.readouterr().out
@@ -1094,7 +1094,7 @@ class TestDownload:
         existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
         os.makedirs(existing)
 
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", output=outdir, force=True)
 
         output = capsys.readouterr().out
@@ -1107,7 +1107,7 @@ class TestDownload:
         """ERRORED runs are also downloadable per spec."""
         _setup_runs_response(api, [_make_run(state=RUN_ERRORED)])
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task")
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
 
@@ -1122,7 +1122,7 @@ class TestDownload:
             ],
         )
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task")
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 2
 
@@ -1170,7 +1170,7 @@ class TestDownload:
             [_make_run(model="anthropic/claude-sonnet-4-6@default", run_id=10)],
         )
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", model="claude-sonnet-4-6-default")
         # The run should NOT have been filtered out
         assert api._mock_benchmarks.download_benchmark_task_run_output.call_count == 1
@@ -1229,7 +1229,7 @@ class TestDownload:
         _setup_runs_response(api, [_make_run(run_id=1)])
         api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task")
         zippath = api.download_file.call_args[0][1]
         expected = os.path.join(".", "my-task", "unset", "gemini-pro", "1.zip")
@@ -1239,7 +1239,7 @@ class TestDownload:
         """--include-source passes include_source=True to the SDK request."""
         _setup_runs_response(api, [_make_run()])
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", include_source=True)
         request = api._mock_benchmarks.download_benchmark_task_run_output.call_args[0][0]
         assert request.include_source is True
@@ -1248,7 +1248,7 @@ class TestDownload:
         """Without --include-source, include_source defaults to False."""
         _setup_runs_response(api, [_make_run()])
         self._mock_download(api)
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task")
         request = api._mock_benchmarks.download_benchmark_task_run_output.call_args[0][0]
         assert request.include_source is False
@@ -1500,7 +1500,7 @@ class TestModelSlugNormalization:
         _setup_runs_response(api, [_make_run()])
         api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
         api.download_file = MagicMock()
-        with patch("zipfile.ZipFile"), patch("os.remove"):
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", model="xai/grok-4.3")
         request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["grok-4.3"]

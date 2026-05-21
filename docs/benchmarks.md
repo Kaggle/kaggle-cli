@@ -384,6 +384,14 @@ The command handles two response types from the server:
 *   **Active runs**: Logs are streamed in real-time via Server-Sent Events (SSE).
 *   **Completed runs**: The persisted log file is returned and printed.
 
+### Concurrency & Streaming Order
+
+When viewing logs for multiple concurrent model runs, the CLI processes and outputs them **sequentially** to prevent logs from interleaving and garbling your terminal output:
+1. The CLI prints the header for the first model run in the queue.
+2. If that run is currently active, the CLI blocks and streams its log output in real-time via SSE until it completes.
+3. The log output for the next model run will **only** be printed once the previous model run's log stream finishes and closes.
+4. Any model runs that complete in the background while you are watching the first stream will print instantly as completed persisted logs once their turn in the sequence is reached.
+
 ### Model Slug Normalization
 
 Benchmark model names are automatically normalized on both input and output. This makes it easy to pass various formats interchangeably while keeping displays and directories clean.
