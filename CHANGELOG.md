@@ -3,6 +3,13 @@ Changelog
 
 ### Next
 
+### 2.2.0
+
+* Add test runner workflow
+* Patch discussions code (#1018)
+* fix(benchmarks): normalize provider-prefixed and @-containing model s… (#1016)
+* fix(benchmarks): handle EOF when selecting models without -m (#1013)
+* fix(benchmarks): dual layer rate limiting (#1014)
 * Small changes to improve debugging (#1008)
 * feat: add forums commands for browsing Kaggle discussions (#993)
 * Add competitions topics CLI command (#982)
