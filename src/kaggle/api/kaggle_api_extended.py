@@ -2242,22 +2242,21 @@ class KaggleApi:
         if competition is None:
             raise ValueError("No competition specified")
 
-        response = self.forums_list_topics(
-            forum_slug=competition,
+        if not quiet and (page_size is not None or page_token is not None or search is not None):
+            print("Warning: --page-size, --page-token, and --search are not supported for competition topics and will be ignored.")
+
+        response = self.competition_list_topics(
+            competition=competition,
             sort_by=sort_by,
-            page_size=page_size,
-            page_token=page_token,
-            search=search,
+            page=page,
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
+            fields = self.competition_topic_fields
             if csv_display:
                 self.print_csv(topics, fields)
             else:
                 self.print_table(topics, fields)
-            if not quiet and response.next_page_token:
-                print(f"Next page token: {response.next_page_token}")
         else:
             print("No topics found")
 

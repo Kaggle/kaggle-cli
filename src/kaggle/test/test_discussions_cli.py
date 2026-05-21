@@ -118,14 +118,19 @@ class TestTopicsListParsing:
             ("datasets", ["list", "--sort-by", "hot", "-s", "keyword"]),
             ("models", ["--page-size", "50"]),
             ("benchmarks", ["--page-token", "abc"]),
+            ("competitions", ["list", "--page", "5", "--sort-by", "recent"]),
         ],
-        ids=["datasets_sort_search", "models_page_size", "benchmarks_page_token"],
+        ids=["datasets_sort_search", "models_page_size", "benchmarks_page_token", "competitions_page_sort"],
     )
     def test_topics_list_with_options(self, parser, entity, extra_args):
         """Optional flags are parsed without error for entity topics."""
         func, kwargs = _dispatch(parser, [entity, "topics"] + extra_args)
         # Should dispatch to the list func, not show.
         assert "show" not in func.__name__
+
+    def test_competitions_topics_list_does_not_accept_search(self, parser):
+        with pytest.raises(SystemExit):
+            parser.parse_args(["competitions", "topics", "list", "--search", "query"])
 
 
 # ============================================================
