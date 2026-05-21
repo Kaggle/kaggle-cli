@@ -5,6 +5,7 @@ import unittest
 import os
 import sys
 import time
+import uuid
 
 from requests import HTTPError
 
@@ -37,7 +38,7 @@ model_title = "testing"
 instance_name = "test"
 framework_name = "jax"
 kernel_name = "testing-x"
-dataset_name = "kaggleapi-dataset-x"
+dataset_name = f"kaggleapi-dataset-{uuid.uuid4().hex[:8]}"
 up_file = "sample_submission.csv"
 description = "House prices submission message"
 competition = "house-prices-advanced-regression-techniques"
