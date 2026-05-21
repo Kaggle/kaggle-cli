@@ -6,7 +6,7 @@ The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has thre
 
 *   **`auth`** — Fetch Model Proxy credentials.
 *   **`init`** — Fetch credentials and default environment variables for local development.
-*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, models, delete).
+*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, log, models, delete).
 
 ## `kaggle benchmarks auth`
 
@@ -276,6 +276,7 @@ kaggle benchmarks tasks download <TASK> [options]
 *   `-m, --model <MODEL> [MODEL ...]`: Download outputs only for specific model slug(s).
 *   `-o, --output <DIRECTORY>`: Directory to download output files into (defaults to current working directory).
 *   `-s, --include-source`: Also download the kernel session's source notebooks.
+*   `-f, --force`: Force re-download of already completed runs, overwriting local files.
 
 **Examples:**
 
@@ -297,6 +298,12 @@ kaggle benchmarks tasks download <TASK> [options]
     kaggle b t download my-task --include-source
     ```
 
+4.  Force re-download of previously downloaded runs:
+
+    ```bash
+    kaggle b t download my-task --force
+    ```
+
 **Purpose:**
 
 Downloads and extracts the output zip archive for each completed run. Files are organized in a hierarchical layout that includes the task's version number (or `unset` if unavailable):
@@ -306,7 +313,7 @@ Downloads and extracts the output zip archive for each completed run. Files are 
    ├── output files...
 ```
 
-Already-downloaded runs (where the output directory exists) are automatically skipped.
+Already-downloaded runs (where the output directory exists) are automatically skipped unless the `-f` / `--force` flag is used, in which case they are overwritten.
 
 When `--include-source` is used, the downloaded zip also contains the kernel session's source files (e.g., `__notebook__.ipynb` and `__notebook_source__.ipynb`).
 
@@ -354,7 +361,23 @@ kaggle benchmarks tasks log <TASK> [options]
 
 **Purpose:**
 
-Fetches and displays execution logs for benchmark task runs. When multiple runs match, each run's logs are printed with a header showing the model name and run ID. For a single matching run, the header is omitted for clean output.
+Fetches and displays execution logs for benchmark task runs. Each run's logs are printed with a structured header and footer for clear identification:
+
+```
+═══ Logs for gemini-2.5-pro (Run 123) [COMPLETED] ═══
+<log output>
+═══ (42 lines) ═══
+
+═══ Logs for claude-sonnet-4 (Run 456) [ERRORED] ═══
+<log output>
+═══ (18 lines) ═══
+
+Showed logs for 2 run(s) across 2 model(s).
+```
+
+*   **Header**: Shows model name, run ID, and run state (`COMPLETED`, `ERRORED`, `RUNNING`, etc.).
+*   **Footer**: Shows the line count for each run's log output.
+*   **Summary**: Printed at the end with total run and model counts.
 
 The command handles two response types from the server:
 

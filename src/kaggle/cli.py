@@ -1558,7 +1558,15 @@ def parse_benchmark_tasks(subparsers) -> None:
         dest="include_source",
         action="store_true",
         required=False,
-        help="Also download the kernel session's source notebooks.",
+        help=Help.param_benchmarks_include_source,
+    )
+    parser_download_optional.add_argument(
+        "-f",
+        "--force",
+        dest="force",
+        action="store_true",
+        required=False,
+        help=Help.param_benchmarks_force,
     )
     parser_download._action_groups.append(parser_download_optional)
     parser_download.set_defaults(func=api.benchmarks_tasks_download_cli)
@@ -1573,7 +1581,11 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_log_optional = parser_log._action_groups.pop()
     parser_log_optional.add_argument("task", help=Help.param_benchmarks_task)
     parser_log_optional.add_argument(
-        "-m", "--model", dest="model", nargs="+", required=False,
+        "-m",
+        "--model",
+        dest="model",
+        nargs="+",
+        required=False,
         help=Help.param_benchmarks_model,
     )
     parser_log._action_groups.append(parser_log_optional)
@@ -2204,6 +2216,8 @@ class Help(object):
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
     param_benchmarks_list_page_size = "Tasks per page in the interactive pager (default: 20)"
     param_benchmarks_list_all = "Print every task at once and skip the interactive pager"
+    param_benchmarks_force = "Force re-download of already completed runs, overwriting local files."
+    param_benchmarks_include_source = "Also download the kernel session's source notebooks."
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"

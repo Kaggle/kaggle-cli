@@ -1062,8 +1062,46 @@ class TestDownload:
         output = capsys.readouterr().out
         assert "gemini-pro" in output
         assert "Skipped" in output
+        assert "1 skipped" in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
+
+    def test_download_summary_counts(self, api, capsys, tmp_path):
+        """Download summary shows correct downloaded and skipped counts."""
+        _setup_runs_response(
+            api,
+            [_make_run(model="new-model", run_id=1), _make_run(model="old-model", run_id=2)],
+        )
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        # Pre-create only run 2 to simulate a previous download
+        existing = os.path.join(outdir, "my-task", "1", "old-model", "2")
+        os.makedirs(existing)
+
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", output=outdir)
+
+        output = capsys.readouterr().out
+        assert "1 downloaded" in output
+        assert "1 skipped" in output
+
+    def test_download_force_overwrites_existing_output(self, api, capsys, tmp_path):
+        """Using force=True re-downloads and overwrites existing output."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        # Pre-create the output directory to simulate a previous download
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
+        os.makedirs(existing)
+
+        with patch("zipfile.ZipFile"), patch("os.remove"):
+            api.benchmarks_tasks_download_cli("my-task", output=outdir, force=True)
+
+        output = capsys.readouterr().out
+        assert "Downloading output for run 42 (gemini-pro)..." in output
+        assert "Downloaded output for gemini-pro" in output
+        # The download API call must have been made!
+        api._mock_benchmarks.download_benchmark_task_run_output.assert_called_once()
 
     def test_download_includes_errored_runs(self, api, capsys):
         """ERRORED runs are also downloadable per spec."""
@@ -1237,37 +1275,40 @@ class TestLog:
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_log_task_not_found(self, api, status_code):
         """Log gives friendly error when task doesn't exist (403/404)."""
-        api._mock_benchmarks.list_benchmark_task_runs.side_effect = HTTPError(
-            response=MagicMock(status_code=status_code)
-        )
-        with pytest.raises(HTTPError):
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
+        with pytest.raises(ValueError, match="not found"):
             api.benchmarks_tasks_log_cli("no-such-task")
 
-    def test_log_no_runs(self, api):
-        """No runs raises ValueError with helpful message."""
+    def test_log_no_runs(self, api, capsys):
+        """No runs prints a helpful message and returns."""
         _setup_completed_task(api)
         _setup_runs_response(api, [])
-        with pytest.raises(ValueError, match="No runs found"):
-            api.benchmarks_tasks_log_cli("my-task")
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        assert "No runs found" in output
 
-    def test_log_no_runs_with_model_filter(self, api):
-        """No runs for a specific model gives descriptive error."""
+    def test_log_no_runs_with_model_filter(self, api, capsys):
+        """No runs for a specific model prints descriptive message and returns."""
         _setup_completed_task(api)
         _setup_runs_response(api, [])
-        with pytest.raises(ValueError, match="No runs found.*model"):
-            api.benchmarks_tasks_log_cli("my-task", model=["nonexistent-model"])
+        api.benchmarks_tasks_log_cli("my-task", model=["nonexistent-model"])
+        output = capsys.readouterr().out
+        assert "No runs found" in output
+        assert "nonexistent-model" in output
 
-    def test_log_single_run_no_header(self, api, capsys):
-        """Single run prints logs without header."""
-        _setup_runs_response(api, [_make_run()])
+    def test_log_single_run_with_header(self, api, capsys):
+        """Single run prints logs with model header including state."""
+        _setup_runs_response(api, [_make_run(model="gemini-pro", run_id=1)])
         self._mock_log_response(api, content="hello world")
         api.benchmarks_tasks_log_cli("my-task")
         output = capsys.readouterr().out
         assert "hello world" in output
-        assert "═══" not in output  # No header for single run
+        assert "═══ Logs for gemini-pro (Run 1) [COMPLETED] ═══" in output
+        assert "═══ (" in output  # line count footer
+        assert "Showed logs for 1 run(s) across 1 model(s)." in output
 
     def test_log_multiple_runs_with_headers(self, api, capsys):
-        """Multiple runs print logs with model headers."""
+        """Multiple runs print logs with model headers and a summary."""
         _setup_runs_response(
             api,
             [
@@ -1278,8 +1319,9 @@ class TestLog:
         self._mock_log_response(api, content="log output")
         api.benchmarks_tasks_log_cli("my-task")
         output = capsys.readouterr().out
-        assert "═══ Logs for gemini-pro (Run 1) ═══" in output
-        assert "═══ Logs for claude-4 (Run 2) ═══" in output
+        assert "═══ Logs for gemini-pro (Run 1) [COMPLETED] ═══" in output
+        assert "═══ Logs for claude-4 (Run 2) [COMPLETED] ═══" in output
+        assert "Showed logs for 2 run(s) across 2 model(s)." in output
 
     def test_log_with_model_filter(self, api, capsys):
         """Model filter is passed to _fetch_task_runs."""

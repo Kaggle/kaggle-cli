@@ -7375,7 +7375,17 @@ class KaggleApi:
 
             self._print_run_table(runs)
 
-    def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False):
+    @staticmethod
+    def _format_model_hint(model):
+        """Format a human-readable model filter hint for error messages."""
+        if isinstance(model, str):
+            return f" for model '{model}'"
+        if model:
+            return f" for model(s) {', '.join(model)}"
+        return ""
+
+    def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False, force=False):
+        """Download output files for completed/errored benchmark task runs."""
         task = slugify(task)
         output = output or "."
 
@@ -7385,12 +7395,7 @@ class KaggleApi:
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:
-                if isinstance(model, str):
-                    model_hint = f" for model '{model}'"
-                elif model:
-                    model_hint = f" for models {', '.join(model)}"
-                else:
-                    model_hint = ""
+                model_hint = self._format_model_hint(model)
                 print(f"No runs found for task '{task}'{model_hint}.")
                 print(f"Use 'kaggle b t run {task}' to start one.")
                 return
@@ -7419,16 +7424,20 @@ class KaggleApi:
             print(f"{'Model':<{model_col}} {'File':<{file_col}} {'Size':<{size_col}} {'Progress':<{prog_col}}")
             print(f"{'─' * model_col} {'─' * file_col} {'─' * size_col} {'─' * prog_col}")
 
+            downloaded, skipped = 0, 0
             for r, display_file in zip(downloadable, display_files):
                 slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
                 outdir = os.path.join(output, task, version, slug, str(r.id))
                 row_prefix = f"{slug:<{model_col}} {display_file:<{file_col}}"
 
-                if os.path.isdir(outdir):
+                if os.path.isdir(outdir) and not force:
                     size_str = self._format_size(self._dir_size(outdir))
                     print(f"{row_prefix} {size_str:<{size_col}} {'Skipped':<{prog_col}}")
+                    skipped += 1
                     continue
+                if os.path.isdir(outdir):
+                    shutil.rmtree(outdir)
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
@@ -7437,19 +7446,30 @@ class KaggleApi:
                     kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output
                 )(dl_request)
                 zipfile_path = outdir + ".zip"
-                self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
-                size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
-                # Extract the zip archive into the output directory.
-                # Note: extractall() is safe here because the zip originates from
-                # the trusted Kaggle server, not user-supplied input (zip-slip).
+                size_str = ""
                 try:
+                    self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
+                    size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
+                    # Extract the zip archive into the output directory.
+                    # Note: extractall() is safe here because the zip originates from
+                    # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
                         zf.extractall(outdir)
                 except zipfile.BadZipFile:
                     print(f"{row_prefix} {size_str:<{size_col}} {'Bad zip':<{prog_col}}")
                     continue
+                except Exception:
+                    # Clean up partial zip on network/download failure
+                    if os.path.exists(zipfile_path):
+                        os.remove(zipfile_path)
+                    raise
                 os.remove(zipfile_path)
+                downloaded += 1
                 print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
+
+            # Summary
+            parts = [f"{n} {label}" for n, label in ((downloaded, "downloaded"), (skipped, "skipped")) if n]
+            print(f"\nDone: {', '.join(parts) or '0 runs downloaded'}.")
 
     @staticmethod
     def _format_size(n) -> str:
@@ -7473,39 +7493,48 @@ class KaggleApi:
                     total += os.path.getsize(fp)
         return total
 
+    @staticmethod
+    def _print_log_entry(log_entry, flush=False):
+        """Print a single log entry, returning (lines_printed, ended_with_newline).
+
+        Log entries from the benchmark server are either:
+        - dicts with a "data" key containing the log text, or
+        - raw strings/values to print as-is.
+        """
+        if isinstance(log_entry, dict) and "data" in log_entry:
+            text = log_entry["data"]
+            print(text, end="", flush=flush)
+            return text.count("\n"), text.endswith("\n")
+        print(log_entry, flush=flush)
+        return 1, True
+
     def benchmarks_tasks_log_cli(self, task, model=None):
         """Print execution logs for benchmark task run(s)."""
         task = slugify(task)
 
         with self.build_kaggle_client() as kaggle:
+            self._get_benchmark_task(task, kaggle)
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:
-                model_hint = ""
-                if isinstance(model, str):
-                    model_hint = f" for model '{model}'"
-                elif model:
-                    model_hint = f" for model(s) {', '.join(model)}"
-                raise ValueError(
-                    f"No runs found for task '{task}'{model_hint}. "
-                    f"Use 'kaggle b t run {task}' to start one."
-                )
-
-            show_headers = len(runs) > 1
+                model_hint = self._format_model_hint(model)
+                print(f"No runs found for task '{task}'{model_hint}. Use 'kaggle b t run {task}' to start one.")
+                return
 
             for run in runs:
                 slug = self._normalize_model_slug(run.model_version_slug)
+                state = self._clean_enum_str(run.state)
 
-                if show_headers:
-                    print(f"\n═══ Logs for {slug} (Run {run.id}) ═══")
+                print(f"\n═══ Logs for {slug} (Run {run.id}) [{state}] ═══")
 
                 request = ApiGetBenchmarkTaskRunLogsRequest()
                 request.run_id = run.id
 
-                response = self.with_retry(
-                    kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task_run_logs
-                )(request)
+                response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task_run_logs)(
+                    request
+                )
 
+                line_count = 0
                 content_type = response.headers.get("Content-Type", "")
                 if "text/event-stream" in content_type:
                     # Active run — stream SSE events in real-time
@@ -7515,19 +7544,14 @@ class KaggleApi:
                         if decoded.startswith("data:"):
                             event_data = decoded[5:].lstrip()
                             try:
-                                log_entry = json.loads(event_data)
-                                if isinstance(log_entry, dict) and "data" in log_entry:
-                                    text = log_entry["data"]
-                                    print(text, end="", flush=True)
-                                    last_ended_with_newline = text.endswith("\n")
-                                else:
-                                    print(event_data, flush=True)
-                                    last_ended_with_newline = True
-                            except Exception:
-                                print(event_data, flush=True)
-                                last_ended_with_newline = True
+                                entry = json.loads(event_data)
+                            except (json.JSONDecodeError, ValueError):
+                                entry = event_data
+                            lines, last_ended_with_newline = self._print_log_entry(entry, flush=True)
+                            line_count += lines
                         elif decoded.strip():
                             print(decoded, flush=True)
+                            line_count += 1
                             last_ended_with_newline = True
                     if not last_ended_with_newline:
                         print()
@@ -7535,22 +7559,25 @@ class KaggleApi:
                     # Completed/errored run — persisted log
                     try:
                         logs = json.loads(response.text)
-                        if isinstance(logs, list):
-                            last_ended_with_newline = True
-                            for log_entry in logs:
-                                if isinstance(log_entry, dict) and "data" in log_entry:
-                                    text = log_entry["data"]
-                                    print(text, end="")
-                                    last_ended_with_newline = text.endswith("\n")
-                                else:
-                                    print(log_entry)
-                                    last_ended_with_newline = True
-                            if not last_ended_with_newline:
-                                print()
-                        else:
-                            print(response.text)
-                    except Exception:
+                    except (json.JSONDecodeError, ValueError):
+                        logs = None
+
+                    if isinstance(logs, list):
+                        last_ended_with_newline = True
+                        for log_entry in logs:
+                            lines, last_ended_with_newline = self._print_log_entry(log_entry)
+                            line_count += lines
+                        if not last_ended_with_newline:
+                            print()
+                    else:
                         print(response.text)
+                        line_count = response.text.count("\n")
+
+                print(f"═══ ({line_count} lines) ═══")
+
+            # Summary
+            models_seen = {self._normalize_model_slug(r.model_version_slug) for r in runs}
+            print(f"\nShowed logs for {len(runs)} run(s) across {len(models_seen)} model(s).")
 
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""

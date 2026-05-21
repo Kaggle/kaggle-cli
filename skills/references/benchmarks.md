@@ -20,6 +20,7 @@ kaggle benchmarks (alias: kaggle b)
     ├── list          — List your benchmark tasks
     ├── status        — Show task details and per-model run status
     ├── download      — Download completed run outputs
+    ├── log / logs    — View execution logs for runs
     ├── models        — List available benchmark models
     └── delete        — Delete a task (not yet supported by server)
 ```
@@ -233,6 +234,7 @@ kaggle b t download my-task --include-source
 - `-m, --model <MODEL> [MODEL ...]`: Download only for specific models
 - `-o, --output <DIRECTORY>`: Output directory (default: current directory)
 - `-s, --include-source`: Also download the kernel session's source notebooks (`__notebook__.ipynb`, `__notebook_source__.ipynb`)
+- `-f, --force`: Force re-download of already completed runs, overwriting local files
 
 **Output directory structure:**
 ```
@@ -243,7 +245,7 @@ kaggle b t download my-task --include-source
 **Behavior details:**
 - Downloads outputs for all runs in a **terminal state** — this includes both `COMPLETED` and `ERRORED` runs (errored runs may still have partial output)
 - Downloads zip archives and extracts them automatically
-- Already-downloaded runs are skipped: `Skipping gemini-2.5-pro (run 123) — already downloaded to ./my-task/1/gemini-2.5-pro/123`
+- Already-downloaded runs are skipped (use `--force` to re-download): `Skipping gemini-2.5-pro (run 123) — already downloaded to ./my-task/1/gemini-2.5-pro/123`
 - Corrupt zips: Warning printed, raw `.zip` file kept, continues with other models
 - No downloadable runs (all still in progress): `No downloadable runs yet — N run(s) still in progress. Use 'kaggle b t status my-task' to check progress.`
 - No runs at all: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
@@ -270,8 +272,9 @@ kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
 **Aliases:** `log`, `logs`
 
 **Behavior details:**
-- When multiple runs match, each run's logs are printed with a header: `═══ Logs for gemini-2.5-pro (Run 456) ═══`
-- For a single matching run, the header is omitted for clean output
+- Each run's logs are printed with a header including run state: `═══ Logs for gemini-2.5-pro (Run 456) [COMPLETED] ═══`
+- Each run ends with a line count footer: `═══ (42 lines) ═══`
+- A summary is printed at the end: `Showed logs for N run(s) across N model(s).`
 - Active runs: Logs are streamed in real-time via Server-Sent Events (SSE)
 - Completed runs: The persisted log file is returned and printed
 - No runs found: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
