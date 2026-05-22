@@ -2229,7 +2229,9 @@ class KaggleApi:
             raise ValueError("No competition specified")
 
         if not quiet and (page_size is not None or page_token is not None or search is not None):
-            print("Warning: --page-size, --page-token, and --search are not supported for competition topics and will be ignored.")
+            print(
+                "Warning: --page-size, --page-token, and --search are not supported for competition topics and will be ignored."
+            )
 
         response = self.competition_list_topics(
             competition=competition,
