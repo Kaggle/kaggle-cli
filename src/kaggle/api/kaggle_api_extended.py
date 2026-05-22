@@ -7230,11 +7230,9 @@ class KaggleApi:
 
         task_slug = slugify(task)
         if task_slug != task:
-            print(
-                f"\n{self._warn(f'⚠ Warning: task name {task!r} was normalized to slug {task_slug!r}.')}\n"
-                f"{self._warn_detail(f'  Use {task_slug!r} in future commands.')}\n",
-                file=sys.stderr,
-            )
+            msg1 = self._warn(f"⚠ Warning: task name {task!r} was normalized to slug {task_slug!r}.")
+            msg2 = self._warn_detail(f"  Use {task_slug!r} in future commands.")
+            print(f"\n{msg1}\n{msg2}\n", file=sys.stderr)
 
         notebook_content = self._convert_py_to_notebook(content)
 
@@ -7256,12 +7254,13 @@ class KaggleApi:
                 prev_options = getattr(task_info, "options", None)
                 if prev_options and prev_options.dataset_data_sources:
                     prev_sources = ", ".join(prev_options.dataset_data_sources)
-                    print(
-                        f"{self._warn(f"⚠ Warning: The previous version of '{task_slug}' had attached "
-                        f"Kaggle datasets: {prev_sources}")}\n" f"{self._warn_detail('  Re-pushing without --kaggle-dataset / -d will detach them.')}\n" f"{self._warn_detail(f"  To keep them, add: -d "
-                        f"{' '.join(prev_options.dataset_data_sources)}")}",
-                        file=sys.stderr,
+                    msg1 = self._warn(
+                        f"⚠ Warning: The previous version of '{task_slug}' had attached "
+                        f"Kaggle datasets: {prev_sources}"
                     )
+                    msg2 = self._warn_detail("  Re-pushing without --kaggle-dataset / -d will detach them.")
+                    msg3 = self._warn_detail(f"  To keep them, add: -d {' '.join(prev_options.dataset_data_sources)}")
+                    print(f"{msg1}\n{msg2}\n{msg3}", file=sys.stderr)
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
@@ -7291,11 +7290,10 @@ class KaggleApi:
                     print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
                 invalid = getattr(response, "invalid_dataset_sources", None)
                 if invalid:
-                    print(
-                        f"{self._warn(f'⚠ Warning: The following Kaggle datasets could not be resolved: '
-                        f"{', '.join(invalid)}")}",
-                        file=sys.stderr,
+                    msg = self._warn(
+                        f"⚠ Warning: The following Kaggle datasets could not be resolved: " f"{', '.join(invalid)}"
                     )
+                    print(msg, file=sys.stderr)
 
             if wait is None:
                 print(f"   Model Output:  {model_output_url}")
