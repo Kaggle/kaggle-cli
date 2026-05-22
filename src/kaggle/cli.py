@@ -118,6 +118,14 @@ def _get_shared_topics_parser() -> argparse.ArgumentParser:
     return shared
 
 
+def _get_shared_competition_topics_parser() -> argparse.ArgumentParser:
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("-p", "--page", dest="page", type=int, default=1, required=False, help=Help.param_page)
+    shared.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    shared.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
+    return shared
+
+
 def parse_competitions(subparsers) -> None:
     parser_competitions = subparsers.add_parser(
         "competitions", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_competitions, aliases=["c"]
@@ -380,13 +388,14 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
 
     shared_topics = _get_shared_topics_parser()
+    shared_competition_topics = _get_shared_competition_topics_parser()
 
     # Competitions list discussion topics (with 'show' and 'list' subcommands)
     parser_competitions_topics = subparsers_competitions.add_parser(
         "topics",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_competitions_topics,
-        parents=[shared_topics],
+        parents=[shared_competition_topics],
     )
     subparsers_competitions_topics = parser_competitions_topics.add_subparsers(title="commands", dest="command")
     subparsers_competitions_topics.choices = Help.entity_topics_choices
@@ -399,7 +408,7 @@ def parse_competitions(subparsers) -> None:
         "list",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_competitions_topics,
-        parents=[shared_topics],
+        parents=[shared_competition_topics],
     )
     parser_competitions_topics_list_optional = parser_competitions_topics_list._action_groups.pop()
     parser_competitions_topics_list_optional.add_argument(
@@ -414,9 +423,6 @@ def parse_competitions(subparsers) -> None:
         dest="sort_by",
         required=False,
         help="Sort order. One of: " + ", ".join(KaggleApi.valid_forum_topic_sort_by),
-    )
-    parser_competitions_topics_list_optional.add_argument(
-        "--search", dest="search", required=False, help=Help.param_search
     )
     parser_competitions_topics_list._action_groups.append(parser_competitions_topics_list_optional)
     parser_competitions_topics_list.set_defaults(func=api.competition_list_topics_cli)
