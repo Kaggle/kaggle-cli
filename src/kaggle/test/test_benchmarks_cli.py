@@ -448,6 +448,95 @@ class TestPush:
         with pytest.raises(ValueError, match="--poll-interval must be a positive integer"):
             api.benchmarks_tasks_push_cli("my-task", filepath, wait=0, poll_interval=interval)
 
+    # -- Kaggle dataset attachment --
+
+    def test_push_with_kaggle_datasets(self, api, tmp_path, capsys):
+        """Push attaches Kaggle datasets via BenchmarkTaskOptions."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        resp = api._mock_benchmarks.create_benchmark_task.return_value
+        resp.options = MagicMock()
+        resp.options.dataset_data_sources = ["user/dataset-one", "user/dataset-two"]
+        resp.invalid_dataset_sources = []
+
+        jt, ctx = _mock_jupytext()
+        with ctx:
+            api.benchmarks_tasks_push_cli("my-task", filepath, kaggle_datasets=["user/dataset-one", "user/dataset-two"])
+
+        request = api._mock_benchmarks.create_benchmark_task.call_args[0][0]
+        assert request.options is not None
+        assert request.options.dataset_data_sources == ["user/dataset-one", "user/dataset-two"]
+        output = capsys.readouterr().out
+        assert "Attached Kaggle dataset(s)" in output
+
+    def test_push_with_invalid_kaggle_dataset_warns(self, api, tmp_path, capsys):
+        """Push warns about invalid/unresolvable Kaggle datasets."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        resp = api._mock_benchmarks.create_benchmark_task.return_value
+        resp.options = MagicMock()
+        resp.options.dataset_data_sources = ["user/valid"]
+        resp.invalid_dataset_sources = ["user/nonexistent"]
+
+        jt, ctx = _mock_jupytext()
+        with ctx:
+            api.benchmarks_tasks_push_cli("my-task", filepath, kaggle_datasets=["user/valid", "user/nonexistent"])
+
+        captured = capsys.readouterr()
+        assert "could not be resolved" in captured.err
+        assert "user/nonexistent" in captured.err
+
+    def test_push_without_kaggle_datasets_sends_no_options(self, api, tmp_path, capsys):
+        """Push without --kaggle-dataset does not set options on the request."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        _push(api, "my-task", filepath)
+        request = api._mock_benchmarks.create_benchmark_task.call_args[0][0]
+        # When no datasets are specified, options should not be set
+        assert not hasattr(request, "options") or request.options is None
+
+    def test_push_warns_when_removing_previously_attached_datasets(self, api, tmp_path, capsys):
+        """Re-pushing without --kaggle-dataset warns when previous version had datasets."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+
+        # Previous version had datasets attached
+        prev_task = _make_task(slug="my-task", state=COMPLETED)
+        prev_task.options = MagicMock()
+        prev_task.options.dataset_data_sources = ["user/important-data"]
+        api._mock_benchmarks.get_benchmark_task.return_value = prev_task
+
+        jt, ctx = _mock_jupytext()
+        with ctx:
+            api.benchmarks_tasks_push_cli("my-task", filepath)  # no kaggle_datasets
+
+        captured = capsys.readouterr()
+        assert "previous version" in captured.err
+        assert "user/important-data" in captured.err
+        assert "will detach" in captured.err
+
+    def test_push_no_warning_when_re_push_keeps_datasets(self, api, tmp_path, capsys):
+        """Re-pushing WITH --kaggle-dataset does NOT warn about detaching."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+
+        prev_task = _make_task(slug="my-task", state=COMPLETED)
+        prev_task.options = MagicMock()
+        prev_task.options.dataset_data_sources = ["user/important-data"]
+        api._mock_benchmarks.get_benchmark_task.return_value = prev_task
+
+        resp = api._mock_benchmarks.create_benchmark_task.return_value
+        resp.options = MagicMock()
+        resp.options.dataset_data_sources = ["user/important-data"]
+        resp.invalid_dataset_sources = []
+
+        jt, ctx = _mock_jupytext()
+        with ctx:
+            api.benchmarks_tasks_push_cli("my-task", filepath, kaggle_datasets=["user/important-data"])
+
+        captured = capsys.readouterr()
+        assert "will detach" not in captured.err
+
 
 # ============================================================
 # Run
@@ -844,8 +933,10 @@ class TestStatus:
     """``kaggle benchmarks tasks status <task> [-m <model> ...]``"""
 
     def test_status_header(self, api, capsys):
-        """Status prints Task/Status/Created header."""
-        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        """Status prints Task/Status/Created/Public header."""
+        task = _make_task()
+        task.is_public = True
+        api._mock_benchmarks.get_benchmark_task.return_value = task
         _setup_runs_response(api, [])
         api.benchmarks_tasks_status_cli("my-task")
         output = capsys.readouterr().out
@@ -853,6 +944,7 @@ class TestStatus:
         assert "Version:" in output
         assert "Status:   Completed" in output
         assert "Created:" in output
+        assert "Public:   True" in output
         assert "Task URL:" in output
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
@@ -1253,6 +1345,37 @@ class TestDownload:
         request = api._mock_benchmarks.download_benchmark_task_run_output.call_args[0][0]
         assert request.include_source is False
 
+    def test_download_bad_zip_with_force_replaces_output(self, api, capsys, tmp_path):
+        """BadZipFile with --force keeps raw zip; existing output is NOT deleted."""
+        _setup_completed_task(api)
+        _setup_runs_response(api, [_make_run(model="bad-model", run_id=10)])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
+
+        outdir = str(tmp_path / "out")
+        existing_dir = os.path.join(outdir, "my-task", "1", "bad-model", "10")
+        os.makedirs(existing_dir)
+        # Write a sentinel file in existing output
+        sentinel = os.path.join(existing_dir, "old_result.txt")
+        with open(sentinel, "w") as f:
+            f.write("previous run")
+
+        def fake_download(response, outfile, http_client, quiet=False):
+            os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            with open(outfile, "wb") as f:
+                f.write(b"this is not a zip")
+
+        api.download_file = MagicMock(side_effect=fake_download)
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir, force=True)
+
+        output = capsys.readouterr().out
+        assert "not a valid zip archive" in output
+        # Raw zip file is kept
+        zip_path = os.path.join(outdir, "my-task", "1", "bad-model", "10.zip")
+        assert os.path.isfile(zip_path)
+        # Existing output directory is preserved (not deleted by --force)
+        assert os.path.isfile(sentinel)
+
 
 # ============================================================
 # Log
@@ -1358,6 +1481,34 @@ class TestLog:
         api.benchmarks_tasks_log_cli("my-task")
         output = capsys.readouterr().out
         assert '{"logs": "some data"}' in output
+
+    def test_log_queued_run_server_error(self, api, capsys):
+        """A QUEUED run whose log endpoint returns 404 prints a friendly message."""
+        _setup_completed_task(api)
+        _setup_runs_response(api, [_make_run(model="gemini-pro", state=RUN_QUEUED, run_id=1)])
+        api._mock_benchmarks.get_benchmark_task_run_logs.side_effect = HTTPError(response=MagicMock(status_code=404))
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        assert "No logs available" in output
+        assert "404" in output
+        assert "0 lines" in output
+
+    def test_log_json_list_with_data_key(self, api, capsys):
+        """JSON response containing list of {"data": ...} entries prints each entry."""
+        import json
+
+        _setup_runs_response(api, [_make_run()])
+        log_entries = [
+            {"data": "line one\n"},
+            {"data": "line two\n"},
+        ]
+        content = json.dumps(log_entries)
+        self._mock_log_response(api, content=content)
+        api.benchmarks_tasks_log_cli("my-task")
+        output = capsys.readouterr().out
+        # JSON log content is printed as raw text from response.text
+        assert "line one" in output
+        assert "line two" in output
 
 
 # ============================================================
@@ -1668,6 +1819,29 @@ class TestCliArgParsing:
             ("benchmarks init -y", {"no_confirm": True}),
             ("benchmarks init --env-file custom.env", {"env_file": "custom.env"}),
             ("benchmarks init --example-file my_task.py", {"example_file": "my_task.py"}),
+            # publish
+            (
+                "benchmarks tasks publish my-task",
+                {"task": "my-task", "publish_backing_notebook": False},
+            ),
+            (
+                "benchmarks tasks publish my-task --publish-backing-notebook",
+                {"task": "my-task", "publish_backing_notebook": True},
+            ),
+            ("b t publish my-task", {"task": "my-task", "publish_backing_notebook": False}),
+            # push with --kaggle-dataset
+            (
+                "benchmarks tasks push my-task -f ./task.py -d user/dataset1 user/dataset2",
+                {"task": "my-task", "file": "./task.py", "kaggle_datasets": ["user/dataset1", "user/dataset2"]},
+            ),
+            (
+                "benchmarks tasks push my-task -f ./task.py --kaggle-dataset user/ds",
+                {"kaggle_datasets": ["user/ds"]},
+            ),
+            (
+                "benchmarks tasks push my-task -f ./task.py",
+                {"kaggle_datasets": None},
+            ),
         ],
     )
     def test_parse_success(self, cmd, expected):
@@ -1688,6 +1862,29 @@ class TestCliArgParsing:
     def test_parse_error(self, cmd):
         with pytest.raises(SystemExit):
             self._parse(cmd)
+
+    @pytest.mark.parametrize(
+        "cmd, expected",
+        [
+            (
+                "benchmarks tasks download my-task --force",
+                {"task": "my-task", "force": True},
+            ),
+            (
+                "benchmarks tasks download my-task -f",
+                {"force": True},
+            ),
+            (
+                "benchmarks tasks download my-task",
+                {"force": False},
+            ),
+        ],
+        ids=["force_long", "force_short", "force_default"],
+    )
+    def test_parse_download_force(self, cmd, expected):
+        args = self._parse(cmd)
+        for key, val in expected.items():
+            assert getattr(args, key) == val
 
 
 # ============================================================
@@ -2119,3 +2316,99 @@ class TestFormatModalities:
         v.output_modalities = MagicMock()
         v.output_modalities.__iter__ = MagicMock(side_effect=TypeError)
         assert KaggleApi._format_modalities(v) == ""
+
+
+# Publish
+# ============================================================
+
+
+class TestPublish:
+    """``kaggle benchmarks tasks publish <task> [--publish-backing-notebook]``"""
+
+    def _setup_publish(self, api, slug="my-task", is_public=False, is_notebook_published=False):
+        """Wire up get + publish mocks."""
+        task = _make_task(slug=slug)
+        task.is_public = is_public
+        task.is_backing_notebook_published = is_notebook_published
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+
+        resp = _make_task(slug=slug)
+        resp.is_public = True
+        resp.is_backing_notebook_published = is_notebook_published
+        api._mock_benchmarks.publish_benchmark_task.return_value = resp
+        return task, resp
+
+    def test_publish_success(self, api, capsys):
+        """Publish a task successfully."""
+        self._setup_publish(api)
+        api.benchmarks_tasks_publish_cli("my-task")
+        output = capsys.readouterr().out
+        assert "published successfully" in output
+        assert "Task URL:" in output
+
+    def test_publish_already_public(self, api, capsys):
+        """Publishing an already-public task prints info and returns."""
+        self._setup_publish(api, is_public=True)
+        api.benchmarks_tasks_publish_cli("my-task")
+        output = capsys.readouterr().out
+        assert "already public" in output
+        api._mock_benchmarks.publish_benchmark_task.assert_not_called()
+
+    def test_publish_already_public_notebook_not_published(self, api, capsys):
+        """Already-public task with unpublished notebook proceeds to publish notebook."""
+        self._setup_publish(api, is_public=True, is_notebook_published=False)
+        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
+        output = capsys.readouterr().out
+        assert "already public" in output
+        assert "Publishing the backing notebook" in output
+        api._mock_benchmarks.publish_benchmark_task.assert_called_once()
+
+    def test_publish_already_public_notebook_already_published(self, api, capsys):
+        """Already-public task with already-published notebook returns early."""
+        self._setup_publish(api, is_public=True, is_notebook_published=True)
+        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
+        output = capsys.readouterr().out
+        assert "already public" in output
+        assert "already published" in output
+        api._mock_benchmarks.publish_benchmark_task.assert_not_called()
+
+    def test_publish_with_backing_notebook(self, api, capsys):
+        """Publish task and its backing notebook."""
+        task, resp = self._setup_publish(api)
+        resp.is_backing_notebook_published = True
+        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
+        request = api._mock_benchmarks.publish_benchmark_task.call_args[0][0]
+        assert request.publish_backing_notebook is True
+        output = capsys.readouterr().out
+        assert "Backing notebook also published" in output
+
+    def test_publish_with_backing_notebook_no_notebook(self, api, capsys):
+        """Publish with --publish-backing-notebook when no notebook exists."""
+        task, resp = self._setup_publish(api)
+        resp.is_backing_notebook_published = False
+        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
+        output = capsys.readouterr().out
+        assert "No backing notebook is associated" in output
+
+    @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
+    def test_publish_task_not_found(self, api, status_code):
+        """Publish gives friendly error when task doesn't exist."""
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
+        with pytest.raises(ValueError, match="not found"):
+            api.benchmarks_tasks_publish_cli("no-such-task")
+
+    def test_publish_normalizes_task_name(self, api, capsys):
+        """Publish slugifies the task name."""
+        self._setup_publish(api)
+        api.benchmarks_tasks_publish_cli("My Task")
+        request = api._mock_benchmarks.publish_benchmark_task.call_args[0][0]
+        assert request.slug.task_slug == "my-task"
+
+    def test_publish_server_error_propagates(self, api):
+        """Non-403/404 server errors (e.g. 500) from publish propagate as HTTPError."""
+        task = _make_task()
+        task.is_public = False
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+        api._mock_benchmarks.publish_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=500))
+        with pytest.raises(HTTPError):
+            api.benchmarks_tasks_publish_cli("my-task")

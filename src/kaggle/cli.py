@@ -1466,6 +1466,14 @@ def parse_benchmark_tasks(subparsers) -> None:
         action="store_true",
         help=Help.param_benchmarks_verbose,
     )
+    parser_push_optional.add_argument(
+        "-d",
+        "--kaggle-dataset",
+        dest="kaggle_datasets",
+        nargs="+",
+        required=False,
+        help=Help.param_benchmarks_kaggle_dataset,
+    )
     parser_push._action_groups.append(parser_push_optional)
     parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
 
@@ -1608,6 +1616,24 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_delete._action_groups.append(parser_delete_optional)
     parser_delete.set_defaults(func=api.benchmarks_tasks_delete_cli)
+
+    # publish
+    parser_publish = subparsers_tasks.add_parser(
+        "publish",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_benchmarks_tasks_publish,
+    )
+    parser_publish_optional = parser_publish._action_groups.pop()
+    parser_publish_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_publish_optional.add_argument(
+        "--publish-backing-notebook",
+        dest="publish_backing_notebook",
+        action="store_true",
+        required=False,
+        help=Help.param_benchmarks_publish_backing_notebook,
+    )
+    parser_publish._action_groups.append(parser_publish_optional)
+    parser_publish.set_defaults(func=api.benchmarks_tasks_publish_cli)
 
 
 def parse_config(subparsers) -> None:
@@ -1844,7 +1870,18 @@ class Help(object):
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
     benchmarks_choices = ["tasks", "t", "auth", "init", "topics"]
-    benchmarks_tasks_choices = ["push", "run", "list", "status", "download", "log", "logs", "models", "delete"]
+    benchmarks_tasks_choices = [
+        "push",
+        "run",
+        "list",
+        "status",
+        "download",
+        "log",
+        "logs",
+        "models",
+        "delete",
+        "publish",
+    ]
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
@@ -1977,6 +2014,7 @@ class Help(object):
     command_benchmarks_tasks_log = "Get execution logs for a benchmark task run"
     command_benchmarks_tasks_models = "List available benchmark models"
     command_benchmarks_tasks_delete = "Remove a task"
+    command_benchmarks_tasks_publish = "Publish a task (make it public)"
 
     # Config commands
     command_config_path = "Set folder where competition or dataset files will be " "downloaded"
@@ -2218,6 +2256,12 @@ class Help(object):
     param_benchmarks_list_all = "Print every task at once and skip the interactive pager"
     param_benchmarks_force = "Force re-download of already completed runs, overwriting local files."
     param_benchmarks_include_source = "Also download the kernel session's source notebooks."
+    param_benchmarks_kaggle_dataset = (
+        "Kaggle dataset(s) to attach (format: owner/dataset-slug). "
+        "The latest published version is used. "
+        "Omitting this on a re-push detaches previously-attached datasets."
+    )
+    param_benchmarks_publish_backing_notebook = "Also publish the backing notebook in the same request."
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"

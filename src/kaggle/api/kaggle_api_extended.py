@@ -68,7 +68,9 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiBenchmarkTaskSlug,
     ApiBatchScheduleBenchmarkTaskRunsRequest,
     ApiDownloadBenchmarkTaskRunOutputRequest,
+    ApiPublishBenchmarkTaskRequest,
 )
+from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
 from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
 from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionsRequest,
@@ -6669,6 +6671,40 @@ class KaggleApi:
         return KaggleApi._clean_enum_str(state).title()
 
     @staticmethod
+    def _ansi(code: str, text: str, stream=None) -> str:
+        """Wrap text in ANSI escape codes, stripping them for non-TTY output."""
+        if stream is None:
+            stream = sys.stdout
+        if not hasattr(stream, "isatty") or not stream.isatty():
+            return text
+        return f"\033[{code}m{text}\033[0m"
+
+    @classmethod
+    def _bold(cls, text: str) -> str:
+        """Bold text, TTY-aware."""
+        return cls._ansi("1", text)
+
+    @classmethod
+    def _warn(cls, text: str, stream=None) -> str:
+        """Yellow warning text, TTY-aware."""
+        return cls._ansi("1;33", text, stream or sys.stderr)
+
+    @classmethod
+    def _warn_detail(cls, text: str, stream=None) -> str:
+        """Yellow detail text (non-bold), TTY-aware."""
+        return cls._ansi("33", text, stream or sys.stderr)
+
+    @classmethod
+    def _error(cls, text: str) -> str:
+        """Red error text, TTY-aware."""
+        return cls._ansi("1;31", text)
+
+    @classmethod
+    def _error_detail(cls, text: str) -> str:
+        """Red detail text (non-bold), TTY-aware."""
+        return cls._ansi("31", text)
+
+    @staticmethod
     def _format_time(t) -> str:
         """Format a timestamp to seconds precision for display."""
         if isinstance(t, datetime):
@@ -6709,12 +6745,13 @@ class KaggleApi:
 
         if errors:
             print()
-            print(f"\033[1;31mErrors:\033[0m")
+            print(f"{KaggleApi._error('Errors:')}")
             for slug, msg in errors:
                 # Server-captured error_message may include a full Python traceback. The actual
                 # exception line is last; everything above is stack noise. Show just that line.
                 last_line = next((ln for ln in reversed(msg.strip().splitlines()) if ln.strip()), msg.strip())
-                print(f"\033[1;31m  [{slug}]\033[0m \033[31m{last_line.strip()}\033[0m")
+                print(f"{KaggleApi._error(f'  [{slug}]')} {KaggleApi._error_detail(last_line.strip())}")
+
 
     @staticmethod
     def _strip_ipython_magics(source: str) -> str:
@@ -7179,7 +7216,7 @@ class KaggleApi:
         print("  Run your first task using the example file:")
         print(f"  $ kaggle b t push what-is-kaggle -f {example_name} --wait")
 
-    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=60, verbose=False):
+    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=60, verbose=False, kaggle_datasets=None):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
@@ -7194,8 +7231,8 @@ class KaggleApi:
         task_slug = slugify(task)
         if task_slug != task:
             print(
-                f"\n\033[1;33mWarning: task name '{task}' was normalized to slug '{task_slug}'.\033[0m\n"
-                f"\033[33m  Use '{task_slug}' in future commands.\033[0m\n",
+                f"\n{self._warn(f'⚠ Warning: task name {task!r} was normalized to slug {task_slug!r}.')}\n"
+                f"{self._warn_detail(f'  Use {task_slug!r} in future commands.')}\n",
                 file=sys.stderr,
             )
 
@@ -7214,9 +7251,27 @@ class KaggleApi:
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
 
+            # Warn if re-pushing without datasets when previous version had them
+            if task_info and not kaggle_datasets:
+                prev_options = getattr(task_info, "options", None)
+                if prev_options and prev_options.dataset_data_sources:
+                    prev_sources = ", ".join(prev_options.dataset_data_sources)
+                    print(
+                        f"{self._warn(f"⚠ Warning: The previous version of '{task_slug}' had attached "
+                        f"Kaggle datasets: {prev_sources}")}\n" f"{self._warn_detail('  Re-pushing without --kaggle-dataset / -d will detach them.')}\n" f"{self._warn_detail(f"  To keep them, add: -d "
+                        f"{' '.join(prev_options.dataset_data_sources)}")}",
+                        file=sys.stderr,
+                    )
+
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
             request.text = notebook_content
+
+            # Attach Kaggle datasets if specified
+            if kaggle_datasets:
+                options = BenchmarkTaskOptions()
+                options.dataset_data_sources = kaggle_datasets
+                request.options = options
 
             response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task)(request)
             error = getattr(response, "error", None)
@@ -7228,6 +7283,19 @@ class KaggleApi:
             banner_subject = f"new version of {task_slug}" if is_new_version else task_slug
             print(f"\nPushed {banner_subject}")
             print(f"   Task Details:  {url}")
+
+            # Report datasource attachment results
+            if kaggle_datasets:
+                attached = getattr(response, "options", None)
+                if attached and attached.dataset_data_sources:
+                    print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
+                invalid = getattr(response, "invalid_dataset_sources", None)
+                if invalid:
+                    print(
+                        f"{self._warn(f'⚠ Warning: The following Kaggle datasets could not be resolved: '
+                        f"{', '.join(invalid)}")}",
+                        file=sys.stderr,
+                    )
 
             if wait is None:
                 print(f"   Model Output:  {model_output_url}")
@@ -7363,9 +7431,13 @@ class KaggleApi:
             print(f"Version:  {version}")
             print(f"Status:   {self._format_state(task_info.creation_state)}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
+            print(f"Public:   {getattr(task_info, 'is_public', False)}")
             url = getattr(task_info, "url", None)
             if url:
                 print(f"Task URL: {self._full_task_url(url)}\n")
+            options = getattr(task_info, "options", None)
+            if options and options.dataset_data_sources:
+                print(f"Datasets: {', '.join(options.dataset_data_sources)}")
 
             runs = self._fetch_task_runs(kaggle, task, model)
 
@@ -7381,7 +7453,8 @@ class KaggleApi:
         if isinstance(model, str):
             return f" for model '{model}'"
         if model:
-            return f" for model(s) {', '.join(model)}"
+            joined = "', '".join(model)
+            return f" for model(s) '{joined}'"
         return ""
 
     def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False, force=False):
@@ -7398,6 +7471,7 @@ class KaggleApi:
                 model_hint = self._format_model_hint(model)
                 print(f"No runs found for task '{task}'{model_hint}.")
                 print(f"Use 'kaggle b t run {task}' to start one.")
+                print(f"\nDone: 0 downloaded.")
                 return
 
             downloadable = [r for r in runs if r.state in self._TERMINAL_RUN_STATES]
@@ -7405,6 +7479,7 @@ class KaggleApi:
                 pending = len(runs)
                 print(f"No downloadable runs yet — {pending} run(s) still in progress.")
                 print(f"Use 'kaggle b t status {task}' to check progress.")
+                print(f"\nDone: 0 downloaded.")
                 return
 
             target_dir = os.path.join(output, task)
@@ -7522,7 +7597,11 @@ class KaggleApi:
             if text and not text.endswith("\n"):
                 lines += 1
             return lines, text.endswith("\n")
-        print(log_entry, flush=flush)
+        if isinstance(log_entry, dict):
+            text = json.dumps(log_entry)
+        else:
+            text = str(log_entry)
+        print(text, flush=flush)
         return 1, True
 
     def benchmarks_tasks_log_cli(self, task, model=None):
@@ -7547,9 +7626,17 @@ class KaggleApi:
                 request = ApiGetBenchmarkTaskRunLogsRequest()
                 request.run_id = run.id
 
-                response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task_run_logs)(
-                    request
-                )
+                # QUEUED runs have no logs yet — the server may return 404.
+                # Catch per-run so one missing log doesn't abort the whole command.
+                try:
+                    response = self.with_retry(
+                        kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task_run_logs
+                    )(request)
+                except HTTPError as e:
+                    status = getattr(e.response, "status_code", None)
+                    print(f"  (No logs available — server returned {status})")
+                    print(f"═══ (0 lines) ═══")
+                    continue
 
                 line_count = 0
                 content_type = response.headers.get("Content-Type", "")
@@ -7618,6 +7705,41 @@ class KaggleApi:
     def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
         # TODO: Normalize task name via slugify(task) when server supports delete.
         print("Delete is not supported by the server yet.")
+
+    def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=False):
+        """Publish a benchmark task, making it public."""
+        task = slugify(task)
+
+        with self.build_kaggle_client() as kaggle:
+            # Verify the task exists first
+            task_info = self._get_benchmark_task(task, kaggle)
+
+            # Check if already public
+            if getattr(task_info, "is_public", False):
+                print(f"Task '{task}' is already public.")
+                if publish_backing_notebook and not getattr(task_info, "is_backing_notebook_published", False):
+                    print("Publishing the backing notebook...")
+                elif publish_backing_notebook:
+                    print("Backing notebook is already published.")
+                    return
+                else:
+                    return
+
+            request = ApiPublishBenchmarkTaskRequest()
+            request.slug = self._make_task_slug(task)
+            request.publish_backing_notebook = publish_backing_notebook
+
+            response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.publish_benchmark_task)(request)
+
+            url = self._full_task_url(response.url)
+            print(f"Task '{task}' published successfully.")
+            print(f"{self._bold(f'Task URL: {url}')}")
+
+            if publish_backing_notebook:
+                if getattr(response, "is_backing_notebook_published", False):
+                    print("Backing notebook also published.")
+                else:
+                    print("Note: No backing notebook is associated with this task.")
 
 
 class TqdmBufferedReader(io.BufferedReader):

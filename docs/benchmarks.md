@@ -6,7 +6,7 @@ The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has thre
 
 *   **`auth`** — Fetch Model Proxy credentials.
 *   **`init`** — Fetch credentials and default environment variables for local development.
-*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, log, models, delete).
+*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, log, models, delete, publish).
 
 ## `kaggle benchmarks auth`
 
@@ -110,6 +110,8 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 *   `--wait [TIMEOUT]`: Wait for the task creation to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
 *   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
+*   `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Kaggle dataset(s) to attach to the task's underlying notebook. Each is formatted as `owner/dataset-slug`. The latest published version of each dataset is attached. Datasets are mounted at `/kaggle/input/<dataset-slug>/` during task execution.
+
 
 **Examples:**
 
@@ -126,14 +128,28 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
     ```
 
 3.  Push a task and wait with a 60-second timeout, polling every 5 seconds:
-
-    ```bash
-    kaggle b t push my-task -f benchmark.py --wait 60 --poll-interval 5
-    ```
+ 
+     ```bash
+     kaggle b t push my-task -f benchmark.py --wait 60 --poll-interval 5
+     ```
+ 
+4.  Push a task with Kaggle datasets attached:
+ 
+     ```bash
+     kaggle b t push my-task -f benchmark.py -d kaggle/titanic user/my-dataset
+     ```
+ 
+5.  Push a task with datasets and wait:
+ 
+     ```bash
+     kaggle b t push my-task -f benchmark.py --wait -d kaggle/titanic
+     ```
 
 **Purpose:**
 
 This command reads a `.py` file, converts it to a Jupyter notebook format, and uploads it to Kaggle as a benchmark task. If a task with the same slug already exists, a new version is created. The file is validated to ensure it contains a `@task` decorator matching the given task name.
+ 
+**Note on dataset attachment:** When `--kaggle-dataset` / `-d` is specified, the listed datasets are attached to the task's underlying notebook kernel. During execution, they are accessible at `/kaggle/input/<dataset-slug>/`. If you re-push without `-d`, all previously-attached datasets are detached (a warning is printed). To preserve datasets across pushes, re-specify them each time. If any specified dataset is invalid, non-existent, or inaccessible, the push command will **fail** with an error: `Failed to push task: Failed to attach the following data sources (not found or inaccessible): <dataset>`.
 
 ---
 
@@ -456,6 +472,44 @@ kaggle b t delete my-task -y
 **Purpose:**
 
 Deletes a benchmark task and all associated runs. **Note:** This command is not yet supported by the server.
+ 
+---
+ 
+### `kaggle benchmarks tasks publish`
+ 
+Publishes a benchmark task, making it publicly visible.
+ 
+**Usage:**
+ 
+```bash
+kaggle benchmarks tasks publish <TASK> [options]
+```
+ 
+**Arguments:**
+ 
+*   `<TASK>`: Task name (slug).
+ 
+**Options:**
+ 
+*   `--publish-backing-notebook`: Also publish the backing notebook associated with the task. When omitted, only the task metadata is made public.
+ 
+**Examples:**
+ 
+1.  Publish a task:
+ 
+    ```bash
+    kaggle b t publish my-task
+    ```
+ 
+2.  Publish a task and its backing notebook:
+ 
+    ```bash
+    kaggle b t publish my-task --publish-backing-notebook
+    ```
+ 
+**Purpose:**
+ 
+This command changes the task's visibility from private to public. Optionally, the backing notebook (the kernel associated with the task) can be published at the same time via `--publish-backing-notebook`. Publishing is idempotent — re-publishing an already-public task prints a message and returns successfully. Unpublishing is not supported through this command.
 
 ## `kaggle benchmarks topics list`
 

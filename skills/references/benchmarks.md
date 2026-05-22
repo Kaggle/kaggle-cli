@@ -22,7 +22,8 @@ kaggle benchmarks (alias: kaggle b)
     ├── download      — Download completed run outputs
     ├── log / logs    — View execution logs for runs
     ├── models        — List available benchmark models
-    └── delete        — Delete a task (not yet supported by server)
+    ├── delete        — Delete a task (not yet supported by server)
+    └── publish       — Publish a task (make it public)
 ```
 
 ## Setup & Authentication
@@ -116,6 +117,9 @@ kaggle b t push my-task -f task.py --wait
 # Push with timeout (60s) and custom poll interval (5s)
 kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 
+# Push with Kaggle datasets attached
+kaggle b t push my-task -f task.py --wait -d kaggle/titanic user/my-dataset
+
 # Push without waiting (fire-and-forget; check status with `kaggle b t status`)
 # kaggle b t push my-task -f task.py
 ```
@@ -128,6 +132,8 @@ kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 - `--wait [TIMEOUT]`: Wait for creation to complete. `--wait` alone = wait indefinitely. `--wait 60` = timeout after 60s.
 - `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 - `-v, --verbose`: Enable verbose polling logs.
+- `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Attach Kaggle datasets to the task's backing notebook. Format: `owner/dataset-slug`. Mounted at `/kaggle/input/<dataset-slug>/` during execution.
+
 
 **What happens:**
 1. Validates the file is a `.py` file and exists
@@ -144,6 +150,9 @@ kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 - Task name mismatch: `ValueError: Task 'wrong-name' not found in file task.py. Found tasks: real-task`
 - Re-push while previous is still processing (without `--wait`): `ValueError: Task 'my-task' is currently being created (pending). Cannot push now. Use --wait to monitor the existing creation.`
 - Re-push with `--wait`: Waits for existing creation to complete, then pushes new version automatically
+- Re-push without `-d` when previous version had datasets: Prints yellow warning to stderr: `⚠ Warning: The previous version of 'my-task' had attached Kaggle datasets: ...` and detaches them (re-specify `-d` to keep them).
+- Invalid or inaccessible Kaggle dataset: `Failed to push task: Failed to attach the following data sources (not found or inaccessible): <dataset>`
+
 
 ### Step 3: Run the Task Against Models
 
@@ -318,6 +327,25 @@ kaggle b t delete my-task -y   # skip confirmation
 ```
 
 **Note:** Delete is not yet supported by the server. Currently prints: `Delete is not supported by the server yet.`
+
+### Publish a Task
+
+```bash
+# Publish a task (make it public)
+kaggle b t publish my-task
+
+# Also publish the task's backing notebook in the same request
+kaggle b t publish my-task --publish-backing-notebook
+```
+
+**Options:**
+- `--publish-backing-notebook`: Also publish the task's backing notebook.
+
+**Notes:**
+- Idempotent: re-publishing an already-public task prints a message and returns successfully.
+- Unpublishing is not supported through this command.
+- If task not found, raises `ValueError: Task 'my-task' not found. Check the task name and try again. Use 'kaggle b t list' to see your tasks.`
+
 
 ## Task Name Normalization
 
