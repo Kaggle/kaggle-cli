@@ -125,7 +125,44 @@ my_test_task.run(kbench.llm)
 - The task name is normalized to a URL-safe slug (e.g. `"My Test Task"` → `my-test-task`)
 - The slug used in the CLI must match a `@task` decorator in the file
 
-### Step 2: Push the Task
+### Step 2: Validate Locally
+
+Before pushing, run the `.py` file locally to confirm it executes end-to-end and produces a `.run.json` output. This catches missing `.run()` calls, broken prompts, and assertion failures before they show up as silent no-ops on the server.
+
+```bash
+# Make sure your env is initialized (writes MODEL_PROXY_* + LLM_* vars to .env)
+kaggle b init -y
+
+# Run the task file directly
+python task.py
+
+# Confirm a .run.json was produced next to the task file
+ls -1 *.run.json
+```
+
+If `python task.py` exits cleanly and a `.run.json` appears, the task is safe to push.
+
+**How the LLM is chosen** (in order of precedence):
+
+1. **Explicit model in the task code** — pick a specific model from `kbench.llms`:
+   ```python
+   task.run(llm=kbench.llms["google/gemini-3.5-flash"])
+   ```
+2. **Default in the task code** — use `kbench.llm`, which resolves to `LLM_DEFAULT`:
+   ```python
+   task.run(llm=kbench.llm)
+   ```
+3. **Environment variables** (`.env`, written by `kaggle b init`) — control what `kbench.llm` resolves to and which models are available:
+   ```dotenv
+   LLM_DEFAULT=google/gemini-3.5-flash
+   LLM_DEFAULT_EVAL=google/gemini-3.1-pro-preview
+   LLMS_AVAILABLE=google/gemini-2.5-flash,google/gemini-2.5-pro,...
+   MODEL_PROXY_URL=...
+   MODEL_PROXY_API_KEY=...
+   ```
+If `python task.py` fails with an auth error, re-run `kaggle b auth -y` to refresh `MODEL_PROXY_API_KEY` (it's short-lived).
+
+### Step 3: Push the Task
 
 ```bash
 # Push and wait for server-side creation to complete (recommended)
@@ -142,7 +179,7 @@ kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 - `<TASK>` (positional, required): Task slug (must match a `@task` decorator name in the file)
 - `-f, --file <FILE>` (required): Path to the `.py` task file
 
-### Step 3: Run the Task
+### Step 4: Run the Task
 
 ```bash
 # Run against the default model
@@ -155,14 +192,14 @@ kaggle b t run my-task -m google/gemini-3-flash-preview -m openai/gpt-4o
 kaggle b t models
 ```
 
-### Step 4: Check Status
+### Step 5: Check Status
 
 ```bash
 # Show task details and per-model run status
 kaggle b t status my-task
 ```
 
-### Step 5: Download Results
+### Step 6: Download Results
 
 ```bash
 # Download completed run outputs
