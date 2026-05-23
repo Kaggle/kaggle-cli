@@ -1026,6 +1026,22 @@ class TestStatus:
         assert "[gemma-2b]" in output
         assert "[gemma-2b]\n" not in output
 
+    def test_status_shows_log_hint(self, api, capsys):
+        """Status with runs shows a hint to use 'kaggle b t log' for details."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [_make_run(model="gemini-pro", run_id=42)])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "View logs: kaggle b t log my-task [-m <model>]" in output
+
+    def test_status_no_log_hint_without_runs(self, api, capsys):
+        """Status without runs does NOT show the log hint."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "View logs:" not in output
+
     def test_status_pagination(self, api, capsys):
         """Status fetches all pages of runs."""
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task()

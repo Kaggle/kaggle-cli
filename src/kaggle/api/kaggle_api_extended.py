@@ -7444,6 +7444,7 @@ class KaggleApi:
                 return
 
             self._print_run_table(runs)
+            print(f"\nView logs: kaggle b t log {task} [-m <model>]")
 
     @staticmethod
     def _format_model_hint(model):
