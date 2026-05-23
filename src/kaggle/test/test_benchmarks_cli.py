@@ -242,6 +242,7 @@ class TestPush:
     def test_push_creates_task(self, api, tmp_path, capsys, content, task_name, expected_slug):
         """Push converts .py -> ipynb via jupytext and creates the task."""
         filepath = _write_task_file(tmp_path, content)
+        api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=404))
         _setup_create_response(api, task_name)
 
         jt = _push(api, task_name, filepath)
@@ -255,8 +256,9 @@ class TestPush:
 
         captured = capsys.readouterr()
         output = captured.out
-        assert f"Task '{expected_slug}' pushed." in output
-        assert "Task URL:" in output
+        assert f"Pushed {expected_slug}" in output
+        assert "Task Details:" in output
+        assert "Model Output:" in output
         assert f"kaggle b t run {expected_slug}" in output
         # When the original name differs from the slug, a normalization warning is printed to stderr.
         if task_name != expected_slug:
@@ -269,7 +271,7 @@ class TestPush:
         api._mock_benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=status_code))
         _setup_create_response(api)
         _push(api, "my-task", filepath)
-        assert "Task 'my-task' pushed." in capsys.readouterr().out
+        assert "Pushed my-task" in capsys.readouterr().out
 
     def test_push_prefixes_relative_url(self, api, tmp_path, capsys):
         """If url starts with '/', prefix https://www.kaggle.com."""
@@ -313,8 +315,7 @@ class TestPush:
 
         output = capsys.readouterr().out
         assert "already being created" in output
-        assert "Pushing new version of 'my-task'" in output
-        assert "Task 'my-task' pushed." in output
+        assert "Pushed new version of my-task" in output
         # Verify the create API was still called (new version pushed)
         api._mock_benchmarks.create_benchmark_task.assert_called_once()
 
@@ -351,8 +352,9 @@ class TestPush:
             api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
 
         output = capsys.readouterr().out
-        assert "Waiting for task to be processed" in output
-        assert "Task 'my-task' creation completed." in output
+        assert "Status" in output
+        assert "Completed" in output
+        assert "Model Output:" in output
 
     def test_push_adaptive_polling(self, api, tmp_path):
         filepath = _write_task_file(tmp_path)

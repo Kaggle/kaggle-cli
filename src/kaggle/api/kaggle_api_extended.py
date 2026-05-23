@@ -6983,8 +6983,7 @@ class KaggleApi:
         return min(poll_interval, int(current_interval * 1.5))
 
     def _poll_task_creation(self, kaggle, task, wait, poll_interval, verbose=False):
-        """Poll task creation status until terminal or timeout."""
-        print("Waiting for task to be processed...")
+        """Poll task creation status until terminal or timeout. Returns True on completion, False on timeout."""
         start_time = time.time()
         current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
         while True:
@@ -6992,8 +6991,7 @@ class KaggleApi:
             state = task_info.creation_state
 
             if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
-                print(f"Task '{task}' creation completed.")
-                return
+                return True
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
@@ -7001,11 +6999,11 @@ class KaggleApi:
                     error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
 
-            print(f"  Task status: {self._clean_enum_str(state)}...")
+            print(f"   Task status: {self._clean_enum_str(state)}...")
 
             if wait > 0 and (time.time() - start_time) > wait:
                 print(f"Timed out waiting for task creation after {wait} seconds.")
-                return
+                return False
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
 
@@ -7169,7 +7167,7 @@ class KaggleApi:
         ref_name = "kaggle_benchmarks_reference.md"
         col_width = max(len(env_name), len(example_name), len(ref_name)) + 3
 
-        print("\n✅ Environment initialized!")
+        print("\nEnvironment initialized!")
         print("\nFiles created in ./:")
         print(f"  {env_name.ljust(col_width)}(API keys & configuration)")
         print(f"  {example_name.ljust(col_width)}(Starter template)")
@@ -7203,6 +7201,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             # If a previous push is still being created, wait or error.
             task_info = self._get_benchmark_task(task_slug, kaggle, allow_not_found=True)
+            is_new_version = task_info is not None
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
                 if wait is None:
                     raise ValueError(
@@ -7211,7 +7210,6 @@ class KaggleApi:
                     )
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
-                print(f"Pushing new version of '{task_slug}'...")
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
@@ -7223,14 +7221,27 @@ class KaggleApi:
                 raise ValueError(f"Failed to push task: {error}")
 
             url = self._full_task_url(response.url)
-            print(f"Task '{task_slug}' pushed.")
-            print(f"\033[1mTask URL: {url}\033[0m")
-            print(f"To run this task against models, use: $ kaggle b t run {task_slug}")
+            model_output_url = re.sub(r"/\d+/?$", "", url) + "?compare=true"
+            banner_subject = f"new version of {task_slug}" if is_new_version else task_slug
+            print(f"\nPushed {banner_subject}")
+            print(f"   Task Details:  {url}")
 
             if wait is None:
-                print(f"To check creation status, use: $ kaggle b t status {task_slug}")
+                print(f"   Model Output:  {model_output_url}")
+                print("\nNext steps:")
+                print("   Check creation status:")
+                print(f"   $ kaggle b t status {task_slug}\n")
+                print("   Select models to run (or use --models to skip the menu):")
+                print(f"   $ kaggle b t run {task_slug}")
             else:
-                self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
+                print("\nStatus")
+                completed = self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
+                if completed:
+                    print("\nCompleted")
+                    print(f"   Model Output:  {model_output_url}")
+                    print("\nNext step:")
+                    print("   Select models to run (or use --models to skip the menu):")
+                    print(f"   $ kaggle b t run {task_slug}")
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
