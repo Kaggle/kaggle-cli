@@ -7058,7 +7058,9 @@ class KaggleApi:
 
         api_key = env_vars.get("MODEL_PROXY_API_KEY", "")
         if api_key:
-            print(f"  API Key  (ends in ...{api_key[-4:]})")
+            # Showing the last 4 chars of a high-entropy token is industry standard (Stripe, GitHub, AWS)
+            # for letting users identify which credential is in use without disclosing recoverable bits.
+            print(f"  API Key  (ends in ...{api_key[-4:]})")  # lgtm[py/clear-text-logging-sensitive-data]
         expiry_iso = env_vars.get("MODEL_PROXY_EXPIRY_TIME", "")
         if expiry_iso:
             print(f"  Expires: {self._format_expiry(expiry_iso)}")
