@@ -6662,6 +6662,20 @@ class KaggleApi:
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
         return s
 
+    _STATE_ICONS = {
+        "COMPLETED": "✅",
+        "RUNNING": "🔄",
+        "QUEUED": "⏳",
+        "ERRORED": "❌",
+    }
+
+    @staticmethod
+    def _format_state_with_icon(state) -> str:
+        """Render an enum state as ``{icon} {Titlecase}`` (e.g. ``✅ Completed``)."""
+        raw = KaggleApi._clean_enum_str(state)
+        icon = KaggleApi._STATE_ICONS.get(raw, "•")
+        return f"{icon} {raw.title()}"
+
     @staticmethod
     def _format_time(t) -> str:
         """Format a timestamp to seconds precision for display."""
@@ -6676,12 +6690,12 @@ class KaggleApi:
         max_task_len = max(max_task_len, 40)
 
         print(f"{'Task':<{max_task_len}} {'Version':<10} {'Status':<20} {'Created':<20}")
-        print("-" * (max_task_len + 53))
+        print(f"{'─' * max_task_len} {'─' * 10} {'─' * 20} {'─' * 20}")
         for t in tasks:
             version = str(t.slug.version_number) if t.slug.version_number else "unset"
             print(
                 f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
-                f" {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
+                f" {KaggleApi._clean_enum_str(t.creation_state).title():<20} {KaggleApi._format_time(t.create_time):<20}"
             )
 
     @staticmethod
@@ -6689,15 +6703,14 @@ class KaggleApi:
         """Print a list of benchmark task runs in an aligned table."""
         model_col = max((len(KaggleApi._normalize_model_slug(r.model_version_slug)) for r in runs), default=20)
         model_col = max(model_col, 20)
-        time_col = 21
-        sep = model_col + 15 + time_col + time_col
+        time_col = 19  # exact width of "%Y-%m-%d %H:%M:%S"
         print(f"{'Model':<{model_col}} {'Status':<15} {'Started':<{time_col}} {'Ended':<{time_col}}")
-        print("-" * sep)
+        print(f"{'─' * model_col} {'─' * 15} {'─' * time_col} {'─' * time_col}")
         errors = []
         for r in runs:
             slug = KaggleApi._normalize_model_slug(r.model_version_slug)
             print(
-                f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state):<15} "
+                f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state).title():<15} "
                 f"{KaggleApi._format_time(r.start_time):<{time_col}} {KaggleApi._format_time(r.end_time):<{time_col}}"
             )
             if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
@@ -7195,11 +7208,11 @@ class KaggleApi:
             print(f"Task:     {task_info.slug.task_slug}")
             version = task_info.slug.version_number or "unset"
             print(f"Version:  {version}")
-            print(f"Status:   {self._clean_enum_str(task_info.creation_state)}")
+            print(f"Status:   {self._format_state_with_icon(task_info.creation_state)}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
             url = getattr(task_info, "url", None)
             if url:
-                print(f"\033[1mTask URL: {self._full_task_url(url)}\033[0m")
+                print(f"Task URL: {self._full_task_url(url)}\n")
 
             runs = self._fetch_task_runs(kaggle, task, model)
 

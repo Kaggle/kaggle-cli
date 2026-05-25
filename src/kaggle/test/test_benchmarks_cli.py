@@ -754,11 +754,14 @@ class TestList:
         assert "my-task" not in output
 
     def test_list_table_format(self, api, capsys):
-        """Table uses 40/10/20/20 column widths and 93-char separator."""
+        """Table uses per-column unicode-line underlines spanning each column's full width."""
         _setup_list_response(api, [_make_task()])
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        assert "-" * 93 in output
+        # Column widths: max_task_len(>=40)/10/20/20.
+        assert "─" * 40 in output  # Task column (min width 40)
+        assert "─" * 10 in output  # Version column
+        assert "─" * 20 in output  # Status / Created columns
 
 
 # ============================================================
@@ -777,7 +780,7 @@ class TestStatus:
         output = capsys.readouterr().out
         assert "Task:" in output
         assert "Version:" in output
-        assert "Status:   COMPLETED" in output
+        assert "Status:   ✅ Completed" in output
         assert "Created:" in output
         assert "Task URL:" in output
 
