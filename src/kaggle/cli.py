@@ -62,6 +62,7 @@ def main() -> None:
     parse_benchmarks(subparsers)
     parse_config(subparsers)
     parse_auth(subparsers)
+    parse_quota(subparsers)
     args = parser.parse_args()
     command_args = {}
     command_args.update(vars(args))
@@ -1713,6 +1714,16 @@ def parse_auth(subparsers) -> None:
     parser_auth_revoke_token.set_defaults(func=api.auth_revoke_token)
 
 
+def parse_quota(subparsers) -> None:
+    parser_quota = subparsers.add_parser(
+        "quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_quota
+    )
+    parser_quota.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_quota.set_defaults(func=api.quota_view_cli)
+
+
 # ------------------------------------------------------------------
 # Shared helpers for discussion topics across entity types
 # ------------------------------------------------------------------
@@ -1825,6 +1836,7 @@ class Help(object):
         "b",
         "config",
         "auth",
+        "quota",
     ]
     competitions_choices = [
         "list",
@@ -1924,6 +1936,7 @@ class Help(object):
         + "}"
     )
     kaggle += "\nauth {" + ", ".join(auth_choices) + "}"
+    kaggle += "\nquota"
 
     group_competitions = "Commands related to Kaggle competitions"
     group_datasets = "Commands related to Kaggle datasets"
@@ -1937,6 +1950,7 @@ class Help(object):
     group_benchmarks_tasks = "Commands related to benchmark tasks"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
+    group_quota = "Show the current user's weekly GPU and TPU accelerator quota"
 
     # Entity topics commands (shared across entity types)
     command_entity_topics_show = "Display a topic with all its comments in tree form"

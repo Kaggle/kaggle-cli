@@ -167,6 +167,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiSaveKernelResponse,
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
+    ApiGetAcceleratorQuotaStatisticsRequest,
 )
 from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus, KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
@@ -4099,6 +4100,50 @@ class KaggleApi:
         else:
             print("Not found")
 
+    def quota_view(self):
+        """Fetches the current user's weekly GPU and TPU accelerator quota.
+
+        Returns:
+            An ApiGetAcceleratorQuotaStatisticsResponse with quota_refresh_time,
+            gpu_quota, and tpu_quota fields.
+        """
+        with self.build_kaggle_client() as kaggle:
+            return kaggle.kernels.kernels_api_client.get_accelerator_quota_statistics(
+                ApiGetAcceleratorQuotaStatisticsRequest()
+            )
+
+    def quota_view_cli(self, csv_display=False):
+        """A client wrapper for quota_view.
+
+        Args:
+            csv_display: If True, print comma-separated values instead of a table.
+        """
+        response = self.quota_view()
+        refresh = response.quota_refresh_time.isoformat() if response.quota_refresh_time else ""
+        rows = []
+        for name, quota in (("GPU", response.gpu_quota), ("TPU", response.tpu_quota)):
+            if quota is None:
+                continue
+            used_hours = quota.time_used.total_seconds() / 3600
+            total_hours = quota.total_time_allowed.total_seconds() / 3600
+            rows.append(
+                SimpleNamespace(
+                    resource=name,
+                    used=f"{used_hours:.2f}h",
+                    remaining=f"{max(0.0, total_hours - used_hours):.2f}h",
+                    total=f"{total_hours:.2f}h",
+                    refresh_at=refresh,
+                )
+            )
+        if not rows:
+            print("No quota information available")
+            return
+        fields = ["resource", "used", "remaining", "total", "refreshAt"]
+        if csv_display:
+            self.print_csv(rows, fields)
+        else:
+            self.print_table(rows, fields)
+
     def kernels_list_files(self, kernel, page_token=None, page_size=20):
         """Lists files for a kernel.
 
@@ -7776,7 +7821,7 @@ class TqdmBufferedReader(io.BufferedReader):
 
 from pprint import pprint
 from inspect import getmembers
-from types import FunctionType
+from types import FunctionType, SimpleNamespace
 
 
 def attributes(obj):
