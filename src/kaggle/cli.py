@@ -1626,11 +1626,11 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_publish_optional = parser_publish._action_groups.pop()
     parser_publish_optional.add_argument("task", help=Help.param_benchmarks_task)
     parser_publish_optional.add_argument(
-        "--publish-backing-notebook",
+        "--no-publish-backing-notebook",
         dest="publish_backing_notebook",
-        action="store_true",
+        action="store_false",
         required=False,
-        help=Help.param_benchmarks_publish_backing_notebook,
+        help=Help.param_benchmarks_no_publish_backing_notebook,
     )
     parser_publish._action_groups.append(parser_publish_optional)
     parser_publish.set_defaults(func=api.benchmarks_tasks_publish_cli)
@@ -2254,14 +2254,14 @@ class Help(object):
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
     param_benchmarks_list_page_size = "Tasks per page in the interactive pager (default: 20)"
     param_benchmarks_list_all = "Print every task at once and skip the interactive pager"
-    param_benchmarks_force = "Force re-download of already completed runs, overwriting local files."
+    param_benchmarks_force = "Force re-download, replacing existing output directories."
     param_benchmarks_include_source = "Also download the kernel session's source notebooks."
     param_benchmarks_kaggle_dataset = (
         "Kaggle dataset(s) to attach (format: owner/dataset-slug). "
         "The latest published version is used. "
         "Omitting this on a re-push detaches previously-attached datasets."
     )
-    param_benchmarks_publish_backing_notebook = "Also publish the backing notebook in the same request."
+    param_benchmarks_no_publish_backing_notebook = "Do not publish the backing notebook (it is published by default)."
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"

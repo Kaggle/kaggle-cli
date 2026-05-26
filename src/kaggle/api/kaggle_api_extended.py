@@ -7470,7 +7470,7 @@ class KaggleApi:
                 model_hint = self._format_model_hint(model)
                 print(f"No runs found for task '{task}'{model_hint}.")
                 print(f"Use 'kaggle b t run {task}' to start one.")
-                print(f"\nDone: 0 downloaded.")
+                print(f"\nDone: 0 runs downloaded.")
                 return
 
             downloadable = [r for r in runs if r.state in self._TERMINAL_RUN_STATES]
@@ -7478,7 +7478,7 @@ class KaggleApi:
                 pending = len(runs)
                 print(f"No downloadable runs yet — {pending} run(s) still in progress.")
                 print(f"Use 'kaggle b t status {task}' to check progress.")
-                print(f"\nDone: 0 downloaded.")
+                print(f"\nDone: 0 runs downloaded.")
                 return
 
             target_dir = os.path.join(output, task)
@@ -7554,7 +7554,7 @@ class KaggleApi:
                 print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
 
             # Summary
-            parts = [f"{n} {label}" for n, label in ((downloaded, "downloaded"), (skipped, "skipped")) if n]
+            parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (skipped, "skipped")) if n]
             print(f"\nDone: {', '.join(parts) or '0 runs downloaded'}.")
 
     @staticmethod
@@ -7705,7 +7705,7 @@ class KaggleApi:
         # TODO: Normalize task name via slugify(task) when server supports delete.
         print("Delete is not supported by the server yet.")
 
-    def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=False):
+    def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=True):
         """Publish a benchmark task, making it public."""
         task = slugify(task)
 

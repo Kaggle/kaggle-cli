@@ -165,11 +165,11 @@ kaggle benchmarks tasks run <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug).
+*   `<TASK>`: Task name (slug, e.g. `my-task`).
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: One or more model slugs to run against. If omitted, an interactive model picker is displayed.
+*   `-m, --model <MODEL> [MODEL ...]`: One or more model slugs (e.g. `gemini-2.5-pro`) to run against. If omitted, an interactive model picker is displayed.
 *   `--wait [TIMEOUT]`: Wait for runs to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
 *   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
@@ -247,11 +247,11 @@ kaggle benchmarks tasks status <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug).
+*   `<TASK>`: Task name (slug, e.g. `my-task`).
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: Filter the run table to specific model slug(s).
+*   `-m, --model <MODEL> [MODEL ...]`: Filter the run table to specific model slug(s) (e.g. `gemini-2.5-pro`).
 
 **Examples:**
 
@@ -285,11 +285,11 @@ kaggle benchmarks tasks download <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug).
+*   `<TASK>`: Task name (slug, e.g. `my-task`).
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: Download outputs only for specific model slug(s).
+*   `-m, --model <MODEL> [MODEL ...]`: Download outputs only for specific model slug(s) (e.g. `gemini-2.5-pro`).
 *   `-o, --output <DIRECTORY>`: Directory to download output files into (defaults to current working directory).
 *   `-s, --include-source`: Also download the kernel session's source notebooks.
 *   `-f, --force`: Force re-download of already completed runs, overwriting local files.
@@ -347,11 +347,11 @@ kaggle benchmarks tasks log <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug).
+*   `<TASK>`: Task name (slug, e.g. `my-task`).
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: Filter logs to specific model slug(s). If omitted, logs for all runs are shown.
+*   `-m, --model <MODEL> [MODEL ...]`: Filter logs to specific model slug(s) (e.g. `gemini-2.5-pro`). If omitted, logs for all runs are shown.
 
 **Aliases:** `log`, `logs`
 
@@ -457,7 +457,7 @@ kaggle benchmarks tasks delete <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug).
+*   `<TASK>`: Task name (slug, e.g. `my-task`).
 
 **Options:**
 
@@ -477,7 +477,7 @@ Deletes a benchmark task and all associated runs. **Note:** This command is not 
  
 ### `kaggle benchmarks tasks publish`
  
-Publishes a benchmark task, making it publicly visible.
+Publishes a benchmark task, making it publicly visible. By default, the backing notebook is also published.
  
 **Usage:**
  
@@ -487,29 +487,29 @@ kaggle benchmarks tasks publish <TASK> [options]
  
 **Arguments:**
  
-*   `<TASK>`: Task name (slug).
+*   `<TASK>`: Task name (slug, e.g. `my-task`).
  
 **Options:**
  
-*   `--publish-backing-notebook`: Also publish the backing notebook associated with the task. When omitted, only the task metadata is made public.
+*   `--no-publish-backing-notebook`: Do not publish the backing notebook (it is published by default).
  
 **Examples:**
  
-1.  Publish a task:
+1.  Publish a task and its backing notebook (default):
  
     ```bash
     kaggle b t publish my-task
     ```
  
-2.  Publish a task and its backing notebook:
+2.  Publish a task without its backing notebook:
  
     ```bash
-    kaggle b t publish my-task --publish-backing-notebook
+    kaggle b t publish my-task --no-publish-backing-notebook
     ```
  
 **Purpose:**
  
-This command changes the task's visibility from private to public. Optionally, the backing notebook (the kernel associated with the task) can be published at the same time via `--publish-backing-notebook`. Publishing is idempotent — re-publishing an already-public task prints a message and returns successfully. Unpublishing is not supported through this command.
+This command changes the task's visibility from private to public. By default, the backing notebook (the kernel associated with the task) is also published. Use `--no-publish-backing-notebook` to publish only the task metadata. Publishing is idempotent — re-publishing an already-public task prints a message and returns successfully. Unpublishing is not supported through this command.
 
 ## `kaggle benchmarks topics list`
 

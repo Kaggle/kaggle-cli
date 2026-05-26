@@ -125,14 +125,14 @@ kaggle b t push my-task -f task.py --wait -d kaggle/titanic user/my-dataset
 ```
 
 **Arguments:**
-- `<TASK>` (positional, required): Task name/slug
+- `<TASK>` (positional, required): Task name/slug (e.g. `my-task`)
 - `-f, --file <FILE>` (required): Path to the `.py` source file
 
 **Options:**
 - `--wait [TIMEOUT]`: Wait for creation to complete. `--wait` alone = wait indefinitely. `--wait 60` = timeout after 60s.
 - `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 - `-v, --verbose`: Enable verbose polling logs.
-- `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Attach Kaggle datasets to the task's backing notebook. Format: `owner/dataset-slug`. Mounted at `/kaggle/input/<dataset-slug>/` during execution.
+- `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Attach Kaggle datasets to the task's backing notebook. Format: `owner/dataset-slug`. Mounted at `/kaggle/input/<owner>/<dataset-slug>/` during execution.
 
 
 **What happens:**
@@ -171,10 +171,10 @@ kaggle b t run my-task -m gemini-2.5-pro --wait 30 --poll-interval 5
 ```
 
 **Arguments:**
-- `<TASK>` (positional, required): Task name/slug
+- `<TASK>` (positional, required): Task name/slug (e.g. `my-task`)
 
 **Options:**
-- `-m, --model <MODEL> [MODEL ...]`: One or more model slugs. If omitted, shows interactive picker.
+- `-m, --model <MODEL> [MODEL ...]` (e.g. `gemini-2.5-pro`): One or more model slugs. If omitted, shows interactive picker.
 - `--wait [TIMEOUT]`: Wait for runs to complete. `0` or omit value = indefinite.
 - `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 - `-v, --verbose`: Enable verbose polling logs.
@@ -240,7 +240,7 @@ kaggle b t download my-task --include-source
 ```
 
 **Options:**
-- `-m, --model <MODEL> [MODEL ...]`: Download only for specific models
+- `-m, --model <MODEL> [MODEL ...]` (e.g. `gemini-2.5-pro`): Download only for specific models
 - `-o, --output <DIRECTORY>`: Output directory (default: current directory)
 - `-s, --include-source`: Also download the kernel session's source notebooks (`__notebook__.ipynb`, `__notebook_source__.ipynb`)
 - `-f, --force`: Force re-download of already completed runs, overwriting local files
@@ -273,10 +273,10 @@ kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
 ```
 
 **Arguments:**
-- `<TASK>` (positional, required): Task name/slug
+- `<TASK>` (positional, required): Task name/slug (e.g. `my-task`)
 
 **Options:**
-- `-m, --model <MODEL> [MODEL ...]`: Filter logs to specific model(s). If omitted, logs for all runs are shown.
+- `-m, --model <MODEL> [MODEL ...]` (e.g. `gemini-2.5-pro`): Filter logs to specific model(s). If omitted, logs for all runs are shown.
 
 **Aliases:** `log`, `logs`
 
@@ -331,15 +331,15 @@ kaggle b t delete my-task -y   # skip confirmation
 ### Publish a Task
 
 ```bash
-# Publish a task (make it public)
+# Publish a task and its backing notebook (default)
 kaggle b t publish my-task
 
-# Also publish the task's backing notebook in the same request
-kaggle b t publish my-task --publish-backing-notebook
+# Publish without the backing notebook
+kaggle b t publish my-task --no-publish-backing-notebook
 ```
 
 **Options:**
-- `--publish-backing-notebook`: Also publish the task's backing notebook.
+- `--no-publish-backing-notebook`: Do not publish the backing notebook (it is published by default).
 
 **Notes:**
 - Idempotent: re-publishing an already-public task prints a message and returns successfully.

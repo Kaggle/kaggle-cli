@@ -1170,7 +1170,7 @@ class TestDownload:
         output = capsys.readouterr().out
         assert "gemini-pro" in output
         assert "Skipped" in output
-        assert "1 skipped" in output
+        assert "1 run(s) skipped" in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
 
@@ -1190,8 +1190,8 @@ class TestDownload:
             api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
         output = capsys.readouterr().out
-        assert "1 downloaded" in output
-        assert "1 skipped" in output
+        assert "1 run(s) downloaded" in output
+        assert "1 run(s) skipped" in output
 
     def test_download_force_overwrites_existing_output(self, api, capsys, tmp_path):
         """Using force=True re-downloads and overwrites existing output."""
@@ -1206,8 +1206,9 @@ class TestDownload:
             api.benchmarks_tasks_download_cli("my-task", output=outdir, force=True)
 
         output = capsys.readouterr().out
-        assert "Downloading output for run 42 (gemini-pro)..." in output
-        assert "Downloaded output for gemini-pro" in output
+        assert "gemini-pro" in output
+        assert "Done" in output
+        assert "1 run(s) downloaded" in output
         # The download API call must have been made!
         api._mock_benchmarks.download_benchmark_task_run_output.assert_called_once()
 
@@ -1385,12 +1386,36 @@ class TestDownload:
         api.benchmarks_tasks_download_cli("my-task", output=outdir, force=True)
 
         output = capsys.readouterr().out
-        assert "not a valid zip archive" in output
+        assert "bad-model" in output
+        assert "Bad zip" in output
+        assert "Done: 0 runs downloaded." in output
         # Raw zip file is kept
         zip_path = os.path.join(outdir, "my-task", "1", "bad-model", "10.zip")
         assert os.path.isfile(zip_path)
         # Existing output directory is preserved (not deleted by --force)
         assert os.path.isfile(sentinel)
+
+    def test_download_all_bad_zips_shows_zero_downloaded(self, api, capsys, tmp_path):
+        """When every download is a BadZipFile, summary says '0 downloaded'."""
+        _setup_completed_task(api)
+        _setup_runs_response(api, [_make_run(model="bad-model", run_id=10)])
+        api._mock_benchmarks.download_benchmark_task_run_output.return_value = MagicMock()
+
+        outdir = str(tmp_path / "out")
+
+        def fake_download(response, outfile, http_client, quiet=False):
+            os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            with open(outfile, "wb") as f:
+                f.write(b"this is not a zip")
+
+        api.download_file = MagicMock(side_effect=fake_download)
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir)
+
+        output = capsys.readouterr().out
+        assert "bad-model" in output
+        assert "Bad zip" in output
+        assert "Done: 0 runs downloaded." in output
 
 
 # ============================================================
@@ -1838,13 +1863,13 @@ class TestCliArgParsing:
             # publish
             (
                 "benchmarks tasks publish my-task",
-                {"task": "my-task", "publish_backing_notebook": False},
-            ),
-            (
-                "benchmarks tasks publish my-task --publish-backing-notebook",
                 {"task": "my-task", "publish_backing_notebook": True},
             ),
-            ("b t publish my-task", {"task": "my-task", "publish_backing_notebook": False}),
+            (
+                "benchmarks tasks publish my-task --no-publish-backing-notebook",
+                {"task": "my-task", "publish_backing_notebook": False},
+            ),
+            ("b t publish my-task", {"task": "my-task", "publish_backing_notebook": True}),
             # push with --kaggle-dataset
             (
                 "benchmarks tasks push my-task -f ./task.py -d user/dataset1 user/dataset2",
@@ -2339,7 +2364,7 @@ class TestFormatModalities:
 
 
 class TestPublish:
-    """``kaggle benchmarks tasks publish <task> [--publish-backing-notebook]``"""
+    """``kaggle benchmarks tasks publish <task> [--no-publish-backing-notebook]``"""
 
     def _setup_publish(self, api, slug="my-task", is_public=False, is_notebook_published=False):
         """Wire up get + publish mocks."""
@@ -2363,9 +2388,9 @@ class TestPublish:
         assert "Task URL:" in output
 
     def test_publish_already_public(self, api, capsys):
-        """Publishing an already-public task prints info and returns."""
+        """Publishing an already-public task (without notebook) prints info and returns."""
         self._setup_publish(api, is_public=True)
-        api.benchmarks_tasks_publish_cli("my-task")
+        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=False)
         output = capsys.readouterr().out
         assert "already public" in output
         api._mock_benchmarks.publish_benchmark_task.assert_not_called()
@@ -2389,17 +2414,24 @@ class TestPublish:
         api._mock_benchmarks.publish_benchmark_task.assert_not_called()
 
     def test_publish_with_backing_notebook(self, api, capsys):
-        """Publish task and its backing notebook."""
+        """Publish task and its backing notebook (default behavior)."""
         task, resp = self._setup_publish(api)
         resp.is_backing_notebook_published = True
-        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
+        api.benchmarks_tasks_publish_cli("my-task")
         request = api._mock_benchmarks.publish_benchmark_task.call_args[0][0]
         assert request.publish_backing_notebook is True
         output = capsys.readouterr().out
         assert "Backing notebook also published" in output
 
+    def test_publish_without_backing_notebook(self, api, capsys):
+        """Publish with --no-publish-backing-notebook skips notebook."""
+        self._setup_publish(api)
+        api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=False)
+        request = api._mock_benchmarks.publish_benchmark_task.call_args[0][0]
+        assert request.publish_backing_notebook is False
+
     def test_publish_with_backing_notebook_no_notebook(self, api, capsys):
-        """Publish with --publish-backing-notebook when no notebook exists."""
+        """Publish when no backing notebook exists."""
         task, resp = self._setup_publish(api)
         resp.is_backing_notebook_published = False
         api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
