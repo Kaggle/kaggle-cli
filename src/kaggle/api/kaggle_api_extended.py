@@ -6752,7 +6752,6 @@ class KaggleApi:
                 last_line = next((ln for ln in reversed(msg.strip().splitlines()) if ln.strip()), msg.strip())
                 print(f"{KaggleApi._error(f'  [{slug}]')} {KaggleApi._error_detail(last_line.strip())}")
 
-
     @staticmethod
     def _strip_ipython_magics(source: str) -> str:
         """Remove IPython/Jupyter magic lines so ast.parse() can handle them.
