@@ -6983,7 +6983,8 @@ class KaggleApi:
         return min(poll_interval, int(current_interval * 1.5))
 
     def _poll_task_creation(self, kaggle, task, wait, poll_interval, verbose=False):
-        """Poll task creation status until terminal or timeout. Returns True on completion, False on timeout."""
+        """Poll task creation status until terminal or timeout."""
+        print("Waiting for task to be processed...")
         start_time = time.time()
         current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
         while True:
@@ -6991,7 +6992,8 @@ class KaggleApi:
             state = task_info.creation_state
 
             if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
-                return True
+                print(f"Task '{task}' creation completed.")
+                return
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
@@ -6999,11 +7001,11 @@ class KaggleApi:
                     error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
 
-            print(f"   Task status: {self._clean_enum_str(state)}...")
+            print(f"  Task status: {self._clean_enum_str(state)}...")
 
             if wait > 0 and (time.time() - start_time) > wait:
                 print(f"Timed out waiting for task creation after {wait} seconds.")
-                return False
+                return
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
 
@@ -7051,106 +7053,55 @@ class KaggleApi:
             "MODEL_PROXY_EXPIRY_TIME": response.expiry_time.isoformat() + "Z" if response.expiry_time else "",
         }
 
-    def _write_benchmarks_env(self, env_vars, no_confirm, env_file, quiet=False):
-        env_file_abs = os.path.abspath(env_file)
-
-        print("The following configuration will be set:")
-
+    def _write_benchmarks_env(self, env_vars, no_confirm, env_file):
+        env_file = os.path.abspath(env_file)
         api_key = env_vars.get("MODEL_PROXY_API_KEY", "")
-        if api_key:
-            # Showing the last 4 chars of a high-entropy token is industry standard (Stripe, GitHub, AWS)
-            # for letting users identify which credential is in use without disclosing recoverable bits.
-            print(f"  API Key  (ends in ...{api_key[-4:]})")  # lgtm[py/clear-text-logging-sensitive-data]
-        expiry_iso = env_vars.get("MODEL_PROXY_EXPIRY_TIME", "")
-        if expiry_iso:
-            print(f"  Expires: {self._format_expiry(expiry_iso)}")
+        masked_api_key = "****************" + api_key[-4:] if len(api_key) > 4 else api_key
 
-        label_width = 17
-        defaults = [
-            ("Default LLM", env_vars.get("LLM_DEFAULT")),
-            ("Default Judge", env_vars.get("LLM_DEFAULT_EVAL")),
-        ]
-        defaults = [(label, value) for label, value in defaults if value]
-        for i, (label, value) in enumerate(defaults):
-            prefix = "\n" if i == 0 else ""
-            print(f"{prefix}  {label.ljust(label_width)}{value}")
-
-        llms_available = env_vars.get("LLMS_AVAILABLE", "")
-        if llms_available:
-            llms = [llm.strip() for llm in llms_available.split(",") if llm.strip()]
-            if llms:
-                label = "LLMs Available".ljust(label_width)
-                print(f"\n  {label}{llms[0]}")
-                continuation = " " * (2 + label_width)
-                for llm in llms[1:]:
-                    print(f"{continuation}{llm}")
-
+        print(f"The following environment variables will be written to {env_file}:\n")
+        for key, value in env_vars.items():
+            display_value = masked_api_key if key == "MODEL_PROXY_API_KEY" else value
+            print(f"  {key}={display_value}")
         print()
 
         if not no_confirm:
-            if not self.confirmation(f"write these settings to {os.path.basename(env_file_abs)}", default_to_yes=True):
-                return False
+            if not self.confirmation(f"write these environment variables to {env_file}", default_to_yes=True):
+                return
 
-        with open(env_file_abs, "a") as f:
+        with open(env_file, "a") as f:
             f.write("\n")
             for key, value in env_vars.items():
                 f.write(f"{key}={value}\n")
 
-        if not quiet:
-            print(f"Environment variables have been written to {env_file_abs}.")
-        return True
+        print(f"Environment variables have been written to {env_file}.")
 
-    @staticmethod
-    def _format_expiry(iso_timestamp):
-        try:
-            expiry = datetime.fromisoformat(iso_timestamp.rstrip("Z")).replace(tzinfo=timezone.utc)
-        except ValueError:
-            return iso_timestamp
-        total = int((expiry - datetime.now(timezone.utc)).total_seconds())
-        if total <= 0:
-            return "Expired"
-        if total < 3600:
-            n = max(1, total // 60)
-            return f"In {n} minute{'s' if n != 1 else ''}"
-        if total < 86400:
-            n = total // 3600
-            return f"In {n} hour{'s' if n != 1 else ''}"
-        n = total // 86400
-        return f"In {n} day{'s' if n != 1 else ''}"
-
-    def _write_benchmarks_example(self, example_file, quiet=False):
+    def _write_benchmarks_example(self, example_file):
         example_file = os.path.abspath(example_file)
         if os.path.exists(example_file):
-            if not quiet:
-                print(f"Example file already exists at {example_file}, skipping.")
+            print(f"Example file already exists at {example_file}, skipping.")
             return
 
         with open(example_file, "w") as f:
             f.write(BENCHMARKS_EXAMPLE_TASK)
 
-        if not quiet:
-            print(f"Example benchmark task file has been written to {example_file}.")
+        print(f"Example benchmark task file has been written to {example_file}.")
 
-    def _write_benchmarks_reference(self, directory, quiet=False):
+    def _write_benchmarks_reference(self, directory):
         ref_file = os.path.join(os.path.abspath(directory), "kaggle_benchmarks_reference.md")
         if os.path.exists(ref_file):
-            if not quiet:
-                print(f"Reference file already exists at {ref_file}, skipping.")
+            print(f"Reference file already exists at {ref_file}, skipping.")
             return
 
         with open(ref_file, "w") as f:
             f.write(BENCHMARKS_SYNTAX_REF)
 
-        if not quiet:
-            print(f"Syntax reference has been written to {ref_file}.")
+        print(f"Syntax reference has been written to {ref_file}.")
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
         env_vars = self._fetch_model_proxy_env()
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
 
     def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
-        print("Initializing Kaggle Benchmarks environment")
-        print(f"  Target:  {os.path.abspath(env_file)}\n")
         env_vars = self._fetch_model_proxy_env()
         env_vars.update(
             {
@@ -7159,24 +7110,9 @@ class KaggleApi:
                 "LLMS_AVAILABLE": "anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5",
             }
         )
-        if not self._write_benchmarks_env(env_vars, no_confirm, env_file, quiet=True):
-            return
-        self._write_benchmarks_example(example_file, quiet=True)
-        self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)), quiet=True)
-
-        env_name = os.path.basename(os.path.abspath(env_file))
-        example_name = os.path.basename(os.path.abspath(example_file))
-        ref_name = "kaggle_benchmarks_reference.md"
-        col_width = max(len(env_name), len(example_name), len(ref_name)) + 3
-
-        print("\nEnvironment initialized!")
-        print("\nFiles created in ./:")
-        print(f"  {env_name.ljust(col_width)}(API keys & configuration)")
-        print(f"  {example_name.ljust(col_width)}(Starter template)")
-        print(f"  {ref_name.ljust(col_width)}(Syntax guide)")
-        print("\nNext step:")
-        print("  Run your first task using the example file:")
-        print(f"  $ kaggle b t push what-is-kaggle -f {example_name} --wait")
+        self._write_benchmarks_env(env_vars, no_confirm, env_file)
+        self._write_benchmarks_example(example_file)
+        self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)))
 
     def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
@@ -7203,7 +7139,6 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             # If a previous push is still being created, wait or error.
             task_info = self._get_benchmark_task(task_slug, kaggle, allow_not_found=True)
-            is_new_version = task_info is not None
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
                 if wait is None:
                     raise ValueError(
@@ -7212,6 +7147,7 @@ class KaggleApi:
                     )
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
+                print(f"Pushing new version of '{task_slug}'...")
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
@@ -7223,27 +7159,14 @@ class KaggleApi:
                 raise ValueError(f"Failed to push task: {error}")
 
             url = self._full_task_url(response.url)
-            model_output_url = re.sub(r"/\d+/?$", "", url) + "?compare=true"
-            banner_subject = f"new version of {task_slug}" if is_new_version else task_slug
-            print(f"\nPushed {banner_subject}")
-            print(f"   Task Details:  {url}")
+            print(f"Task '{task_slug}' pushed.")
+            print(f"\033[1mTask URL: {url}\033[0m")
+            print(f"To run this task against models, use: $ kaggle b t run {task_slug}")
 
             if wait is None:
-                print(f"   Model Output:  {model_output_url}")
-                print("\nNext steps:")
-                print("   Check creation status:")
-                print(f"   $ kaggle b t status {task_slug}\n")
-                print("   Select models to run (or use --models to skip the menu):")
-                print(f"   $ kaggle b t run {task_slug}")
+                print(f"To check creation status, use: $ kaggle b t status {task_slug}")
             else:
-                print("\nStatus")
-                completed = self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
-                if completed:
-                    print("\nCompleted")
-                    print(f"   Model Output:  {model_output_url}")
-                    print("\nNext step:")
-                    print("   Select models to run (or use --models to skip the menu):")
-                    print(f"   $ kaggle b t run {task_slug}")
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
