@@ -878,8 +878,9 @@ class TestDownload:
         with patch("zipfile.ZipFile"), patch("os.remove"):
             api.benchmarks_tasks_download_cli("my-task", output="my_output_dir")
         output = capsys.readouterr().out
-        assert "Downloading output for run" in output
-        assert "Downloaded output for gemini-pro to" in output
+        assert "Downloading output runs for my-task" in output
+        assert "gemini-pro" in output
+        assert "✅ Done" in output
         assert "my_output_dir" in output
 
     def test_download_default_output_path(self, api, capsys):
@@ -959,8 +960,8 @@ class TestDownload:
         api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
         output = capsys.readouterr().out
-        assert "Skipping gemini-pro (run 42)" in output
-        assert "already downloaded" in output
+        assert "gemini-pro" in output
+        assert "⏭ Skipped" in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
 
@@ -1073,15 +1074,15 @@ class TestDownload:
         api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
         output = capsys.readouterr().out
-        # Bad zip: warning printed, raw file kept
-        assert "not a valid zip archive" in output
+        # Bad zip: status row marks it failed, raw file kept
+        assert "❌ Bad zip" in output
         bad_zip_path = os.path.join(outdir, "my-task", "1", "bad-model", "10.zip")
         assert os.path.isfile(bad_zip_path)
         # Good zip: extracted successfully
         good_dir = os.path.join(outdir, "my-task", "1", "good-model", "11")
         assert os.path.isdir(good_dir)
         assert os.path.isfile(os.path.join(good_dir, "result.txt"))
-        assert "Downloaded output for good-model to" in output
+        assert "✅ Done" in output
 
     def test_download_version_zero_uses_zero(self, api, capsys):
         """When version_number is 0 (unset), directory uses 'unset'."""

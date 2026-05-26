@@ -7249,23 +7249,42 @@ class KaggleApi:
                 print(f"Use 'kaggle b t status {task}' to check progress.")
                 return
 
-            for r in downloadable:
-                dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
-                dl_request.run_id = r.id
+            target_dir = os.path.join(output, task)
+            print(f"Downloading output runs for {task}")
+            print(f"Target directory:  {target_dir}/\n")
+
+            display_files = [
+                f"{self._normalize_model_slug(r.model_version_slug)}/{r.id}/{r.id}.zip" for r in downloadable
+            ]
+            model_col = max((len(self._normalize_model_slug(r.model_version_slug)) for r in downloadable), default=20)
+            model_col = max(model_col, 20)
+            file_col = max((len(f) for f in display_files), default=40)
+            file_col = max(file_col, 40)
+            size_col = 10
+            prog_col = 10
+
+            print(f"{'Model':<{model_col}} {'File':<{file_col}} {'Size':<{size_col}} {'Progress':<{prog_col}}")
+            print(f"{'─' * model_col} {'─' * file_col} {'─' * size_col} {'─' * prog_col}")
+
+            for r, display_file in zip(downloadable, display_files):
                 slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
                 outdir = os.path.join(output, task, version, slug, str(r.id))
+                row_prefix = f"{slug:<{model_col}} {display_file:<{file_col}}"
 
                 if os.path.isdir(outdir):
-                    print(f"Skipping {slug} (run {r.id}) — already downloaded to {outdir}")
+                    size_str = self._format_size(self._dir_size(outdir))
+                    print(f"{row_prefix} {size_str:<{size_col}} {'⏭ Skipped':<{prog_col}}")
                     continue
 
-                print(f"Downloading output for run {r.id} ({slug})...")
+                dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
+                dl_request.run_id = r.id
                 response = self.with_retry(
                     kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output
                 )(dl_request)
                 zipfile_path = outdir + ".zip"
-                self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
+                self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
+                size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
                 # Extract the zip archive into the output directory.
                 # Note: extractall() is safe here because the zip originates from
                 # the trusted Kaggle server, not user-supplied input (zip-slip).
@@ -7273,13 +7292,32 @@ class KaggleApi:
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
                         zf.extractall(outdir)
                 except zipfile.BadZipFile:
-                    print(
-                        f"Warning: Downloaded file for {slug} (run {r.id}) is not a valid zip archive. "
-                        f"The raw file has been kept at {zipfile_path}."
-                    )
+                    print(f"{row_prefix} {size_str:<{size_col}} {'❌ Bad zip':<{prog_col}}")
                     continue
                 os.remove(zipfile_path)
-                print(f"Downloaded output for {slug} to {outdir}")
+                print(f"{row_prefix} {size_str:<{size_col}} {'✅ Done':<{prog_col}}")
+
+    @staticmethod
+    def _format_size(n) -> str:
+        """Render a byte count as ``1.06KB`` / ``2.34MB`` / etc."""
+        if n is None:
+            return ""
+        n = float(n)
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if n < 1024 or unit == "TB":
+                return f"{n:.2f}{unit}" if unit != "B" else f"{int(n)}B"
+            n /= 1024
+        return f"{n:.2f}PB"
+
+    @staticmethod
+    def _dir_size(path) -> int:
+        total = 0
+        for dirpath, _, filenames in os.walk(path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                if os.path.isfile(fp):
+                    total += os.path.getsize(fp)
+        return total
 
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""
