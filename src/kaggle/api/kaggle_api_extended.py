@@ -7258,7 +7258,9 @@ class KaggleApi:
                         f"Kaggle datasets: {prev_sources}"
                     )
                     msg2 = self._warn_detail("  Re-pushing without --kaggle-dataset / -d will detach them.")
-                    msg3 = self._warn_detail(f"  To keep them, add: -d {' '.join(prev_options.dataset_data_sources)}")
+                    msg3 = self._warn_detail(
+                        f"  To keep them, add: {' '.join(f'-d {s}' for s in prev_options.dataset_data_sources)}"
+                    )
                     print(f"{msg1}\n{msg2}\n{msg3}", file=sys.stderr)
 
             request = ApiCreateBenchmarkTaskRequest()
@@ -7299,7 +7301,7 @@ class KaggleApi:
                 print("\nNext steps:")
                 print("   Check creation status:")
                 print(f"   $ kaggle b t status {task_slug}\n")
-                print("   Select models to run (or use --models to skip the menu):")
+                print("   Select models to run (or use -m to skip the menu):")
                 print(f"   $ kaggle b t run {task_slug}")
             else:
                 print("\nStatus")
@@ -7308,7 +7310,7 @@ class KaggleApi:
                     print("\nCompleted")
                     print(f"   Model Output:  {model_output_url}")
                     print("\nNext step:")
-                    print("   Select models to run (or use --models to skip the menu):")
+                    print("   Select models to run (or use -m to skip the menu):")
                     print(f"   $ kaggle b t run {task_slug}")
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):

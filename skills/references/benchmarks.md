@@ -118,7 +118,7 @@ kaggle b t push my-task -f task.py --wait
 kaggle b t push my-task -f task.py --wait 60 --poll-interval 5
 
 # Push with Kaggle datasets attached
-kaggle b t push my-task -f task.py --wait -d kaggle/titanic user/my-dataset
+kaggle b t push my-task -f task.py --wait -d kaggle/titanic -d user/my-dataset
 
 # Push without waiting (fire-and-forget; check status with `kaggle b t status`)
 # kaggle b t push my-task -f task.py
@@ -132,7 +132,7 @@ kaggle b t push my-task -f task.py --wait -d kaggle/titanic user/my-dataset
 - `--wait [TIMEOUT]`: Wait for creation to complete. `--wait` alone = wait indefinitely. `--wait 60` = timeout after 60s.
 - `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 - `-v, --verbose`: Enable verbose polling logs.
-- `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Attach Kaggle datasets to the task's backing notebook (format: `owner/dataset-slug`). Mounted at `/kaggle/input/<dataset-slug>/` by default. If a naming conflict occurs, the fully qualified mount path `/kaggle/input/<owner>/<dataset-slug>/` is used instead.
+- `-d, --kaggle-dataset <DATASET>`: Attach Kaggle dataset to the task's backing notebook (format: `owner/dataset-slug`). Repeat for multiple datasets (e.g. `-d kaggle/titanic -d user/my-dataset`). Mounted at `/kaggle/input/<dataset-slug>/` by default. If a naming conflict occurs, the fully qualified mount path `/kaggle/input/<owner>/<dataset-slug>/` is used instead.
 
 
 **What happens:**
@@ -161,7 +161,7 @@ kaggle b t push my-task -f task.py --wait -d kaggle/titanic user/my-dataset
 kaggle b t run my-task
 
 # Run against specific models
-kaggle b t run my-task -m gemini-2.5-pro claude-sonnet-4
+kaggle b t run my-task -m gemini-2.5-pro -m claude-sonnet-4
 
 # Run against a model and wait for completion
 kaggle b t run my-task -m gemini-2.5-pro --wait
@@ -174,7 +174,7 @@ kaggle b t run my-task -m gemini-2.5-pro --wait 30 --poll-interval 5
 - `<TASK>` (positional, required): Task name/slug (e.g. `my-task`)
 
 **Options:**
-- `-m, --model <MODEL> [MODEL ...]` (e.g. `gemini-2.5-pro`): One or more model slugs. If omitted, shows interactive picker.
+- `-m, --model <MODEL>` (e.g. `gemini-2.5-pro`): Model slug. Repeat for multiple models (e.g. `-m gemini-2.5-pro -m claude-sonnet-4`). If omitted, shows interactive picker.
 - `--wait [TIMEOUT]`: Wait for runs to complete. `0` or omit value = indefinite.
 - `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 - `-v, --verbose`: Enable verbose polling logs.
@@ -199,7 +199,7 @@ kaggle b t status my-task
 
 # Filter to specific models
 kaggle b t status my-task -m gemini-2.5-pro
-kaggle b t status my-task -m gemini-2.5-pro claude-sonnet-4
+kaggle b t status my-task -m gemini-2.5-pro -m claude-sonnet-4
 ```
 
 **Output format:**
@@ -240,7 +240,7 @@ kaggle b t download my-task --include-source
 ```
 
 **Options:**
-- `-m, --model <MODEL> [MODEL ...]` (e.g. `gemini-2.5-pro`): Download only for specific models
+- `-m, --model <MODEL>` (e.g. `gemini-2.5-pro`): Download only for a specific model. Repeat for multiple models.
 - `-o, --output <DIRECTORY>`: Output directory (default: current directory)
 - `-s, --include-source`: Also download the kernel session's source notebooks (`__notebook__.ipynb`, `__notebook_source__.ipynb`)
 - `-f, --force`: Force re-download of already completed runs, overwriting local files
@@ -269,14 +269,14 @@ kaggle b t log my-task
 kaggle b t log my-task -m gemini-2.5-pro
 
 # Show logs for multiple models
-kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
+kaggle b t logs my-task -m gemini-2.5-pro -m claude-sonnet-4
 ```
 
 **Arguments:**
 - `<TASK>` (positional, required): Task name/slug (e.g. `my-task`)
 
 **Options:**
-- `-m, --model <MODEL> [MODEL ...]` (e.g. `gemini-2.5-pro`): Filter logs to specific model(s). If omitted, logs for all runs are shown.
+- `-m, --model <MODEL>` (e.g. `gemini-2.5-pro`): Filter logs to a specific model. Repeat for multiple models. If omitted, logs for all runs are shown.
 
 **Aliases:** `log`, `logs`
 
@@ -389,7 +389,7 @@ kaggle b init -y
 kaggle b t push my-task -f task.py --wait
 
 # 4. Run against models
-kaggle b t run my-task -m gemini-2.5-pro claude-sonnet-4 --wait
+kaggle b t run my-task -m gemini-2.5-pro -m claude-sonnet-4 --wait
 
 # 5. Check status
 kaggle b t status my-task

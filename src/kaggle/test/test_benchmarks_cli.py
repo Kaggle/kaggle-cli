@@ -1787,7 +1787,7 @@ class TestCliArgParsing:
                 {"model": ["gemini-3"], "wait": 60},
             ),
             (
-                "benchmarks tasks run my-task -m gemini-3 gpt-5 claude-4",
+                "benchmarks tasks run my-task -m gemini-3 -m gpt-5 -m claude-4",
                 {"model": ["gemini-3", "gpt-5", "claude-4"]},
             ),
             ("b t run my-task -m gemini-3", {"task": "my-task", "model": ["gemini-3"]}),
@@ -1802,7 +1802,7 @@ class TestCliArgParsing:
             # status
             ("benchmarks tasks status my-task", {"task": "my-task", "model": None}),
             (
-                "benchmarks tasks status my-task -m gemini-3 gpt-5",
+                "benchmarks tasks status my-task -m gemini-3 -m gpt-5",
                 {"task": "my-task", "model": ["gemini-3", "gpt-5"]},
             ),
             # download
@@ -1833,7 +1833,7 @@ class TestCliArgParsing:
                 {"task": "my-task", "model": ["gemini-3"]},
             ),
             (
-                "benchmarks tasks log my-task -m gemini-3 claude-4",
+                "benchmarks tasks log my-task -m gemini-3 -m claude-4",
                 {"model": ["gemini-3", "claude-4"]},
             ),
             (
@@ -1872,7 +1872,7 @@ class TestCliArgParsing:
             ("b t publish my-task", {"task": "my-task", "publish_backing_notebook": True}),
             # push with --kaggle-dataset
             (
-                "benchmarks tasks push my-task -f ./task.py -d user/dataset1 user/dataset2",
+                "benchmarks tasks push my-task -f ./task.py -d user/dataset1 -d user/dataset2",
                 {"task": "my-task", "file": "./task.py", "kaggle_datasets": ["user/dataset1", "user/dataset2"]},
             ),
             (

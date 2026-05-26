@@ -110,7 +110,7 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 *   `--wait [TIMEOUT]`: Wait for the task creation to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
 *   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
-*   `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Kaggle dataset(s) to attach to the task's underlying notebook (format: `owner/dataset-slug`). Mounted at `/kaggle/input/<dataset-slug>/` by default. If a naming conflict occurs, the fully qualified mount path `/kaggle/input/<owner>/<dataset-slug>/` is used instead.
+*   `-d, --kaggle-dataset <DATASET>`: Kaggle dataset to attach to the task's underlying notebook (format: `owner/dataset-slug`). Repeat for multiple datasets (e.g. `-d kaggle/titanic -d user/my-dataset`). Mounted at `/kaggle/input/<dataset-slug>/` by default. If a naming conflict occurs, the fully qualified mount path `/kaggle/input/<owner>/<dataset-slug>/` is used instead.
 
 
 **Examples:**
@@ -136,7 +136,7 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 4.  Push a task with Kaggle datasets attached:
  
      ```bash
-     kaggle b t push my-task -f benchmark.py -d kaggle/titanic user/my-dataset
+     kaggle b t push my-task -f benchmark.py -d kaggle/titanic -d user/my-dataset
      ```
  
 5.  Push a task with datasets and wait:
@@ -169,7 +169,7 @@ kaggle benchmarks tasks run <TASK> [options]
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: One or more model slugs (e.g. `gemini-2.5-pro`) to run against. If omitted, an interactive model picker is displayed.
+*   `-m, --model <MODEL>`: Model slug (e.g. `gemini-2.5-pro`) to run against. Repeat for multiple models (e.g. `-m gemini-2.5-pro -m claude-sonnet-4`). If omitted, an interactive model picker is displayed.
 *   `--wait [TIMEOUT]`: Wait for runs to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
 *   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
@@ -185,7 +185,7 @@ kaggle benchmarks tasks run <TASK> [options]
 2.  Run a task against specific models:
 
     ```bash
-    kaggle b t run my-task -m gemini-2.5-pro claude-sonnet-4
+    kaggle b t run my-task -m gemini-2.5-pro -m claude-sonnet-4
     ```
 
 3.  Run a task and wait for all runs to finish:
@@ -251,7 +251,7 @@ kaggle benchmarks tasks status <TASK> [options]
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: Filter the run table to specific model slug(s) (e.g. `gemini-2.5-pro`).
+*   `-m, --model <MODEL>`: Filter the run table to a specific model slug (e.g. `gemini-2.5-pro`). Repeat for multiple models.
 
 **Examples:**
 
@@ -289,7 +289,7 @@ kaggle benchmarks tasks download <TASK> [options]
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: Download outputs only for specific model slug(s) (e.g. `gemini-2.5-pro`).
+*   `-m, --model <MODEL>`: Download outputs only for a specific model slug (e.g. `gemini-2.5-pro`). Repeat for multiple models.
 *   `-o, --output <DIRECTORY>`: Directory to download output files into (defaults to current working directory).
 *   `-s, --include-source`: Also download the kernel session's source notebooks.
 *   `-f, --force`: Force re-download of already completed runs, overwriting local files.
@@ -351,7 +351,7 @@ kaggle benchmarks tasks log <TASK> [options]
 
 **Options:**
 
-*   `-m, --model <MODEL> [MODEL ...]`: Filter logs to specific model slug(s) (e.g. `gemini-2.5-pro`). If omitted, logs for all runs are shown.
+*   `-m, --model <MODEL>`: Filter logs to a specific model slug (e.g. `gemini-2.5-pro`). Repeat for multiple models. If omitted, logs for all runs are shown.
 
 **Aliases:** `log`, `logs`
 
@@ -372,7 +372,7 @@ kaggle benchmarks tasks log <TASK> [options]
 3.  Show logs for multiple models:
 
     ```bash
-    kaggle b t logs my-task -m gemini-2.5-pro claude-sonnet-4
+    kaggle b t logs my-task -m gemini-2.5-pro -m claude-sonnet-4
     ```
 
 **Purpose:**
