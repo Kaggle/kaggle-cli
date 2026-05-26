@@ -495,7 +495,9 @@ class TestRun:
         api.benchmarks_tasks_run_cli("my-task", models)
         output = capsys.readouterr().out
         assert "Submitted run(s) for task 'my-task'" in output
-        assert "To check status later, use: kaggle b t status" in output
+        assert "Next steps:" in output
+        assert "Check run status:" in output
+        assert "kaggle b t status my-task" in output
         for m in models:
             assert f"{m}: Scheduled" in output
 
@@ -517,7 +519,7 @@ class TestRun:
         with patch("time.sleep"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)
         output = capsys.readouterr().out
-        assert "To check status later" not in output
+        assert "Check run status" not in output
 
     # -- Interactive model selection --
 
@@ -535,7 +537,8 @@ class TestRun:
         _setup_completed_task(api)
         _setup_available_models(api, ["gemini-pro", "gemma-2b"])
         _setup_batch_schedule(api, [])
-        with patch("builtins.input", return_value="all"):
+        # "all" picks every model; confirmation prompt requires an explicit "yes".
+        with patch("builtins.input", side_effect=["all", "yes"]):
             api.benchmarks_tasks_run_cli("my-task")
         request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro", "gemma-2b"]
@@ -561,6 +564,36 @@ class TestRun:
         _setup_available_models(api, ["gemini-pro"])
         with patch("builtins.input", side_effect=EOFError), pytest.raises(ValueError, match="-m/--model"):
             api.benchmarks_tasks_run_cli("my-task")
+
+    def test_run_model_selection_table_header(self, api, capsys):
+        """Interactive model picker prints summary + Model/Slug/Modality header + underline."""
+        _setup_completed_task(api)
+        _setup_available_models(api, ["gemini-pro", "gemma-2b"])
+        _setup_batch_schedule(api, [_make_run_result()])
+        with patch("builtins.input", return_value="1"):
+            api.benchmarks_tasks_run_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Showing 1-2 of 2 models available" in output
+        assert "Model" in output and "Slug" in output and "Modality" in output
+        # Per-column unicode underlines
+        assert "─" * len("Model") in output
+
+    def test_run_model_selection_pagination(self, api, capsys):
+        """When >page_size models, the [Page X/Y] indicator appears and 'n' advances."""
+        _setup_completed_task(api)
+        _setup_available_models(api, [f"model-{i}" for i in range(25)])
+        _setup_batch_schedule(api, [_make_run_result()])
+        # 'n' moves to page 2, then '21' selects model index 21.
+        with patch("builtins.input", side_effect=["n", "21"]):
+            api.benchmarks_tasks_run_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Showing 1-20 of 25 models available" in output
+        assert "Showing 21-25 of 25 models available" in output
+        assert "[Page 1/2]" in output
+        assert "[Page 2/2]" in output
+        # Verify the selection landed on the right (1-indexed) slug.
+        request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
+        assert request.model_version_slugs == ["model-20"]
 
     def test_run_accepts_piped_model_selection(self, api):
         """Piped stdin with a selection still schedules the chosen model."""
@@ -868,6 +901,35 @@ class TestStatus:
         assert "Errors:" in output
         assert "[gemma-2b]" in output
         assert "OOM" in output
+
+    def test_status_errored_run_truncates_traceback(self, api, capsys):
+        """Multi-line tracebacks collapse to the last meaningful line only."""
+        traceback_msg = (
+            "Traceback (most recent call last):\n"
+            '  File "/benchmarks/src/tasks.py", line 127, in run\n'
+            "    run.result = self.func(*args, **kwargs)\n"
+            '  File "/tmp/ipykernel/162297423.py", line 6, in what_is_kaggle\n'
+            '    response = llm.prompt("What is Kaggle?")\n'
+            '  File "/openai/_base_client.py", line 1047, in request\n'
+            "    raise self._make_status_error_from_response(err.response) from None\n"
+            "openai.BadRequestError: Error code: 400 - max_tokens too large\n"
+        )
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(
+            api,
+            [_make_run(model="gemma-2b", state=RUN_ERRORED, run_id=43, error_message=traceback_msg)],
+        )
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        # Final exception line is rendered...
+        assert "openai.BadRequestError: Error code: 400 - max_tokens too large" in output
+        # ...stack-frame noise is suppressed
+        assert "Traceback (most recent call last)" not in output
+        assert "ipykernel" not in output
+        assert "/openai/_base_client.py" not in output
+        # Slug and exception sit on the same line — no newline between bracket and message
+        assert "[gemma-2b]" in output
+        assert "[gemma-2b]\n" not in output
 
     def test_status_pagination(self, api, capsys):
         """Status fetches all pages of runs."""
@@ -1752,3 +1814,71 @@ class TestStripIpythonMagics:
     def test_no_magics(self):
         source = "import os\nx = 1\n"
         assert KaggleApi._strip_ipython_magics(source) == source
+
+
+# ============================================================
+# _truncate / _format_modalities helpers
+# ============================================================
+
+
+class TestTruncate:
+    """Tests for ``KaggleApi._truncate``."""
+
+    @pytest.mark.parametrize(
+        "value, max_len, expected",
+        [
+            ("hello", 10, "hello"),  # short string passes through
+            ("hello", 5, "hello"),  # exactly max length
+            ("hello world", 5, "hell…"),  # truncated to max_len - 1 + ellipsis
+            ("", 5, ""),  # empty string
+            ("a" * 100, 3, "aa…"),  # very long input
+        ],
+    )
+    def test_truncate(self, value, max_len, expected):
+        assert KaggleApi._truncate(value, max_len) == expected
+
+
+class TestFormatModalities:
+    """Tests for ``KaggleApi._format_modalities``."""
+
+    def _make_version(self, inputs=None, outputs=None):
+        version = MagicMock()
+        version.input_modalities = [MagicMock(name=f"MODALITY_{n}") for n in (inputs or [])]
+        for mock_obj, name in zip(version.input_modalities, inputs or []):
+            mock_obj.name = f"MODALITY_{name}"
+        version.output_modalities = [MagicMock() for _ in (outputs or [])]
+        for mock_obj, name in zip(version.output_modalities, outputs or []):
+            mock_obj.name = f"MODALITY_{name}"
+        return version
+
+    def test_text_to_text(self):
+        v = self._make_version(inputs=["TEXT"], outputs=["TEXT"])
+        assert KaggleApi._format_modalities(v) == "Text-to-Text"
+
+    def test_image_text_to_text_sorted_alphabetically(self):
+        v = self._make_version(inputs=["TEXT", "IMAGE"], outputs=["TEXT"])
+        assert KaggleApi._format_modalities(v) == "Image-Text-to-Text"
+
+    def test_any_to_any_when_both_have_three_or_more_matching(self):
+        v = self._make_version(
+            inputs=["TEXT", "IMAGE", "AUDIO", "VIDEO"],
+            outputs=["TEXT", "IMAGE", "AUDIO", "VIDEO"],
+        )
+        assert KaggleApi._format_modalities(v) == "Any-to-Any"
+
+    def test_unspecified_modality_skipped(self):
+        v = self._make_version(inputs=["TEXT", "UNSPECIFIED"], outputs=["TEXT"])
+        assert KaggleApi._format_modalities(v) == "Text-to-Text"
+
+    def test_missing_attributes_returns_empty(self):
+        v = MagicMock(spec=[])  # spec=[] -> no attributes -> getattr returns None
+        assert KaggleApi._format_modalities(v) == ""
+
+    def test_non_iterable_modalities_tolerated(self):
+        """Older API responses or test mocks may not have iterable modality lists."""
+        v = MagicMock()
+        v.input_modalities = MagicMock()  # truthy but not iterable as a list of enums
+        v.input_modalities.__iter__ = MagicMock(side_effect=TypeError)
+        v.output_modalities = MagicMock()
+        v.output_modalities.__iter__ = MagicMock(side_effect=TypeError)
+        assert KaggleApi._format_modalities(v) == ""

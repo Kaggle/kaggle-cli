@@ -6719,9 +6719,10 @@ class KaggleApi:
             print()
             print(f"\033[1;31mErrors:\033[0m")
             for slug, msg in errors:
-                print(f"\033[1;31m  [{slug}]\033[0m")
-                for line in msg.strip().splitlines():
-                    print(f"\033[31m    {line}\033[0m")
+                # Server-captured error_message may include a full Python traceback. The actual
+                # exception line is last; everything above is stack noise. Show just that line.
+                last_line = next((ln for ln in reversed(msg.strip().splitlines()) if ln.strip()), msg.strip())
+                print(f"\033[1;31m  [{slug}]\033[0m \033[31m{last_line.strip()}\033[0m")
 
     @staticmethod
     def _strip_ipython_magics(source: str) -> str:
@@ -6897,22 +6898,36 @@ class KaggleApi:
         total = len(available)
         total_pages = math.ceil(total / page_size)
         current_page = 0
+        num_width = len(str(total))
 
-        print(f"No model specified. {total} model(s) available:")
+        modality_max = 20
+        modalities = [
+            self._truncate(self._format_modalities(getattr(m, "version", None)), modality_max) for m in available
+        ]
+        labels = [f"{i + 1:>{num_width}}. {m.display_name}" for i, m in enumerate(available)]
+        slugs = [m.version.slug for m in available]
+        model_col = max(len("Model"), max(len(label) for label in labels))
+        slug_col = max(len("Slug"), max((len(s) for s in slugs), default=4))
+        modality_col = max(len("Modality"), max((len(m) for m in modalities), default=8))
+
         while True:
             start = current_page * page_size
-            for i, m in enumerate(available[start : start + page_size], start=start + 1):
-                print(f"  {i}. {m.version.slug} ({m.display_name})")
+            end = min(start + page_size, total)
+            print(f"\nShowing {start + 1}-{end} of {total} models available:\n")
+            print(f"{'Model':<{model_col}} {'Slug':<{slug_col}} {'Modality':<{modality_col}}")
+            print(f"{'─' * model_col} {'─' * slug_col} {'─' * modality_col}")
+            for i in range(start, end):
+                print(f"{labels[i]:<{model_col}} {slugs[i]:<{slug_col}} {modalities[i]:<{modality_col}}")
 
             nav_hints = []
             if total_pages > 1:
-                print(f"  [Page {current_page + 1}/{total_pages}]")
+                print(f"[Page {current_page + 1}/{total_pages}]")
                 if current_page < total_pages - 1:
-                    nav_hints.append("'n'=next")
+                    nav_hints.append("'n'= next")
                 if current_page > 0:
-                    nav_hints.append("'p'=prev")
+                    nav_hints.append("'p'= prev")
 
-            prompt_parts = ["Enter model numbers (comma-separated)", "'all'"]
+            prompt_parts = ["\nEnter model numbers (comma-separated)", "'all'"]
             if nav_hints:
                 prompt_parts.extend(nav_hints)
             try:
@@ -6929,6 +6944,8 @@ class KaggleApi:
             elif selection == "p" and current_page > 0:
                 current_page -= 1
             elif selection == "all":
+                if not self.confirmation(f"submit runs for all {total} models", default_to_yes=False):
+                    continue
                 return [m.version.slug for m in available]
             else:
                 try:
@@ -6937,7 +6954,36 @@ class KaggleApi:
                 except (ValueError, IndexError):
                     raise ValueError(f"Invalid selection: {selection}")
 
+    @staticmethod
+    def _truncate(s: str, max_len: int) -> str:
+        """Truncate *s* to *max_len* characters, appending an ellipsis when shortened."""
+        return s if len(s) <= max_len else s[: max_len - 1] + "…"
+
+    @staticmethod
+    def _format_modalities(version) -> str:
+        """Render a model version's modalities as ``Input-to-Output`` (e.g., ``Image-Text-to-Text``)."""
+
+        def names(mods):
+            try:
+                out = []
+                for m in mods or []:
+                    name = getattr(m, "name", "")
+                    if name and "UNSPECIFIED" not in name:
+                        out.append(name.replace("MODALITY_", "").title())
+                return sorted(set(out))
+            except TypeError:
+                return []
+
+        in_names = names(getattr(version, "input_modalities", None))
+        out_names = names(getattr(version, "output_modalities", None))
+        if not in_names and not out_names:
+            return ""
+        if in_names == out_names and len(in_names) >= 3:
+            return "Any-to-Any"
+        return f"{'-'.join(in_names) or 'Unknown'}-to-{'-'.join(out_names) or 'Unknown'}"
+
     _ADAPTIVE_POLL_START = 5  # Initial adaptive polling interval in seconds
+    _BATCH_SCHEDULE_CHUNK_SIZE = 10  # Server may reject large batches; chunk to keep each call small.
 
     @staticmethod
     def _adaptive_sleep(current_interval, poll_interval, verbose=False):
@@ -7129,10 +7175,10 @@ class KaggleApi:
             url = self._full_task_url(response.url)
             print(f"Task '{task_slug}' pushed.")
             print(f"\033[1mTask URL: {url}\033[0m")
-            print(f"To run this task against models, use: kaggle b t run {task_slug}")
+            print(f"To run this task against models, use: $ kaggle b t run {task_slug}")
 
             if wait is None:
-                print(f"To check creation status, use: kaggle b t status {task_slug}")
+                print(f"To check creation status, use: $ kaggle b t status {task_slug}")
             else:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
 
@@ -7157,30 +7203,37 @@ class KaggleApi:
                 models = self._select_models_interactively(kaggle)
                 print(f"Selected models: {models}")
 
-            request = ApiBatchScheduleBenchmarkTaskRunsRequest()
-            request.task_slugs = [self._make_task_slug(task)]
-            request.model_version_slugs = models
+            print(f"Submitting {len(models)} run(s)...")
+            all_results = []
+            for chunk_start in range(0, len(models), self._BATCH_SCHEDULE_CHUNK_SIZE):
+                chunk = models[chunk_start : chunk_start + self._BATCH_SCHEDULE_CHUNK_SIZE]
+                request = ApiBatchScheduleBenchmarkTaskRunsRequest()
+                request.task_slugs = [self._make_task_slug(task)]
+                request.model_version_slugs = chunk
+                try:
+                    response = self.with_retry(
+                        kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs
+                    )(request)
+                except HTTPError as e:
+                    if e.response.status_code == 404:
+                        raise ValueError(
+                            f"Failed to schedule runs. One or more model names may be invalid: {chunk}. "
+                            f"Use 'kaggle b t run {task}' (without -m) to select from available models."
+                        ) from None
+                    raise
+                all_results.extend(response.results)
 
-            try:
-                response = self.with_retry(
-                    kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs
-                )(request)
-            except HTTPError as e:
-                if e.response.status_code == 404:
-                    raise ValueError(
-                        f"Failed to schedule runs. One or more model names may be invalid: {models}. "
-                        f"Use 'kaggle b t run {task}' (without -m) to select from available models."
-                    ) from None
-                raise
             print(f"Submitted run(s) for task '{task}'.")
-            for model_slug, res in zip(models, response.results):
+            for model_slug, res in zip(models, all_results):
                 if res.run_scheduled:
                     print(f"  {model_slug}: Scheduled")
                 else:
                     print(f"  {model_slug}: Skipped ({res.run_skipped_reason})")
 
             if wait is None:
-                print(f"To check status later, use: kaggle b t status {task}")
+                print("\nNext steps:")
+                print("   Check run status:")
+                print(f"   $ kaggle b t status {task}")
             else:
                 self._poll_runs(kaggle, task, models, wait, poll_interval, verbose=verbose)
 

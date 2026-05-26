@@ -1519,6 +1519,12 @@ def parse_benchmark_tasks(subparsers) -> None:
         "--name-regex", dest="name_regex", required=False, help=Help.param_benchmarks_name_regex
     )
     parser_list_optional.add_argument("--status", dest="status", required=False, help=Help.param_benchmarks_status)
+    parser_list_optional.add_argument(
+        "--limit", dest="limit", required=False, type=int, help=Help.param_benchmarks_list_limit
+    )
+    parser_list_optional.add_argument(
+        "--all", dest="show_all", required=False, action="store_true", help=Help.param_benchmarks_list_all
+    )
     parser_list._action_groups.append(parser_list_optional)
     parser_list.set_defaults(func=api.benchmarks_tasks_list_cli)
 
@@ -2171,6 +2177,8 @@ class Help(object):
     )
     param_benchmarks_verbose = "Enable verbose polling logs"
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
+    param_benchmarks_list_limit = "Tasks per page in the interactive pager (default: 20)"
+    param_benchmarks_list_all = "Print every task at once and skip the interactive pager"
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"
