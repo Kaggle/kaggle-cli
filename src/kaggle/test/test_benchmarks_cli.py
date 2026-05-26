@@ -697,8 +697,9 @@ class TestList:
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
         assert "Task" in output
-        assert "Version" in output
+        assert "Status" in output
         assert "my-task" in output
+        assert "Showing 1-1 of 1 tasks" in output
 
     def test_list_retries_on_429_and_succeeds(self, api, capsys):
         """When list receives 429, it retries and succeeds, printing retry log to stderr."""
@@ -746,11 +747,11 @@ class TestList:
 
     @pytest.mark.parametrize("tasks", [[], None], ids=["empty_list", "none"])
     def test_list_empty(self, api, capsys, tasks):
-        """Empty/None task list still prints the header."""
+        """Empty/None task list prints a friendly message instead of an empty table."""
         _setup_list_response(api, tasks)
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        assert "Task" in output
+        assert "No tasks found." in output
         assert "my-task" not in output
 
     def test_list_table_format(self, api, capsys):
@@ -758,10 +759,44 @@ class TestList:
         _setup_list_response(api, [_make_task()])
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        # Column widths: max_task_len(>=40)/10/20/20.
+        # Column widths: max_task_len(>=40)/20/20.
         assert "─" * 40 in output  # Task column (min width 40)
-        assert "─" * 10 in output  # Version column
         assert "─" * 20 in output  # Status / Created columns
+
+    def test_list_pagination_prompts_for_navigation(self, api, capsys):
+        """When >page_size tasks, an interactive [n/p/q] prompt drives paging."""
+        tasks = [_make_task(slug=f"task-{i}") for i in range(25)]
+        _setup_list_response(api, tasks)
+        # 'n' advances to page 2, then 'q' exits.
+        with patch("builtins.input", side_effect=["n", "q"]):
+            api.benchmarks_tasks_list_cli()
+        output = capsys.readouterr().out
+        assert "Showing 1-20 of 25 tasks" in output
+        assert "Showing 21-25 of 25 tasks" in output
+        assert "[Page 1/2]" in output
+        assert "[Page 2/2]" in output
+
+    def test_list_limit_overrides_page_size(self, api, capsys):
+        """``--limit 5`` overrides the default page size."""
+        tasks = [_make_task(slug=f"task-{i}") for i in range(12)]
+        _setup_list_response(api, tasks)
+        with patch("builtins.input", side_effect=["q"]):
+            api.benchmarks_tasks_list_cli(limit=5)
+        output = capsys.readouterr().out
+        assert "Showing 1-5 of 12 tasks" in output
+        assert "[Page 1/3]" in output
+
+    def test_list_all_skips_interactive_pager(self, api, capsys):
+        """``--all`` prints every task and never prompts for input."""
+        tasks = [_make_task(slug=f"task-{i}") for i in range(25)]
+        _setup_list_response(api, tasks)
+        # No input mock — would raise if input() were called.
+        api.benchmarks_tasks_list_cli(show_all=True)
+        output = capsys.readouterr().out
+        assert "Showing 1-25 of 25 tasks" in output
+        assert "[Page" not in output
+        assert "task-0" in output
+        assert "task-24" in output
 
 
 # ============================================================

@@ -6689,12 +6689,11 @@ class KaggleApi:
         max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
         max_task_len = max(max_task_len, 40)
 
-        print(f"{'Task':<{max_task_len}} {'Version':<10} {'Status':<20} {'Created':<20}")
-        print(f"{'─' * max_task_len} {'─' * 10} {'─' * 20} {'─' * 20}")
+        print(f"{'Task':<{max_task_len}} {'Status':<20} {'Created':<20}")
+        print(f"{'─' * max_task_len} {'─' * 20} {'─' * 20}")
         for t in tasks:
-            version = str(t.slug.version_number) if t.slug.version_number else "unset"
             print(
-                f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
+                f"{t.slug.task_slug:<{max_task_len}}"
                 f" {KaggleApi._clean_enum_str(t.creation_state).title():<20} {KaggleApi._format_time(t.create_time):<20}"
             )
 
@@ -7185,7 +7184,7 @@ class KaggleApi:
             else:
                 self._poll_runs(kaggle, task, models, wait, poll_interval, verbose=verbose)
 
-    def benchmarks_tasks_list_cli(self, name_regex=None, status=None):
+    def benchmarks_tasks_list_cli(self, name_regex=None, status=None, limit=None, show_all=False):
         request = ApiListBenchmarkTasksRequest()
         if name_regex:
             request.regex_filter = name_regex
@@ -7199,7 +7198,49 @@ class KaggleApi:
                 return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
-            self._print_task_table(all_tasks)
+            if show_all:
+                self._paginated_task_display(all_tasks, page_size=max(len(all_tasks), 1), interactive=False)
+            else:
+                self._paginated_task_display(all_tasks, page_size=limit or 20)
+
+    def _paginated_task_display(self, tasks, page_size=20, interactive=True):
+        """Display *tasks* one page at a time with an interactive n/p/q prompt."""
+        total = len(tasks)
+        if total == 0:
+            print("No tasks found.")
+            return
+
+        # Extract owner username from a task URL of the form /benchmarks/tasks/{user}/{slug}/{ver}.
+        username = None
+        for t in tasks:
+            parts = (getattr(t, "url", "") or "").strip("/").split("/")
+            if len(parts) >= 3 and parts[0] == "benchmarks" and parts[1] == "tasks":
+                username = parts[2]
+                break
+
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        page = 1
+        while True:
+            start = (page - 1) * page_size
+            end = min(start + page_size, total)
+            url_hint = f" (https://www.kaggle.com/benchmarks/tasks/{username}/)" if username else ""
+            print(f"\nShowing {start + 1}-{end} of {total} tasks{url_hint}\n")
+            self._print_task_table(tasks[start:end])
+
+            if total_pages == 1 or not interactive:
+                return
+
+            print(f"\n[Page {page}/{total_pages}] [n]ext, [p]rev, [q]uit: ", end="", flush=True)
+            try:
+                choice = input().strip().lower()
+            except EOFError:
+                return
+            if choice == "q":
+                return
+            if choice == "n" and page < total_pages:
+                page += 1
+            elif choice == "p" and page > 1:
+                page -= 1
 
     def benchmarks_tasks_status_cli(self, task, model=None):
         task = slugify(task)
