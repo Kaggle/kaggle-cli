@@ -110,7 +110,7 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 *   `--wait [TIMEOUT]`: Wait for the task creation to complete. Optionally specify a timeout in seconds (`0` or omit value = wait indefinitely).
 *   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 *   `-v, --verbose`: Enable verbose polling logs.
-*   `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Kaggle dataset(s) to attach to the task's underlying notebook. Each is formatted as `owner/dataset-slug`. The latest published version of each dataset is attached. Datasets are mounted at `/kaggle/input/<dataset-slug>/` during task execution.
+*   `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Kaggle dataset(s) to attach to the task's underlying notebook (format: `owner/dataset-slug`). Mounted at `/kaggle/input/<dataset-slug>/` by default. If a naming conflict occurs, the fully qualified mount path `/kaggle/input/<owner>/<dataset-slug>/` is used instead.
 
 
 **Examples:**
@@ -149,7 +149,7 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 
 This command reads a `.py` file, converts it to a Jupyter notebook format, and uploads it to Kaggle as a benchmark task. If a task with the same slug already exists, a new version is created. The file is validated to ensure it contains a `@task` decorator matching the given task name.
  
-**Note on dataset attachment:** When `--kaggle-dataset` / `-d` is specified, the listed datasets are attached to the task's underlying notebook kernel. During execution, they are accessible at `/kaggle/input/<dataset-slug>/`. If you re-push without `-d`, all previously-attached datasets are detached (a warning is printed). To preserve datasets across pushes, re-specify them each time. If any specified dataset is invalid, non-existent, or inaccessible, the push command will **fail** with an error: `Failed to push task: Failed to attach the following data sources (not found or inaccessible): <dataset>`.
+**Note on dataset attachment:** When `--kaggle-dataset` / `-d` is specified, the listed datasets are attached to the task's underlying notebook kernel. During execution, they are accessible at `/kaggle/input/<dataset-slug>/` by default, falling back to `/kaggle/input/<owner>/<dataset-slug>/` in the event of a naming conflict. If you re-push without `-d`, all previously-attached datasets are detached (a warning is printed). To preserve datasets across pushes, re-specify them each time. If any specified dataset is invalid, non-existent, or inaccessible, the push command will **fail** with an error: `Failed to push task: Failed to attach the following data sources (not found or inaccessible): <dataset>`.
 
 ---
 

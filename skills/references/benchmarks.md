@@ -132,7 +132,7 @@ kaggle b t push my-task -f task.py --wait -d kaggle/titanic user/my-dataset
 - `--wait [TIMEOUT]`: Wait for creation to complete. `--wait` alone = wait indefinitely. `--wait 60` = timeout after 60s.
 - `--poll-interval <SECONDS>`: Maximum seconds between status polls (default: `60`). Polling starts at 5s and increases by 50% each iteration until reaching this value.
 - `-v, --verbose`: Enable verbose polling logs.
-- `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Attach Kaggle datasets to the task's backing notebook. Format: `owner/dataset-slug`. Mounted at `/kaggle/input/<owner>/<dataset-slug>/` during execution.
+- `-d, --kaggle-dataset <DATASET> [DATASET ...]`: Attach Kaggle datasets to the task's backing notebook (format: `owner/dataset-slug`). Mounted at `/kaggle/input/<dataset-slug>/` by default. If a naming conflict occurs, the fully qualified mount path `/kaggle/input/<owner>/<dataset-slug>/` is used instead.
 
 
 **What happens:**
