@@ -533,12 +533,12 @@ class TestRun:
         request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro"]
 
-    def test_run_selects_all_models(self, api):
+    def test_run_selects_multiple_models_by_number(self, api):
+        """Comma-separated indices pick multiple models."""
         _setup_completed_task(api)
         _setup_available_models(api, ["gemini-pro", "gemma-2b"])
         _setup_batch_schedule(api, [])
-        # "all" picks every model; confirmation prompt requires an explicit "yes".
-        with patch("builtins.input", side_effect=["all", "yes"]):
+        with patch("builtins.input", return_value="1,2"):
             api.benchmarks_tasks_run_cli("my-task")
         request = api._mock_benchmarks.batch_schedule_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["gemini-pro", "gemma-2b"]
@@ -809,12 +809,12 @@ class TestList:
         assert "[Page 1/2]" in output
         assert "[Page 2/2]" in output
 
-    def test_list_limit_overrides_page_size(self, api, capsys):
-        """``--limit 5`` overrides the default page size."""
+    def test_list_page_size_overrides_default(self, api, capsys):
+        """``--page-size 5`` overrides the default page size."""
         tasks = [_make_task(slug=f"task-{i}") for i in range(12)]
         _setup_list_response(api, tasks)
         with patch("builtins.input", side_effect=["q"]):
-            api.benchmarks_tasks_list_cli(limit=5)
+            api.benchmarks_tasks_list_cli(page_size=5)
         output = capsys.readouterr().out
         assert "Showing 1-5 of 12 tasks" in output
         assert "[Page 1/3]" in output
@@ -848,7 +848,7 @@ class TestStatus:
         output = capsys.readouterr().out
         assert "Task:" in output
         assert "Version:" in output
-        assert "Status:   ✅ Completed" in output
+        assert "Status:   Completed" in output
         assert "Created:" in output
         assert "Task URL:" in output
 
@@ -977,7 +977,7 @@ class TestDownload:
         output = capsys.readouterr().out
         assert "Downloading output runs for my-task" in output
         assert "gemini-pro" in output
-        assert "✅ Done" in output
+        assert "Done" in output
         assert "my_output_dir" in output
 
     def test_download_default_output_path(self, api, capsys):
@@ -1058,7 +1058,7 @@ class TestDownload:
 
         output = capsys.readouterr().out
         assert "gemini-pro" in output
-        assert "⏭ Skipped" in output
+        assert "Skipped" in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
 
@@ -1172,14 +1172,14 @@ class TestDownload:
 
         output = capsys.readouterr().out
         # Bad zip: status row marks it failed, raw file kept
-        assert "❌ Bad zip" in output
+        assert "Bad zip" in output
         bad_zip_path = os.path.join(outdir, "my-task", "1", "bad-model", "10.zip")
         assert os.path.isfile(bad_zip_path)
         # Good zip: extracted successfully
         good_dir = os.path.join(outdir, "my-task", "1", "good-model", "11")
         assert os.path.isdir(good_dir)
         assert os.path.isfile(os.path.join(good_dir, "result.txt"))
-        assert "✅ Done" in output
+        assert "Done" in output
 
     def test_download_version_zero_uses_zero(self, api, capsys):
         """When version_number is 0 (unset), directory uses 'unset'."""

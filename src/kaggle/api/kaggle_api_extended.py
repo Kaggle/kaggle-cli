@@ -6662,19 +6662,10 @@ class KaggleApi:
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
         return s
 
-    _STATE_ICONS = {
-        "COMPLETED": "✅",
-        "RUNNING": "🔄",
-        "QUEUED": "⏳",
-        "ERRORED": "❌",
-    }
-
     @staticmethod
-    def _format_state_with_icon(state) -> str:
-        """Render an enum state as ``{icon} {Titlecase}`` (e.g. ``✅ Completed``)."""
-        raw = KaggleApi._clean_enum_str(state)
-        icon = KaggleApi._STATE_ICONS.get(raw, "•")
-        return f"{icon} {raw.title()}"
+    def _format_state(state) -> str:
+        """Render an enum state in Titlecase (e.g. ``Completed``)."""
+        return KaggleApi._clean_enum_str(state).title()
 
     @staticmethod
     def _format_time(t) -> str:
@@ -6927,7 +6918,7 @@ class KaggleApi:
                 if current_page > 0:
                     nav_hints.append("'p'= prev")
 
-            prompt_parts = ["\nEnter model numbers (comma-separated)", "'all'"]
+            prompt_parts = ["\nEnter model numbers (comma-separated)"]
             if nav_hints:
                 prompt_parts.extend(nav_hints)
             try:
@@ -6943,10 +6934,6 @@ class KaggleApi:
                 current_page += 1
             elif selection == "p" and current_page > 0:
                 current_page -= 1
-            elif selection == "all":
-                if not self.confirmation(f"submit runs for all {total} models", default_to_yes=False):
-                    continue
-                return [m.version.slug for m in available]
             else:
                 try:
                     indices = [int(s) for s in selection.split(",")]
@@ -6983,7 +6970,6 @@ class KaggleApi:
         return f"{'-'.join(in_names) or 'Unknown'}-to-{'-'.join(out_names) or 'Unknown'}"
 
     _ADAPTIVE_POLL_START = 5  # Initial adaptive polling interval in seconds
-    _BATCH_SCHEDULE_CHUNK_SIZE = 10  # Server may reject large batches; chunk to keep each call small.
 
     @staticmethod
     def _adaptive_sleep(current_interval, poll_interval, verbose=False):
@@ -7143,7 +7129,7 @@ class KaggleApi:
         task_slug = slugify(task)
         if task_slug != task:
             print(
-                f"\n\033[1;33m⚠ Warning: task name '{task}' was normalized to slug '{task_slug}'.\033[0m\n"
+                f"\n\033[1;33mWarning: task name '{task}' was normalized to slug '{task_slug}'.\033[0m\n"
                 f"\033[33m  Use '{task_slug}' in future commands.\033[0m\n",
                 file=sys.stderr,
             )
@@ -7203,28 +7189,23 @@ class KaggleApi:
                 models = self._select_models_interactively(kaggle)
                 print(f"Selected models: {models}")
 
-            print(f"Submitting {len(models)} run(s)...")
-            all_results = []
-            for chunk_start in range(0, len(models), self._BATCH_SCHEDULE_CHUNK_SIZE):
-                chunk = models[chunk_start : chunk_start + self._BATCH_SCHEDULE_CHUNK_SIZE]
-                request = ApiBatchScheduleBenchmarkTaskRunsRequest()
-                request.task_slugs = [self._make_task_slug(task)]
-                request.model_version_slugs = chunk
-                try:
-                    response = self.with_retry(
-                        kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs
-                    )(request)
-                except HTTPError as e:
-                    if e.response.status_code == 404:
-                        raise ValueError(
-                            f"Failed to schedule runs. One or more model names may be invalid: {chunk}. "
-                            f"Use 'kaggle b t run {task}' (without -m) to select from available models."
-                        ) from None
-                    raise
-                all_results.extend(response.results)
+            request = ApiBatchScheduleBenchmarkTaskRunsRequest()
+            request.task_slugs = [self._make_task_slug(task)]
+            request.model_version_slugs = models
 
+            try:
+                response = self.with_retry(
+                    kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs
+                )(request)
+            except HTTPError as e:
+                if e.response.status_code == 404:
+                    raise ValueError(
+                        f"Failed to schedule runs. One or more model names may be invalid: {models}. "
+                        f"Use 'kaggle b t run {task}' (without -m) to select from available models."
+                    ) from None
+                raise
             print(f"Submitted run(s) for task '{task}'.")
-            for model_slug, res in zip(models, all_results):
+            for model_slug, res in zip(models, response.results):
                 if res.run_scheduled:
                     print(f"  {model_slug}: Scheduled")
                 else:
@@ -7237,7 +7218,7 @@ class KaggleApi:
             else:
                 self._poll_runs(kaggle, task, models, wait, poll_interval, verbose=verbose)
 
-    def benchmarks_tasks_list_cli(self, name_regex=None, status=None, limit=None, show_all=False):
+    def benchmarks_tasks_list_cli(self, name_regex=None, status=None, page_size=None, show_all=False):
         request = ApiListBenchmarkTasksRequest()
         if name_regex:
             request.regex_filter = name_regex
@@ -7254,7 +7235,7 @@ class KaggleApi:
             if show_all:
                 self._paginated_task_display(all_tasks, page_size=max(len(all_tasks), 1), interactive=False)
             else:
-                self._paginated_task_display(all_tasks, page_size=limit or 20)
+                self._paginated_task_display(all_tasks, page_size=page_size or 20)
 
     def _paginated_task_display(self, tasks, page_size=20, interactive=True):
         """Display *tasks* one page at a time with an interactive n/p/q prompt."""
@@ -7302,7 +7283,7 @@ class KaggleApi:
             print(f"Task:     {task_info.slug.task_slug}")
             version = task_info.slug.version_number or "unset"
             print(f"Version:  {version}")
-            print(f"Status:   {self._format_state_with_icon(task_info.creation_state)}")
+            print(f"Status:   {self._format_state(task_info.creation_state)}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
             url = getattr(task_info, "url", None)
             if url:
@@ -7368,7 +7349,7 @@ class KaggleApi:
 
                 if os.path.isdir(outdir):
                     size_str = self._format_size(self._dir_size(outdir))
-                    print(f"{row_prefix} {size_str:<{size_col}} {'⏭ Skipped':<{prog_col}}")
+                    print(f"{row_prefix} {size_str:<{size_col}} {'Skipped':<{prog_col}}")
                     continue
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
@@ -7386,10 +7367,10 @@ class KaggleApi:
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
                         zf.extractall(outdir)
                 except zipfile.BadZipFile:
-                    print(f"{row_prefix} {size_str:<{size_col}} {'❌ Bad zip':<{prog_col}}")
+                    print(f"{row_prefix} {size_str:<{size_col}} {'Bad zip':<{prog_col}}")
                     continue
                 os.remove(zipfile_path)
-                print(f"{row_prefix} {size_str:<{size_col}} {'✅ Done':<{prog_col}}")
+                print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
 
     @staticmethod
     def _format_size(n) -> str:

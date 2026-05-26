@@ -1520,7 +1520,7 @@ def parse_benchmark_tasks(subparsers) -> None:
     )
     parser_list_optional.add_argument("--status", dest="status", required=False, help=Help.param_benchmarks_status)
     parser_list_optional.add_argument(
-        "--limit", dest="limit", required=False, type=int, help=Help.param_benchmarks_list_limit
+        "--page-size", dest="page_size", required=False, type=int, help=Help.param_benchmarks_list_page_size
     )
     parser_list_optional.add_argument(
         "--all", dest="show_all", required=False, action="store_true", help=Help.param_benchmarks_list_all
@@ -2177,7 +2177,7 @@ class Help(object):
     )
     param_benchmarks_verbose = "Enable verbose polling logs"
     param_benchmarks_status = "Filter tasks by creation status. " "Valid values: queued, running, completed, errored"
-    param_benchmarks_list_limit = "Tasks per page in the interactive pager (default: 20)"
+    param_benchmarks_list_page_size = "Tasks per page in the interactive pager (default: 20)"
     param_benchmarks_list_all = "Print every task at once and skip the interactive pager"
 
     # Files params
