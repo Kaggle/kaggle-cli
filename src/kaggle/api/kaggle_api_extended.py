@@ -7204,7 +7204,7 @@ class KaggleApi:
         example_file = os.path.abspath(example_file)
         if os.path.exists(example_file):
             if not quiet:
-                print(f"Example file already exists at {example_file}, skipping.")
+                print(f"Example file already exists at '{example_file}', skipping.", file=sys.stderr)
             return
 
         with open(example_file, "w") as f:
@@ -7217,7 +7217,7 @@ class KaggleApi:
         ref_file = os.path.join(os.path.abspath(directory), "kaggle_benchmarks_reference.md")
         if os.path.exists(ref_file):
             if not quiet:
-                print(f"Reference file already exists at {ref_file}, skipping.")
+                print(f"Reference file already exists at '{ref_file}', skipping.", file=sys.stderr)
             return
 
         with open(ref_file, "w") as f:
@@ -7679,7 +7679,7 @@ class KaggleApi:
                     )(request)
                 except HTTPError as e:
                     status = getattr(e.response, "status_code", None)
-                    print(f"  (No logs available — server returned {status})")
+                    print(f"  (No logs available — server returned {status})", file=sys.stderr)
                     print(f"═══ (0 lines) ═══")
                     continue
 
@@ -7749,7 +7749,7 @@ class KaggleApi:
 
     def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
         # TODO: Normalize task name via slugify(task) when server supports delete.
-        print("Delete is not supported by the server yet.")
+        print("Delete is not supported by the server yet.", file=sys.stderr)
 
     def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=True):
         """Publish a benchmark task, making it public."""
@@ -7784,7 +7784,7 @@ class KaggleApi:
                 if getattr(response, "is_backing_notebook_published", False):
                     print("Backing notebook also published.")
                 else:
-                    print("Note: No backing notebook is associated with this task.")
+                    print("Note: No backing notebook is associated with this task.", file=sys.stderr)
 
 
 class TqdmBufferedReader(io.BufferedReader):
