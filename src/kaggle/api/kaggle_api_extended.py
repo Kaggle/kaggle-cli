@@ -7078,7 +7078,7 @@ class KaggleApi:
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed (status: {self._clean_enum_str(state)})."
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
-                if error and verbose:
+                if error:
                     error_msg += f"\n  Error: {error}"
                 raise ValueError(error_msg)
 
@@ -7377,7 +7377,7 @@ class KaggleApi:
                     f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)}). "
                     f"Only completed tasks can be run."
                 )
-                if verbose and state == self._TASK_CREATION_ERRORED:
+                if state == self._TASK_CREATION_ERRORED:
                     error_msg += f"\n  Task Info: {task_info}"
                 raise ValueError(error_msg)
 
