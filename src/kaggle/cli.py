@@ -1715,12 +1715,8 @@ def parse_auth(subparsers) -> None:
 
 
 def parse_quota(subparsers) -> None:
-    parser_quota = subparsers.add_parser(
-        "quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_quota
-    )
-    parser_quota.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    parser_quota = subparsers.add_parser("quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_quota)
+    parser_quota.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
     parser_quota.set_defaults(func=api.quota_view_cli)
 
 
