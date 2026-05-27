@@ -7120,10 +7120,7 @@ class KaggleApi:
             print(f"  {pending} run(s) still in progress...")
 
             if wait > 0 and (time.time() - start_time) > wait:
-                print(
-                    f"Timed out after {wait}s waiting for runs.\n"
-                    f"Check status with: kaggle b t status {task}"
-                )
+                print(f"Timed out after {wait}s waiting for runs.\nCheck status with: kaggle b t status {task}")
                 return
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
