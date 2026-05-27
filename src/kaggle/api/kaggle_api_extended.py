@@ -6882,11 +6882,13 @@ class KaggleApi:
         """
         task_names = KaggleApi._get_task_names_from_file(file_content)
         if not task_names:
-            raise ValueError(f"No @task decorators found in file {file}. The file must define at least one task.")
+            raise ValueError(
+                f"No @task decorators found in '{file}'. Add at least one @task decorator to define a task."
+            )
         task_slug = slugify(task)
         slugified_names = {slugify(n): n for n in task_names}
         if task_slug not in slugified_names:
-            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(slugified_names)}")
+            raise ValueError(f"Task '{task}' not found in '{file}'. Available tasks: {', '.join(slugified_names)}")
 
     @staticmethod
     def _convert_py_to_notebook(source: str) -> str:
@@ -6925,8 +6927,7 @@ class KaggleApi:
                 if allow_not_found:
                     return None
                 raise ValueError(
-                    f"Task '{task}' not found. Check the task name and try again. "
-                    f"Use 'kaggle b t list' to see your tasks."
+                    f"Task '{task}' not found. Verify the name or run 'kaggle b t list' to see available tasks."
                 ) from None
             raise
 
@@ -7021,7 +7022,7 @@ class KaggleApi:
                     indices = [int(s) for s in selection.split(",")]
                     return [available[i - 1].version.slug for i in indices]
                 except (ValueError, IndexError):
-                    raise ValueError(f"Invalid selection: {selection}")
+                    raise ValueError(f"'{selection}' is not a valid choice. Enter a list of numbers (e.g., 1,3,4).")
 
     @staticmethod
     def _truncate(s: str, max_len: int) -> str:
@@ -7075,16 +7076,19 @@ class KaggleApi:
             if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
                 return True
             elif state not in self._PENDING_CREATION_STATES:
-                error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
+                error_msg = f"Task '{task}' creation failed (status: {self._clean_enum_str(state)})."
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
-                if error:
-                    error_msg += f" Error: {error}"
+                if error and verbose:
+                    error_msg += f"\n  Error: {error}"
                 raise ValueError(error_msg)
 
             print(f"   Task status: {self._clean_enum_str(state)}...")
 
             if wait > 0 and (time.time() - start_time) > wait:
-                print(f"Timed out waiting for task creation after {wait} seconds.")
+                print(
+                    f"Timed out after {wait}s waiting for task creation.\n"
+                    f"Check status with: kaggle b t status {task}"
+                )
                 return False
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
@@ -7109,14 +7113,17 @@ class KaggleApi:
                         slug = self._normalize_model_slug(r.model_version_slug)
                         msg = (getattr(r, "error_message", None) or "").strip() or "No error message"
                         details.append(f"  [{slug}]\n    {msg}")
-                    raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
+                    raise ValueError(f"{len(errored)} run(s) failed. Details below:\n" + "\n".join(details))
                 return
 
             pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
             print(f"  {pending} run(s) still in progress...")
 
             if wait > 0 and (time.time() - start_time) > wait:
-                print(f"Timed out waiting for runs after {wait} seconds.")
+                print(
+                    f"Timed out after {wait}s waiting for runs.\n"
+                    f"Check status with: kaggle b t status {task}"
+                )
                 return
 
             current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
@@ -7264,9 +7271,9 @@ class KaggleApi:
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
-            raise ValueError(f"File {file} does not exist")
+            raise ValueError(f"File '{file}' does not exist.")
         if not file.endswith(".py"):
-            raise ValueError(f"File {file} must be a .py file")
+            raise ValueError(f"File '{file}' must be a Python (.py) file.")
 
         with open(file) as f:
             content = f.read()
@@ -7287,8 +7294,8 @@ class KaggleApi:
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
                 if wait is None:
                     raise ValueError(
-                        f"Task '{task_slug}' is currently being created (pending). Cannot push now. "
-                        f"Use --wait to monitor the existing creation."
+                        f"Task '{task_slug}' creation is still pending. "
+                        f"Run again with the --wait flag to wait for completion."
                     )
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
@@ -7321,7 +7328,7 @@ class KaggleApi:
             response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task)(request)
             error = getattr(response, "error", None)
             if error:
-                raise ValueError(f"Failed to push task: {error}")
+                raise ValueError(f"Failed to push task. Error: {error}")
 
             url = self._full_task_url(response.url)
             model_output_url = re.sub(r"/\d+/?$", "", url) + "?compare=true"
@@ -7369,10 +7376,12 @@ class KaggleApi:
             task_info = self._get_benchmark_task(task, kaggle)
             state = task_info.creation_state
             if state != self._TASK_CREATION_COMPLETED:
-                error_msg = f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)})."
-                if state == self._TASK_CREATION_ERRORED:
-                    error_msg += f" Task Info: {task_info}."
-                error_msg += " Only completed tasks can be run."
+                error_msg = (
+                    f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)}). "
+                    f"Only completed tasks can be run."
+                )
+                if verbose and state == self._TASK_CREATION_ERRORED:
+                    error_msg += f"\n  Task Info: {task_info}"
                 raise ValueError(error_msg)
 
             if not models:
@@ -7390,8 +7399,8 @@ class KaggleApi:
             except HTTPError as e:
                 if e.response.status_code == 404:
                     raise ValueError(
-                        f"Failed to schedule runs. One or more model names may be invalid: {models}. "
-                        f"Use 'kaggle b t run {task}' (without -m) to select from available models."
+                        f"Failed to schedule runs. Some model names may be invalid: {models}. "
+                        f"Run 'kaggle b t run {task}' without -m to select from available models."
                     ) from None
                 raise
             print(f"Submitted run(s) for task '{task}'.")
@@ -7399,7 +7408,10 @@ class KaggleApi:
                 if res.run_scheduled:
                     print(f"  {model_slug}: Scheduled")
                 else:
-                    print(f"  {model_slug}: Skipped ({res.run_skipped_reason})")
+                    print(
+                        f"  {model_slug}: Skipped ({res.run_skipped_reason}). "
+                        f"Run 'kaggle b t models' to see supported models."
+                    )
 
             if wait is None:
                 print("\nNext steps:")
@@ -7431,7 +7443,7 @@ class KaggleApi:
         """Display *tasks* one page at a time with an interactive n/p/q prompt."""
         total = len(tasks)
         if total == 0:
-            print("No tasks found.")
+            print("No tasks found. Use 'kaggle b t push' to create one.")
             return
 
         # Extract owner username from a task URL of the form /benchmarks/tasks/{user}/{slug}/{ver}.
@@ -7736,7 +7748,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             models = self._fetch_all_benchmark_models(kaggle)
             if not models:
-                print("No benchmark models available.")
+                print("No benchmark models available. This may be a temporary issue — try again later.")
                 return
 
             col_slug = 30
