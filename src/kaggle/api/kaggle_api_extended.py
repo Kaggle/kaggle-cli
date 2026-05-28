@@ -1197,6 +1197,7 @@ class KaggleApi:
             None:
         """
 
+        old_file = os.path.exists(self.config)
         config_data = self._read_config_file()
 
         if value is not None:
@@ -1209,6 +1210,8 @@ class KaggleApi:
 
             # If defined by client, set and save!
             self._write_config_file(config_data)
+            if not old_file:
+                os.chmod(self.config, 0o600)
 
             if not quiet:
                 self.print_config_value(name, separator=" is now set to: ")
