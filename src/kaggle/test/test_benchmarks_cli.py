@@ -594,38 +594,22 @@ class TestRun:
             assert f"{m}: Scheduled" in output
 
     def test_run_reports_skipped_with_reason(self, api, capsys):
-        """Non-model skip reasons print the reason but omit the model-list hint."""
+        """Skipped runs print the backend-provided reason."""
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason="Already running")])
         api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         output = capsys.readouterr().out
         assert "gemini-pro: Skipped" in output
         assert "Already running" in output
-        assert "kaggle b t models" not in output
-
-    @pytest.mark.parametrize(
-        "reason",
-        ["Unsupported model version", "No matching model version.", "Can not access model version."],
-        ids=["unsupported", "no_match", "no_access"],
-    )
-    def test_run_skipped_model_reason_shows_models_hint(self, api, capsys, reason):
-        """Model-related skip reasons append the 'kaggle b t models' hint."""
-        _setup_completed_task(api)
-        _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason=reason)])
-        api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
-        output = capsys.readouterr().out
-        assert "gemini-pro: Skipped" in output
-        assert "Run 'kaggle b t models' to see supported models." in output
 
     @pytest.mark.parametrize("reason", [None, ""], ids=["none", "empty"])
     def test_run_skipped_empty_reason_does_not_crash(self, api, capsys, reason):
-        """Empty/None skip reason renders without crashing and without the hint."""
+        """Empty/None skip reason renders without crashing."""
         _setup_completed_task(api)
         _setup_batch_schedule(api, [_make_run_result(scheduled=False, skipped_reason=reason)])
         api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
         output = capsys.readouterr().out
         assert "gemini-pro: Skipped" in output
-        assert "kaggle b t models" not in output
 
     def test_run_no_status_hint_when_waiting(self, api, capsys):
         """When --wait is used, the status hint should not appear."""

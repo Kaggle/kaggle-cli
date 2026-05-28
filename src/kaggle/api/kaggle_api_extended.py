@@ -6927,7 +6927,7 @@ class KaggleApi:
                 if allow_not_found:
                     return None
                 raise ValueError(
-                    f"Task '{task}' not found. Verify the name or run 'kaggle b t list' to see available tasks."
+                    f"Task '{task}' not found. Verify the name or run 'kaggle benchmarks tasks list' to see available tasks."
                 ) from None
             raise
 
@@ -7010,7 +7010,7 @@ class KaggleApi:
                 raise ValueError(
                     "No model specified and no input received. "
                     "Pass one or more models with -m/--model, or use "
-                    "'kaggle b t models' to list available models."
+                    "'kaggle benchmarks tasks models' to list available models."
                 ) from None
 
             if selection == "n" and current_page < total_pages - 1:
@@ -7397,7 +7397,7 @@ class KaggleApi:
                 if e.response.status_code == 404:
                     raise ValueError(
                         f"Failed to schedule runs. Some model names may be invalid: {models}. "
-                        f"Run 'kaggle b t run {task}' without -m to select from available models."
+                        f"Run 'kaggle benchmarks tasks run {task}' without -m to select from available models."
                     ) from None
                 raise
             print(f"Submitted run(s) for task '{task}'.")
@@ -7405,11 +7405,7 @@ class KaggleApi:
                 if res.run_scheduled:
                     print(f"  {model_slug}: Scheduled")
                 else:
-                    reason = (res.run_skipped_reason or "").rstrip(".")
-                    msg = f"  {model_slug}: Skipped ({reason})."
-                    if "model version" in reason.lower():
-                        msg += " Run 'kaggle b t models' to see supported models."
-                    print(msg)
+                    print(f"  {model_slug}: Skipped ({res.run_skipped_reason})")
 
             if wait is None:
                 print("\nNext steps:")
@@ -7432,20 +7428,26 @@ class KaggleApi:
                 return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
-            if not all_tasks:
-                if name_regex or status:
-                    print("No tasks found matching the given filters.")
-                else:
-                    print("No tasks found. Use 'kaggle b t push' to create one.")
-                return
-            if show_all:
-                self._paginated_task_display(all_tasks, page_size=max(len(all_tasks), 1), interactive=False)
+            if name_regex or status:
+                empty_message = "No tasks found matching the given filters."
             else:
-                self._paginated_task_display(all_tasks, page_size=page_size or 20)
+                empty_message = "No tasks found. Use 'kaggle b t push' to create one."
+            if show_all:
+                self._paginated_task_display(
+                    all_tasks,
+                    page_size=max(len(all_tasks), 1),
+                    interactive=False,
+                    empty_message=empty_message,
+                )
+            else:
+                self._paginated_task_display(all_tasks, page_size=page_size or 20, empty_message=empty_message)
 
-    def _paginated_task_display(self, tasks, page_size=20, interactive=True):
+    def _paginated_task_display(self, tasks, page_size=20, interactive=True, empty_message="No tasks found."):
         """Display *tasks* one page at a time with an interactive n/p/q prompt."""
         total = len(tasks)
+        if total == 0:
+            print(empty_message)
+            return
 
         # Extract owner username from a task URL of the form /benchmarks/tasks/{user}/{slug}/{ver}.
         username = None
