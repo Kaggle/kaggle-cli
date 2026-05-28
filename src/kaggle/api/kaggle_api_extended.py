@@ -7405,10 +7405,11 @@ class KaggleApi:
                 if res.run_scheduled:
                     print(f"  {model_slug}: Scheduled")
                 else:
-                    print(
-                        f"  {model_slug}: Skipped ({res.run_skipped_reason}). "
-                        f"Run 'kaggle b t models' to see supported models."
-                    )
+                    reason = (res.run_skipped_reason or "").rstrip(".")
+                    msg = f"  {model_slug}: Skipped ({reason})."
+                    if "model version" in reason.lower():
+                        msg += " Run 'kaggle b t models' to see supported models."
+                    print(msg)
 
             if wait is None:
                 print("\nNext steps:")
