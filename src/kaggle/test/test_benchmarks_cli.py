@@ -872,12 +872,25 @@ class TestList:
 
     @pytest.mark.parametrize("tasks", [[], None], ids=["empty_list", "none"])
     def test_list_empty(self, api, capsys, tasks):
-        """Empty/None task list prints a friendly message instead of an empty table."""
+        """Unfiltered empty list prints the actionable push hint, not an empty table."""
         _setup_list_response(api, tasks)
         api.benchmarks_tasks_list_cli()
         output = capsys.readouterr().out
-        assert "No tasks found." in output
+        assert "No tasks found. Use 'kaggle b t push' to create one." in output
         assert "my-task" not in output
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [{"name_regex": "no-match.*"}, {"status": "completed"}, {"name_regex": "x", "status": "completed"}],
+        ids=["regex", "status", "both"],
+    )
+    def test_list_empty_with_filter(self, api, capsys, kwargs):
+        """Filtered empty list says 'matching the given filters' rather than the push hint."""
+        _setup_list_response(api, [])
+        api.benchmarks_tasks_list_cli(**kwargs)
+        output = capsys.readouterr().out
+        assert "No tasks found matching the given filters." in output
+        assert "kaggle b t push" not in output
 
     def test_list_table_format(self, api, capsys):
         """Table uses per-column unicode-line underlines spanning each column's full width."""

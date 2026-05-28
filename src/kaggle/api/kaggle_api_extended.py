@@ -7431,6 +7431,12 @@ class KaggleApi:
                 return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
+            if not all_tasks:
+                if name_regex or status:
+                    print("No tasks found matching the given filters.")
+                else:
+                    print("No tasks found. Use 'kaggle b t push' to create one.")
+                return
             if show_all:
                 self._paginated_task_display(all_tasks, page_size=max(len(all_tasks), 1), interactive=False)
             else:
@@ -7439,9 +7445,6 @@ class KaggleApi:
     def _paginated_task_display(self, tasks, page_size=20, interactive=True):
         """Display *tasks* one page at a time with an interactive n/p/q prompt."""
         total = len(tasks)
-        if total == 0:
-            print("No tasks found. Use 'kaggle b t push' to create one.")
-            return
 
         # Extract owner username from a task URL of the form /benchmarks/tasks/{user}/{slug}/{ver}.
         username = None
