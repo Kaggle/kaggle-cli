@@ -208,7 +208,7 @@ class TestPush:
         "task, filename, content, expected_error",
         [
             ("my-task", None, None, "does not exist"),
-            ("my-task", "task.txt", "hello", "must be a .py"),
+            ("my-task", "task.txt", "hello", "must be a Python"),
             ("any-task", "task.py", "def f(): pass\n", "No @task decorators"),
             ("wrong", "task.py", '@task(name="real")\ndef f(llm): pass\n', "not found"),
             ("any-task", "task.py", "def broken(\n", "No @task decorators"),
@@ -292,7 +292,7 @@ class TestPush:
         """Push without --wait rejects when task is pending, with a --wait hint."""
         filepath = _write_task_file(tmp_path)
         api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=state)
-        with pytest.raises(ValueError, match="currently being created") as exc_info:
+        with pytest.raises(ValueError, match="creation is still pending") as exc_info:
             _push(api, "my-task", filepath)
         assert "--wait" in str(exc_info.value)
 
@@ -336,7 +336,7 @@ class TestPush:
         resp.error = "Some backend error"
         api._mock_benchmarks.create_benchmark_task.return_value = resp
 
-        with pytest.raises(ValueError, match="Failed to push task: Some backend error"):
+        with pytest.raises(ValueError, match=r"Failed to push task\. Error: Some backend error"):
             _push(api, "my-task", filepath)
 
     def test_push_wait_polls_until_completion(self, api, capsys, tmp_path):
@@ -439,7 +439,7 @@ class TestPush:
             api.benchmarks_tasks_push_cli("my-task", filepath, wait=30)
 
         output = capsys.readouterr().out
-        assert "Timed out waiting for task creation after 30 seconds" in output
+        assert "Timed out after 30s waiting for task creation." in output
 
     @pytest.mark.parametrize("interval", [0, -1], ids=["zero", "negative"])
     def test_push_rejects_non_positive_poll_interval(self, api, tmp_path, interval):
@@ -647,7 +647,7 @@ class TestRun:
         _setup_completed_task(api)
         _setup_available_models(api, ["gemini-pro"])
         with patch("builtins.input", return_value="abc"):
-            with pytest.raises(ValueError, match="Invalid selection"):
+            with pytest.raises(ValueError, match="is not a valid choice"):
                 api.benchmarks_tasks_run_cli("my-task")
 
     def test_run_eof_without_models_raises(self, api):
@@ -786,7 +786,7 @@ class TestRun:
         with patch("time.sleep"), patch("time.time", side_effect=[1000, 1060]):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=30)
         output = capsys.readouterr().out
-        assert "Timed out waiting for runs after 30 seconds" in output
+        assert "Timed out after 30s waiting for runs." in output
 
     def test_run_wait_shows_errored_runs(self, api, capsys):
         """ERRORED runs display with ERRORED label and raise ValueError."""
