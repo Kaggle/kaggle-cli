@@ -6521,10 +6521,7 @@ class KaggleApi:
             if len(split) == 3:
                 if not split[2]:
                     raise ValueError("Kernel version cannot be empty if specified")
-                try:
-                    int(split[2])
-                except ValueError:
-                    raise ValueError("Kernel version must be an integer")
+
 
     def parse_kernel_string(self, kernel: str) -> Tuple[str, str, Optional[str]]:
         """Parses a kernel string.

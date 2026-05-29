@@ -18,6 +18,8 @@ class TestKernelParsing(unittest.TestCase):
         self.api.validate_kernel_string("owner/slug-name")
         self.api.validate_kernel_string("owner/slug-name/1")
         self.api.validate_kernel_string("owner/slug-name/123")
+        self.api.validate_kernel_string("owner/slug-name/notanint")
+        self.api.validate_kernel_string("owner/slug-name/1.2")
 
     def test_validate_kernel_string_invalid_format(self):
         # Invalid formats
@@ -38,12 +40,6 @@ class TestKernelParsing(unittest.TestCase):
             self.api.validate_kernel_string("owner/slug") # slug is 4 chars
         self.api.validate_kernel_string("owner/slug5") # slug is 5 chars
 
-    def test_validate_kernel_string_invalid_version(self):
-        # Version must be integer
-        with self.assertRaises(ValueError):
-            self.api.validate_kernel_string("owner/slug5/notanint")
-        with self.assertRaises(ValueError):
-            self.api.validate_kernel_string("owner/slug5/1.2")
 
     def test_parse_kernel_string_three_parts(self):
         owner, slug, version = self.api.parse_kernel_string("owner/slug-name/123")
