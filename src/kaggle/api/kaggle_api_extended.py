@@ -7194,8 +7194,8 @@ class KaggleApi:
             if not self.confirmation(f"write these settings to {os.path.basename(env_file_abs)}", default_to_yes=True):
                 return False
 
-        # Upsert (not append): python-dotenv reads the first occurrence, so
-        # stacking duplicates would let an expired token shadow the fresh one.
+        # Upsert in place rather than append so reruns don't stack duplicates
+        # in the user's .env and don't silently shadow any hand-edited values.
         for key, value in env_vars.items():
             dotenv.set_key(env_file_abs, key, value, quote_mode="never")
 

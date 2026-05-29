@@ -2153,16 +2153,15 @@ class TestBenchmarksUpsert:
 
     def test_first_rerun_after_upgrade_refreshes_stale_duplicates(self, api, tmp_path):
         """Migration scenario: a user who ran the old append-based CLI ends up
-        with several stacked ``MODEL_PROXY_API_KEY=`` lines in their ``.env``,
-        and ``python-dotenv`` was picking the first (oldest) one. The first
-        rerun on the new code must refresh every duplicate to the fresh
-        token so the value the SDK loads is the live one."""
+        with several stacked ``MODEL_PROXY_API_KEY=`` lines in their ``.env``.
+        The first rerun on the new code must rewrite every duplicate to the
+        fresh value so no stale token lingers in the file."""
         env_file = tmp_path / ".env"
         env_file.write_text(
-            "MODEL_PROXY_API_KEY=expired-oldest\n"
+            "MODEL_PROXY_API_KEY=stale-1\n"
             "OTHER=keep\n"
-            "MODEL_PROXY_API_KEY=expired-middle\n"
-            "MODEL_PROXY_API_KEY=expired-newest\n"
+            "MODEL_PROXY_API_KEY=stale-2\n"
+            "MODEL_PROXY_API_KEY=stale-3\n"
         )
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.return_value = (
             _make_token_response(token="kaggle-benchmarks:fresh")
@@ -2170,14 +2169,11 @@ class TestBenchmarksUpsert:
         api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
 
         content = env_file.read_text()
-        # No stale value of any vintage survives.
-        for stale in ("expired-oldest", "expired-middle", "expired-newest"):
+        for stale in ("stale-1", "stale-2", "stale-3"):
             assert stale not in content
-        # And what dotenv loads (the first occurrence) is the fresh token.
         from dotenv import dotenv_values
 
         assert dotenv_values(str(env_file))["MODEL_PROXY_API_KEY"] == "kaggle-benchmarks:fresh"
-        # Unrelated keys remain untouched.
         assert "OTHER=keep\n" in content
 
     def test_init_rerun_is_idempotent(self, api, mock_token, tmp_path):
