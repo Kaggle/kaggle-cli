@@ -2197,8 +2197,7 @@ class TestUpsertEnvFile:
     def test_recognises_export_prefix_and_whitespace(self, tmp_path):
         env_file = tmp_path / ".env"
         env_file.write_text(
-            "  export MODEL_PROXY_URL=https://old.example.com\n"
-            "\texport  MODEL_PROXY_API_KEY=old-token\n"
+            "  export MODEL_PROXY_URL=https://old.example.com\n" "\texport  MODEL_PROXY_API_KEY=old-token\n"
         )
         KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
         content = env_file.read_text()
@@ -2225,10 +2224,7 @@ class TestUpsertEnvFile:
 
     def test_does_not_match_keys_inside_other_lines(self, tmp_path):
         env_file = tmp_path / ".env"
-        env_file.write_text(
-            "# MODEL_PROXY_URL=should-not-be-touched\n"
-            "NOT_MODEL_PROXY_URL=keep\n"
-        )
+        env_file.write_text("# MODEL_PROXY_URL=should-not-be-touched\n" "NOT_MODEL_PROXY_URL=keep\n")
         KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
         content = env_file.read_text()
         assert "# MODEL_PROXY_URL=should-not-be-touched\n" in content
@@ -2282,11 +2278,7 @@ class TestBenchmarksAuthUpsertIntegration:
 
     def test_preserves_user_added_keys_and_comments(self, api, mock_token, tmp_path):
         env_file = tmp_path / ".env"
-        env_file.write_text(
-            "# my notes\n"
-            "MY_SECRET=hunter2\n"
-            "MODEL_PROXY_URL=https://stale.example.com\n"
-        )
+        env_file.write_text("# my notes\n" "MY_SECRET=hunter2\n" "MODEL_PROXY_URL=https://stale.example.com\n")
         api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
         content = env_file.read_text()
         assert "# my notes\n" in content
