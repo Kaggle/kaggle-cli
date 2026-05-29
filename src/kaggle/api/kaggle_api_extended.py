@@ -4468,7 +4468,8 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiGetKernelRequest()
             request.user_name = owner_slug
-            request.kernel_slug = kernel_slug
+            request.kernel_slug = f"{kernel_slug}/{version}" if version else kernel_slug
+
             response = kaggle.kernels.kernels_api_client.get_kernel(request)
 
         blob = response.blob
