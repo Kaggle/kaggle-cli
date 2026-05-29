@@ -9,6 +9,7 @@ sys.path.insert(0, "../src")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
+
 class TestKernelsPull(unittest.TestCase):
 
     def setUp(self):
@@ -29,7 +30,7 @@ class TestKernelsPull(unittest.TestCase):
         mock_blob.slug = "my-slug"
         mock_blob.source = "print('hello')"
         mock_response.blob = mock_blob
-        
+
         mock_kaggle.kernels.kernels_api_client.get_kernel.return_value = mock_response
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
@@ -42,7 +43,7 @@ class TestKernelsPull(unittest.TestCase):
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
         self.assertEqual(request.kernel_slug, "my-slug")
-        
+
         # Verify file write
         mock_open_file.assert_called_once_with("/tmp/dummy/my-slug.py", "w", encoding="utf-8")
         mock_open_file().write.assert_called_once_with("print('hello')")
@@ -61,7 +62,7 @@ class TestKernelsPull(unittest.TestCase):
         mock_blob.slug = "my-slug"
         mock_blob.source = "print('hello')"
         mock_response.blob = mock_blob
-        
+
         mock_kaggle.kernels.kernels_api_client.get_kernel.return_value = mock_response
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
@@ -74,7 +75,7 @@ class TestKernelsPull(unittest.TestCase):
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
         self.assertEqual(request.kernel_slug, "my-slug/3")
-        
+
         # Verify file write (path should still use clean slug)
         mock_open_file.assert_called_once_with("/tmp/dummy/my-slug.py", "w", encoding="utf-8")
         mock_open_file().write.assert_called_once_with("print('hello')")
@@ -93,7 +94,7 @@ class TestKernelsPull(unittest.TestCase):
         mock_blob.slug = "my-slug"
         mock_blob.source = "print('hello')"
         mock_response.blob = mock_blob
-        
+
         mock_metadata = MagicMock()
         mock_metadata.ref = "owner/my-slug"
         mock_metadata.id = 123
@@ -112,7 +113,7 @@ class TestKernelsPull(unittest.TestCase):
         mock_metadata.docker_image = "some-image"
         mock_metadata.machine_shape = "NvidiaTeslaT4"
         mock_response.metadata = mock_metadata
-        
+
         mock_kaggle.kernels.kernels_api_client.get_kernel.return_value = mock_response
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
@@ -125,15 +126,16 @@ class TestKernelsPull(unittest.TestCase):
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
         self.assertEqual(request.kernel_slug, "my-slug/3")
-        
+
         # Verify open was called twice (one for script, one for metadata)
         self.assertEqual(mock_open_file.call_count, 2)
-        
+
         # We can check the calls
         # First call: script
         mock_open_file.assert_any_call("/tmp/dummy/my-slug.py", "w", encoding="utf-8")
         # Second call: metadata
         mock_open_file.assert_any_call("/tmp/dummy/kernel-metadata.json", "w")
+
 
 if __name__ == "__main__":
     unittest.main()
