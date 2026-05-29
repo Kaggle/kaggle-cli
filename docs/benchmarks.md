@@ -329,7 +329,18 @@ Downloads and extracts the output zip archive for each completed run. Files are 
    ├── output files...
 ```
 
-Already-downloaded runs (where the output directory exists) are automatically skipped unless the `-f` / `--force` flag is used, in which case they are overwritten.
+Progress is rendered as a table with one row per run:
+
+```
+Model                File                                     Size       Progress
+──────────────────── ──────────────────────────────────────── ────────── ──────────
+gemini-2.5-pro       gemini-2.5-pro/12345/                    1.24MB     Done
+claude-sonnet-4      claude-sonnet-4/12346/                   2.10MB     Cached
+```
+
+The `Size` column reports the extracted on-disk size of the run's output directory. The `Progress` column is one of `Done` (freshly downloaded), `Cached` (output directory already on disk from a previous download), or `Bad zip` (downloaded archive was corrupt).
+
+Already-downloaded runs (where the output directory exists) are automatically skipped — they appear as `Cached` rows — unless the `-f` / `--force` flag is used, in which case they are overwritten.
 
 When `--include-source` is used, the downloaded zip also contains the kernel session's source files (e.g., `__notebook__.ipynb` and `__notebook_source__.ipynb`).
 

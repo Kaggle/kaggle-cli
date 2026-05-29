@@ -254,8 +254,9 @@ kaggle b t download my-task --include-source
 **Behavior details:**
 - Downloads outputs for all runs in a **terminal state** — this includes both `COMPLETED` and `ERRORED` runs (errored runs may still have partial output)
 - Downloads zip archives and extracts them automatically
-- Already-downloaded runs are skipped (use `--force` to re-download): `Skipping gemini-2.5-pro (run 123) — already downloaded to ./my-task/1/gemini-2.5-pro/123`
-- Corrupt zips: Warning printed, raw `.zip` file kept, continues with other models
+- Progress is rendered as a table with `Model | File | Size | Progress` columns. `Size` is the extracted on-disk size of the run's output directory.
+- Already-downloaded runs are skipped (use `--force` to re-download) and shown as a `Cached` row in the table
+- Corrupt zips show as a `Bad zip` row; the raw `.zip` is kept on disk and the next run is processed
 - No downloadable runs (all still in progress): `No downloadable runs yet — N run(s) still in progress. Use 'kaggle b t status my-task' to check progress.`
 - No runs at all: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
 

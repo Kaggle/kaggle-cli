@@ -7563,9 +7563,7 @@ class KaggleApi:
             print(f"Downloading output runs for {task}")
             print(f"Target directory:  {target_dir}/\n")
 
-            display_files = [
-                f"{self._normalize_model_slug(r.model_version_slug)}/{r.id}/{r.id}.zip" for r in downloadable
-            ]
+            display_files = [f"{self._normalize_model_slug(r.model_version_slug)}/{r.id}/" for r in downloadable]
             model_col = max((len(self._normalize_model_slug(r.model_version_slug)) for r in downloadable), default=20)
             model_col = max(model_col, 20)
             file_col = max((len(f) for f in display_files), default=40)
@@ -7576,7 +7574,7 @@ class KaggleApi:
             print(f"{'Model':<{model_col}} {'File':<{file_col}} {'Size':<{size_col}} {'Progress':<{prog_col}}")
             print(f"{'─' * model_col} {'─' * file_col} {'─' * size_col} {'─' * prog_col}")
 
-            downloaded, skipped = 0, 0
+            downloaded, cached = 0, 0
             for r, display_file in zip(downloadable, display_files):
                 slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
@@ -7585,8 +7583,8 @@ class KaggleApi:
 
                 if os.path.isdir(outdir) and not force:
                     size_str = self._format_size(self._dir_size(outdir))
-                    print(f"{row_prefix} {size_str:<{size_col}} {'Skipped':<{prog_col}}")
-                    skipped += 1
+                    print(f"{row_prefix} {size_str:<{size_col}} {'Cached':<{prog_col}}")
+                    cached += 1
                     continue
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
@@ -7606,7 +7604,6 @@ class KaggleApi:
                 try:
                     # quiet=True: intermediate zip, extracted and removed below
                     self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
-                    size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
                     # Note: extractall() is safe here because the zip originates from
                     # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
@@ -7628,11 +7625,12 @@ class KaggleApi:
                 if os.path.isdir(outdir):
                     shutil.rmtree(outdir)
                 os.rename(tmp_outdir, outdir)
+                # Report extracted on-disk size, matching the cached branch above.
+                size_str = self._format_size(self._dir_size(outdir))
                 downloaded += 1
                 print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
 
-            # Summary
-            parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (skipped, "skipped")) if n]
+            parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (cached, "cached")) if n]
             print(f"\nDone: {', '.join(parts) or '0 runs downloaded'}.")
 
     @staticmethod
