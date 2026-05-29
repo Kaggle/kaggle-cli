@@ -1180,7 +1180,7 @@ class TestDownload:
         assert "kaggle b t status my-task" in output
 
     def test_download_skips_existing_output(self, api, capsys, tmp_path):
-        """Already-downloaded runs are skipped without making API calls."""
+        """Already-downloaded runs render as Cached without making API calls."""
         _setup_runs_response(api, [_make_run(run_id=42)])
         self._mock_download(api)
         outdir = str(tmp_path / "out")
@@ -1192,13 +1192,54 @@ class TestDownload:
 
         output = capsys.readouterr().out
         assert "gemini-pro" in output
-        assert "Skipped" in output
-        assert "1 run(s) skipped" in output
+        assert "Cached" in output
+        assert "1 run(s) cached" in output
+        # The File column shows the output directory, not a .zip path
+        assert "gemini-pro/42/" in output
+        assert "/42/42.zip" not in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
 
+    def test_download_cached_dir_without_source_prints_tip_when_s_passed(self, api, capsys, tmp_path):
+        """When -s is passed but the cached dir lacks source notebooks, hint that -f -s is needed."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        # Cached dir exists but has no __notebook__.ipynb / __notebook_source__.ipynb
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
+        os.makedirs(existing)
+        # Drop a placeholder file so the dir isn't empty, but not a source notebook
+        with open(os.path.join(existing, "result.run.json"), "w") as f:
+            f.write("{}")
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir, include_source=True)
+        output = capsys.readouterr().out
+
+        assert "Cached" in output
+        assert "1 cached run(s) lack source notebooks" in output or "lack source notebooks" in output
+        assert "-f -s" in output
+        # Without -f, the cached dir was not touched: no download API call
+        api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
+
+    def test_download_cached_dir_with_source_does_not_print_tip(self, api, capsys, tmp_path):
+        """When the cached dir already contains source notebooks, no tip is shown."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
+        os.makedirs(existing)
+        # Simulate a previous -s download by dropping the source notebook
+        with open(os.path.join(existing, "__notebook__.ipynb"), "w") as f:
+            f.write("{}")
+
+        api.benchmarks_tasks_download_cli("my-task", output=outdir, include_source=True)
+        output = capsys.readouterr().out
+
+        assert "Cached" in output
+        assert "lack source notebooks" not in output
+
     def test_download_summary_counts(self, api, capsys, tmp_path):
-        """Download summary shows correct downloaded and skipped counts."""
+        """Download summary shows correct downloaded and cached counts."""
         _setup_runs_response(
             api,
             [_make_run(model="new-model", run_id=1), _make_run(model="old-model", run_id=2)],
@@ -1214,7 +1255,7 @@ class TestDownload:
 
         output = capsys.readouterr().out
         assert "1 run(s) downloaded" in output
-        assert "1 run(s) skipped" in output
+        assert "1 run(s) cached" in output
 
     def test_download_force_overwrites_existing_output(self, api, capsys, tmp_path):
         """Using force=True re-downloads and overwrites existing output."""
