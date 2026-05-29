@@ -8,6 +8,7 @@ sys.path.insert(0, "../src")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
+
 class TestKernelParsing(unittest.TestCase):
 
     def setUp(self):
@@ -37,9 +38,8 @@ class TestKernelParsing(unittest.TestCase):
     def test_validate_kernel_string_invalid_slug_length(self):
         # Slug must be >= 5 chars
         with self.assertRaises(ValueError):
-            self.api.validate_kernel_string("owner/slug") # slug is 4 chars
-        self.api.validate_kernel_string("owner/slug5") # slug is 5 chars
-
+            self.api.validate_kernel_string("owner/slug")  # slug is 4 chars
+        self.api.validate_kernel_string("owner/slug5")  # slug is 5 chars
 
     def test_parse_kernel_string_three_parts(self):
         owner, slug, version = self.api.parse_kernel_string("owner/slug-name/123")
@@ -69,6 +69,7 @@ class TestKernelParsing(unittest.TestCase):
         self.assertEqual(owner, "")
         self.assertEqual(slug, "slug-name")
         self.assertEqual(version, None)
+
 
 if __name__ == "__main__":
     unittest.main()

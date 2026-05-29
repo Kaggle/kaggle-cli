@@ -4159,7 +4159,6 @@ class KaggleApi:
             raise ValueError("A kernel must be specified")
         user_name, kernel_slug, kernel_version_number = self.parse_kernel_string(kernel)
 
-
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelFilesRequest()
             request.kernel_slug = kernel_slug
@@ -4458,7 +4457,6 @@ class KaggleApi:
 
         owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
 
-
         if path is None:
             effective_path = self.get_default_download_dir("kernels", owner_slug, kernel_slug)
         else:
@@ -4583,7 +4581,6 @@ class KaggleApi:
         if kernel is None:
             raise ValueError("A kernel must be specified")
         owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
-
 
         if path is None:
             target_dir = self.get_default_download_dir("kernels", owner_slug, kernel_slug, "output")
@@ -4727,7 +4724,6 @@ class KaggleApi:
         if kernel is None:
             raise ValueError("A kernel must be specified")
         owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
-
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelSessionOutputRequest()
@@ -6522,7 +6518,6 @@ class KaggleApi:
                 if not split[2]:
                     raise ValueError("Kernel version cannot be empty if specified")
 
-
     def parse_kernel_string(self, kernel: str) -> Tuple[str, str, Optional[str]]:
         """Parses a kernel string.
 
@@ -6545,7 +6540,6 @@ class KaggleApi:
         else:
             owner = self.get_config_value(self.CONFIG_NAME_USER) or ""
             return owner, kernel, None
-
 
     def validate_resources(
         self, folder: str, resources: List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]

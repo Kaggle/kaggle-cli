@@ -2147,7 +2147,10 @@ class Help(object):
     param_dataset_minsize = "Specify the minimum size of the dataset to return (bytes)"
 
     # Kernels params
-    param_kernel = 'Kernel URL suffix in format <owner>/<kernel-name> or <owner>/<kernel-name>/<version> (use "kaggle ' 'kernels list" to show options)'
+    param_kernel = (
+        'Kernel URL suffix in format <owner>/<kernel-name> or <owner>/<kernel-name>/<version> (use "kaggle '
+        'kernels list" to show options)'
+    )
 
     param_kernel_init = (
         "Create a metadata file for an existing kernel URL suffix in format "
