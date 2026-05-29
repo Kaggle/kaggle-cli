@@ -50,6 +50,8 @@ protobuf==7.34.1
     #   kagglesdk
 python-dateutil==2.9.0.post0
     # via kaggle (pyproject.toml)
+python-dotenv==1.2.2
+    # via kaggle (pyproject.toml)
 python-slugify==8.0.4
     # via kaggle (pyproject.toml)
 pyyaml==6.0.3

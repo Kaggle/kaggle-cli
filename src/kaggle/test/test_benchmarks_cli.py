@@ -2112,150 +2112,15 @@ class TestBenchmarksInit:
 
 
 # ============================================================
-# Upsert .env helper
+# Upsert behavior (auth/init reruns)
 # ============================================================
 
 
-class TestUpsertEnvFile:
-    """Tests for ``KaggleApi._upsert_env_file`` static helper."""
-
-    NEW_VARS = {
-        "MODEL_PROXY_URL": "https://mp.example.com",
-        "MODEL_PROXY_API_KEY": "kaggle-benchmarks:new-token",
-        "MODEL_PROXY_EXPIRY_TIME": "2026-05-29T12:00:00Z",
-    }
-
-    def test_creates_file_when_missing(self, tmp_path):
-        env_file = tmp_path / ".env"
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        assert content == (
-            "MODEL_PROXY_URL=https://mp.example.com\n"
-            "MODEL_PROXY_API_KEY=kaggle-benchmarks:new-token\n"
-            "MODEL_PROXY_EXPIRY_TIME=2026-05-29T12:00:00Z\n"
-        )
-
-    def test_writes_to_empty_file(self, tmp_path):
-        env_file = tmp_path / ".env"
-        env_file.write_text("")
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        for k, v in self.NEW_VARS.items():
-            assert f"{k}={v}\n" in content
-        assert content.count("MODEL_PROXY_URL=") == 1
-
-    def test_replaces_existing_keys_in_place(self, tmp_path):
-        env_file = tmp_path / ".env"
-        env_file.write_text(
-            "MODEL_PROXY_URL=https://old.example.com\n"
-            "MODEL_PROXY_API_KEY=old-token\n"
-            "MODEL_PROXY_EXPIRY_TIME=2020-01-01T00:00:00Z\n"
-        )
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        lines = content.splitlines()
-        assert len(lines) == 3
-        assert lines[0] == "MODEL_PROXY_URL=https://mp.example.com"
-        assert lines[1] == "MODEL_PROXY_API_KEY=kaggle-benchmarks:new-token"
-        assert lines[2] == "MODEL_PROXY_EXPIRY_TIME=2026-05-29T12:00:00Z"
-        assert content.count("MODEL_PROXY_URL=") == 1
-        assert content.count("MODEL_PROXY_API_KEY=") == 1
-        assert "old.example.com" not in content
-        assert "old-token" not in content
-
-    def test_preserves_comments_blanks_and_unrelated_keys(self, tmp_path):
-        env_file = tmp_path / ".env"
-        original = (
-            "# top-level comment\n"
-            "\n"
-            "UNRELATED=keep-me\n"
-            "# inline comment for url\n"
-            "MODEL_PROXY_URL=https://old.example.com\n"
-            "\n"
-            "ANOTHER=also-keep\n"
-        )
-        env_file.write_text(original)
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        # Comments and blank lines preserved.
-        assert "# top-level comment\n" in content
-        assert "# inline comment for url\n" in content
-        assert "\n\n" in content
-        # Unrelated keys preserved verbatim and in order.
-        assert "UNRELATED=keep-me\n" in content
-        assert "ANOTHER=also-keep\n" in content
-        # URL replaced in place (still appears before ANOTHER).
-        url_idx = content.index("MODEL_PROXY_URL=https://mp.example.com")
-        another_idx = content.index("ANOTHER=also-keep")
-        assert url_idx < another_idx
-        # New keys not previously present appended at the end.
-        api_idx = content.index("MODEL_PROXY_API_KEY=")
-        expiry_idx = content.index("MODEL_PROXY_EXPIRY_TIME=")
-        assert api_idx > another_idx
-        assert expiry_idx > another_idx
-
-    def test_recognises_export_prefix_and_whitespace(self, tmp_path):
-        env_file = tmp_path / ".env"
-        env_file.write_text(
-            "  export MODEL_PROXY_URL=https://old.example.com\n" "\texport  MODEL_PROXY_API_KEY=old-token\n"
-        )
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        assert "old.example.com" not in content
-        assert "old-token" not in content
-        assert "MODEL_PROXY_URL=https://mp.example.com\n" in content
-        assert "MODEL_PROXY_API_KEY=kaggle-benchmarks:new-token\n" in content
-        assert content.count("MODEL_PROXY_URL=") == 1
-        assert content.count("MODEL_PROXY_API_KEY=") == 1
-
-    def test_handles_file_without_trailing_newline(self, tmp_path):
-        env_file = tmp_path / ".env"
-        env_file.write_text("UNRELATED=keep")  # no trailing newline
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        lines = content.splitlines()
-        # The unrelated line should not have been concatenated with a new key.
-        assert lines[0] == "UNRELATED=keep"
-        assert "MODEL_PROXY_URL=https://mp.example.com" in lines
-        # And the file should end with a newline.
-        assert content.endswith("\n")
-        # No duplicate key lines.
-        assert content.count("MODEL_PROXY_URL=") == 1
-
-    def test_does_not_match_keys_inside_other_lines(self, tmp_path):
-        env_file = tmp_path / ".env"
-        env_file.write_text("# MODEL_PROXY_URL=should-not-be-touched\n" "NOT_MODEL_PROXY_URL=keep\n")
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        content = env_file.read_text()
-        assert "# MODEL_PROXY_URL=should-not-be-touched\n" in content
-        assert "NOT_MODEL_PROXY_URL=keep\n" in content
-        # New key appended at the end.
-        assert content.rstrip().endswith("MODEL_PROXY_EXPIRY_TIME=2026-05-29T12:00:00Z")
-
-    def test_idempotent_when_rerun_with_same_values(self, tmp_path):
-        env_file = tmp_path / ".env"
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        first = env_file.read_text()
-        KaggleApi._upsert_env_file(str(env_file), self.NEW_VARS)
-        second = env_file.read_text()
-        assert first == second
-
-
-class TestBenchmarksAuthUpsertIntegration:
-    """End-to-end checks that ``kaggle benchmarks auth`` upserts rather than appends."""
-
-    def test_rerunning_auth_replaces_existing_keys(self, api, mock_token, tmp_path):
-        env_file = tmp_path / ".env"
-        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
-        first = env_file.read_text()
-        api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
-        second = env_file.read_text()
-        # Same token response, so the file should be byte-stable across reruns.
-        assert first == second
-        # Exactly one occurrence of each managed key.
-        assert second.count("MODEL_PROXY_URL=") == 1
-        assert second.count("MODEL_PROXY_API_KEY=") == 1
-        assert second.count("MODEL_PROXY_EXPIRY_TIME=") == 1
+class TestBenchmarksUpsert:
+    """End-to-end checks that ``kaggle benchmarks auth/init`` upserts the
+    managed keys rather than appending duplicates. The line-by-line upsert
+    semantics are owned by ``python-dotenv``; these tests only verify wiring
+    and the user-facing contract."""
 
     def test_rerun_with_new_token_replaces_stale_value(self, api, tmp_path):
         # First run: original token.
@@ -2278,7 +2143,7 @@ class TestBenchmarksAuthUpsertIntegration:
 
     def test_preserves_user_added_keys_and_comments(self, api, mock_token, tmp_path):
         env_file = tmp_path / ".env"
-        env_file.write_text("# my notes\n" "MY_SECRET=hunter2\n" "MODEL_PROXY_URL=https://stale.example.com\n")
+        env_file.write_text("# my notes\nMY_SECRET=hunter2\nMODEL_PROXY_URL=https://stale.example.com\n")
         api.benchmarks_auth_cli(no_confirm=True, env_file=str(env_file))
         content = env_file.read_text()
         assert "# my notes\n" in content

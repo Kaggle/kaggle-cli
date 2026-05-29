@@ -33,6 +33,7 @@ dependencies = [
     "packaging",
     "protobuf",
     "jupytext",
+    "python-dotenv",
 ]
 
 [project.scripts]
@@ -97,7 +98,8 @@ module = [
     # TODO(b/505845982): Generate type hints for kagglesdk
     "kagglesdk.*",
     "kaggle_api_extended.*",
-    "jupytext.*"
+    "jupytext.*",
+    "dotenv.*"
 ]
 ignore_missing_imports = true
 
