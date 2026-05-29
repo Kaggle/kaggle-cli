@@ -7575,7 +7575,7 @@ class KaggleApi:
             print(f"{'Model':<{model_col}} {'File':<{file_col}} {'Size':<{size_col}} {'Progress':<{prog_col}}")
             print(f"{'─' * model_col} {'─' * file_col} {'─' * size_col} {'─' * prog_col}")
 
-            downloaded, cached = 0, 0
+            downloaded, cached, cached_without_source = 0, 0, 0
             for r, display_file in zip(downloadable, display_files):
                 slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
@@ -7586,6 +7586,14 @@ class KaggleApi:
                     size_str = self._format_size(self._dir_size(outdir))
                     print(f"{row_prefix} {size_str:<{size_col}} {'Cached':<{prog_col}}")
                     cached += 1
+                    # If the caller asked for source notebooks with -s but the cached dir
+                    # was built without them, count it so we can emit a tip at the end.
+                    # Skip detection requires --force to re-download.
+                    if include_source and not any(
+                        os.path.exists(os.path.join(outdir, n))
+                        for n in ("__notebook__.ipynb", "__notebook_source__.ipynb")
+                    ):
+                        cached_without_source += 1
                     continue
 
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
@@ -7634,6 +7642,15 @@ class KaggleApi:
             # "Cached" = already on disk from a previous download; the data is available without a fetch.
             parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (cached, "cached")) if n]
             print(f"\nDone: {', '.join(parts) or '0 runs downloaded'}.")
+
+            # Tip: -s alone won't backfill source notebooks into already-cached dirs.
+            # The check that gates re-download (os.path.isdir(outdir)) doesn't peek inside,
+            # so the cached row stays untouched even though it lacks the requested files.
+            if cached_without_source:
+                print(
+                    f"\nTip: {cached_without_source} cached run(s) lack source notebooks. "
+                    f"Re-run with -f -s to fetch them."
+                )
 
     @staticmethod
     def _format_size(n) -> str:
