@@ -1180,7 +1180,7 @@ class TestDownload:
         assert "kaggle b t status my-task" in output
 
     def test_download_skips_existing_output(self, api, capsys, tmp_path):
-        """Already-downloaded runs are skipped without making API calls."""
+        """Already-downloaded runs render as Cached without making API calls."""
         _setup_runs_response(api, [_make_run(run_id=42)])
         self._mock_download(api)
         outdir = str(tmp_path / "out")
@@ -1192,13 +1192,16 @@ class TestDownload:
 
         output = capsys.readouterr().out
         assert "gemini-pro" in output
-        assert "Skipped" in output
-        assert "1 run(s) skipped" in output
+        assert "Cached" in output
+        assert "1 run(s) cached" in output
+        # The File column shows the output directory, not a .zip path
+        assert "gemini-pro/42/" in output
+        assert "/42/42.zip" not in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
 
     def test_download_summary_counts(self, api, capsys, tmp_path):
-        """Download summary shows correct downloaded and skipped counts."""
+        """Download summary shows correct downloaded and cached counts."""
         _setup_runs_response(
             api,
             [_make_run(model="new-model", run_id=1), _make_run(model="old-model", run_id=2)],
@@ -1214,7 +1217,7 @@ class TestDownload:
 
         output = capsys.readouterr().out
         assert "1 run(s) downloaded" in output
-        assert "1 run(s) skipped" in output
+        assert "1 run(s) cached" in output
 
     def test_download_force_overwrites_existing_output(self, api, capsys, tmp_path):
         """Using force=True re-downloads and overwrites existing output."""
