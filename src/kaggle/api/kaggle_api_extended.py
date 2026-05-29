@@ -4157,7 +4157,8 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        user_name, kernel_slug, kernel_version_number = self.split_dataset_string(kernel)
+        user_name, kernel_slug, kernel_version_number = self.parse_kernel_string(kernel)
+
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelFilesRequest()
@@ -4290,11 +4291,10 @@ class KaggleApi:
         if not slug and not id_no:
             raise ValueError("ID or slug must be specified in the metadata")
         if slug:
-            self.validate_kernel_string(slug)
-            if "/" in slug:
-                kernel_slug = slug.split("/")[1]
-            else:
-                kernel_slug = slug
+            owner, kernel_slug, version = self.parse_kernel_string(slug)
+            if version is not None:
+                raise ValueError("Kernel metadata 'id' (slug) cannot contain a version")
+
             if title:
                 as_slug = slugify(cast(str, title))
                 if kernel_slug.lower() != as_slug:
@@ -4456,14 +4456,8 @@ class KaggleApi:
                     else:
                         print("Using kernel " + kernel)
 
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
+
 
         if path is None:
             effective_path = self.get_default_download_dir("kernels", owner_slug, kernel_slug)
@@ -4588,14 +4582,8 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = cast(str, self.get_config_value(self.CONFIG_NAME_USER))
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
+
 
         if path is None:
             target_dir = self.get_default_download_dir("kernels", owner_slug, kernel_slug, "output")
@@ -4691,14 +4679,8 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER)
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
+
         with self.build_kaggle_client() as kaggle:
             request = ApiGetKernelSessionStatusRequest()
             request.user_name = owner_slug
@@ -4744,14 +4726,8 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            kernel_url_list = kernel.split("/")
-            owner_slug = kernel_url_list[0]
-            kernel_slug = kernel_url_list[1]
-        else:
-            owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
-            kernel_slug = kernel
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
+
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelSessionOutputRequest()
@@ -6510,7 +6486,8 @@ class KaggleApi:
     def validate_kernel_string(self, kernel: Optional[str]) -> None:
         """Validates a kernel string.
 
-        A kernel string is valid if it is in the format {username}/{kernel-slug}.
+        A kernel string is valid if it is in the format {username}/{kernel-slug}
+        or {username}/{kernel-slug}/{version}.
 
         Args:
             kernel (Optional[str]): The kernel name to validate.
@@ -6520,14 +6497,58 @@ class KaggleApi:
         """
         if kernel:
             if "/" not in kernel:
-                raise ValueError("Kernel must be specified in the form of " "'{username}/{kernel-slug}'")
+                raise ValueError(
+                    "Kernel must be specified in the form of "
+                    "'{username}/{kernel-slug}' or '{username}/{kernel-slug}/{version}'"
+                )
 
             split = kernel.split("/")
+            if len(split) > 3:
+                raise ValueError(
+                    "Kernel must be specified in the form of "
+                    "'{username}/{kernel-slug}' or '{username}/{kernel-slug}/{version}'"
+                )
+
             if not split[0] or not split[1]:
-                raise ValueError("Kernel must be specified in the form of " "'{username}/{kernel-slug}'")
+                raise ValueError(
+                    "Kernel must be specified in the form of "
+                    "'{username}/{kernel-slug}' or '{username}/{kernel-slug}/{version}'"
+                )
 
             if len(split[1]) < 5:
                 raise ValueError("Kernel slug must be at least five characters")
+
+            if len(split) == 3:
+                if not split[2]:
+                    raise ValueError("Kernel version cannot be empty if specified")
+                try:
+                    int(split[2])
+                except ValueError:
+                    raise ValueError("Kernel version must be an integer")
+
+    def parse_kernel_string(self, kernel: str) -> Tuple[str, str, Optional[str]]:
+        """Parses a kernel string.
+
+        Args:
+            kernel: The kernel string to parse. Can be 'slug', 'owner/slug', or 'owner/slug/version'.
+
+        Returns:
+            A tuple of (owner, slug, version).
+        """
+        if not kernel:
+            raise ValueError("A kernel must be specified")
+
+        if "/" in kernel:
+            self.validate_kernel_string(kernel)
+            parts = kernel.split("/")
+            owner = parts[0]
+            slug = parts[1]
+            version = parts[2] if len(parts) > 2 else None
+            return owner, slug, version
+        else:
+            owner = self.get_config_value(self.CONFIG_NAME_USER) or ""
+            return owner, kernel, None
+
 
     def validate_resources(
         self, folder: str, resources: List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]
