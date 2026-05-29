@@ -140,6 +140,30 @@ kaggle competitions logs 98765432 1 -p ./logs
 
 This downloads the log file as `episode-98765432-agent-0-logs.json`.
 
+## 9. Inspect Top Teams' Active Agents
+
+You can study how the leading teams' agents are performing — useful for scouting strategies or understanding the metagame. Start from the leaderboard to grab the team ID:
+
+```bash
+kaggle competitions leaderboard connectx -s
+```
+
+This prints a table with columns `teamId`, `teamName`, `submissionDate`, `score`. Take the `teamId` of the team you want to inspect (e.g., first place), then list every active submission they have on the leaderboard:
+
+```bash
+kaggle competitions team-submissions 42
+```
+
+This returns the team's public-safe submissions — `id`, `dateSubmitted`, and `publicScore`. For simulation competitions every leaderboard-eligible submission is listed (not just the best one), so you can see the full rotation of agents a top team is fielding.
+
+Pick the submission with the highest `publicScore` and list its episodes, just like you would for your own:
+
+```bash
+kaggle competitions episodes 98765432
+```
+
+From there you can pull replays and agent logs for any episode that submission played in (`kaggle competitions replay <episode_id>` / `kaggle competitions logs <episode_id> <agent_index>`).
+
 ## Putting It All Together
 
 Here's a typical workflow for iterating on a simulation competition agent:
@@ -167,4 +191,8 @@ kaggle competitions logs 98765432 0
 
 # Check the leaderboard
 kaggle competitions leaderboard connectx -s
+
+# Scout the leader: list their active agents, then pick the best one's episodes
+kaggle competitions team-submissions <leader-team-id>
+kaggle competitions episodes <best-submission-id>
 ```

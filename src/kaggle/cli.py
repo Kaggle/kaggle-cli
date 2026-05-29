@@ -305,6 +305,27 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_leaderboard._action_groups.append(parser_competitions_leaderboard_optional)
     parser_competitions_leaderboard.set_defaults(func=api.competition_leaderboard_cli)
 
+    # Competitions list team public submissions
+    parser_competitions_team_submissions = subparsers_competitions.add_parser(
+        "team-submissions",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_team_submissions,
+    )
+    parser_competitions_team_submissions_optional = parser_competitions_team_submissions._action_groups.pop()
+    parser_competitions_team_submissions_optional.add_argument(
+        "team_id",
+        type=int,
+        help='Team ID (find these with "kaggle competitions leaderboard <competition> --show")',
+    )
+    parser_competitions_team_submissions_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_team_submissions_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_team_submissions._action_groups.append(parser_competitions_team_submissions_optional)
+    parser_competitions_team_submissions.set_defaults(func=api.competition_team_submissions_cli)
+
     # Competitions list episodes
     parser_competitions_episodes = subparsers_competitions.add_parser(
         "episodes", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episodes
@@ -1841,6 +1862,7 @@ class Help(object):
         "submit",
         "submissions",
         "leaderboard",
+        "team-submissions",
         "episodes",
         "replay",
         "logs",
@@ -1958,6 +1980,7 @@ class Help(object):
     command_competitions_submit = "Make a new competition submission"
     command_competitions_submissions = "Show your competition submissions"
     command_competitions_leaderboard = "Get competition leaderboard information"
+    command_competitions_team_submissions = "List a team's public submissions (every active submission for simulation competitions, or the public leaderboard submission for regular competitions)"
     command_competitions_episodes = "List episodes for a submission in a simulation competition"
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"

@@ -81,6 +81,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiCreateSubmissionRequest,
     ApiSubmission,
     ApiListSubmissionsRequest,
+    ApiListTeamPublicSubmissionsRequest,
     ApiListDataFilesResponse,
     ApiListDataFilesRequest,
     ApiDownloadDataFileRequest,
@@ -2037,6 +2038,46 @@ class KaggleApi:
                     self.print_table(results, self.competition_leaderboard_fields)
             else:
                 print("No results found")
+
+    team_public_submission_fields = ["id", "dateSubmitted", "publicScore"]
+
+    def competition_team_submissions(self, team_id: int):
+        """List the public-safe submissions for a team.
+
+        For simulation competitions this returns every active
+        (leaderboard-eligible) submission for the team. For regular competitions
+        it returns the single submission currently on the public leaderboard
+        (or an empty list if the team has none).
+
+        Args:
+            team_id (int): The team ID (find these with
+                "kaggle competitions leaderboard <competition> --show").
+
+        Returns:
+            list: A list of ApiPublicSubmission objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListTeamPublicSubmissionsRequest()
+            request.team_id = team_id
+            response = kaggle.competitions.competition_api_client.list_team_public_submissions(request)
+            return response.submissions
+
+    def competition_team_submissions_cli(self, team_id, csv_display=False, quiet=False):
+        """CLI wrapper for competition_team_submissions.
+
+        Args:
+            team_id (int): The team ID.
+            csv_display (bool): If True, print CSV instead of table.
+            quiet (bool): Suppress verbose output.
+        """
+        submissions = self.competition_team_submissions(team_id)
+        if not submissions:
+            print("No submissions found")
+            return
+        if csv_display:
+            self.print_csv(submissions, self.team_public_submission_fields)
+        else:
+            self.print_table(submissions, self.team_public_submission_fields)
 
     def competition_list_episodes(self, submission_id: int):
         """List episodes for a submission in a simulation competition.
