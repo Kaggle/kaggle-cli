@@ -7193,14 +7193,46 @@ class KaggleApi:
             if not self.confirmation(f"write these settings to {os.path.basename(env_file_abs)}", default_to_yes=True):
                 return False
 
-        with open(env_file_abs, "a") as f:
-            f.write("\n")
-            for key, value in env_vars.items():
-                f.write(f"{key}={value}\n")
+        self._upsert_env_file(env_file_abs, env_vars)
 
         if not quiet:
             print(f"Environment variables have been written to {env_file_abs}.")
         return True
+
+    # Matches ``KEY=`` at the start of an env-file line, allowing leading
+    # whitespace and an optional ``export`` prefix.
+    _ENV_LINE_RE = re.compile(r"^[ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=")
+
+    @classmethod
+    def _upsert_env_file(cls, env_file_abs, env_vars):
+        """Upsert ``KEY=VALUE`` pairs into a .env file in place.
+
+        Existing lines whose key matches one in ``env_vars`` are replaced with
+        ``KEY=VALUE`` (dropping any ``export`` prefix and surrounding
+        whitespace). Keys not already present are appended at the end.
+        Comments, blank lines, and unrelated entries are preserved verbatim.
+        Creates the file if it does not exist.
+        """
+        remaining = dict(env_vars)
+        new_lines: list[str] = []
+        if os.path.exists(env_file_abs):
+            with open(env_file_abs, "r") as f:
+                existing = f.readlines()
+            for line in existing:
+                match = cls._ENV_LINE_RE.match(line)
+                if match and match.group(1) in remaining:
+                    key = match.group(1)
+                    value = remaining.pop(key)
+                    newline = "\n" if line.endswith("\n") else ""
+                    new_lines.append(f"{key}={value}{newline}")
+                else:
+                    new_lines.append(line)
+            if remaining and new_lines and not new_lines[-1].endswith("\n"):
+                new_lines[-1] = new_lines[-1] + "\n"
+        for key, value in remaining.items():
+            new_lines.append(f"{key}={value}\n")
+        with open(env_file_abs, "w") as f:
+            f.writelines(new_lines)
 
     @staticmethod
     def _format_expiry(iso_timestamp):
