@@ -733,6 +733,7 @@ class KaggleApi:
     CONFIG_NAME_KEY = "key"
     CONFIG_NAME_TOKEN = "token"
     CONFIG_NAME_SSL_CA_CERT = "ssl_ca_cert"
+    KGAT_TOKEN_PREFIX = "KGAT_"
 
     HEADER_API_VERSION = "X-Kaggle-ApiVersion"
     DATASET_METADATA_FILE = "dataset-metadata.json"
@@ -1371,11 +1372,20 @@ class KaggleApi:
         Returns:
             kagglesdk.kaggle_client.KaggleClient: A Kaggle client.
         """
+        username = self.config_values.get(self.CONFIG_NAME_USER)
+        password = self.config_values.get(self.CONFIG_NAME_KEY)
+        api_token = self.config_values.get(self.CONFIG_NAME_TOKEN)
+        # KGAT-prefixed values are Kaggle API tokens that require Bearer auth.
+        # If one is stored in the legacy "key" field, promote it to api_token
+        # so the SDK sends Authorization: Bearer ... instead of HTTP Basic.
+        if api_token is None and password and password.startswith(self.KGAT_TOKEN_PREFIX):
+            api_token = password
+            password = None
         return KaggleApi.build_kaggle_client_with_params(
             args=self.args,
-            username=self.config_values.get(self.CONFIG_NAME_USER),
-            password=self.config_values.get(self.CONFIG_NAME_KEY),
-            api_token=self.config_values.get(self.CONFIG_NAME_TOKEN),
+            username=username,
+            password=password,
+            api_token=api_token,
             response_processor=self.get_response_processor(),
         )
 
