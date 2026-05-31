@@ -5896,7 +5896,7 @@ class KaggleApi:
         return upload_file, file_or_folder_name
 
     def print_obj(self, obj, indent=2):
-        pretty = json.dumps(obj, indent=indent)
+        pretty = json.dumps(obj.to_dict(), indent=indent)
         print(pretty)
 
     def download_needed(self, response: Response, outfile: str, quiet: bool = True) -> bool:
