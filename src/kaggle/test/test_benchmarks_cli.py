@@ -2079,6 +2079,55 @@ class TestBenchmarksAuth:
         out = capsys.readouterr().out
         assert "custom.env" in out
 
+    def test_friendly_error_on_404_lists_both_causes(self, api, tmp_path):
+        """404 maps to a message listing both beta-access and stale-CLI as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=404)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+        msg = str(excinfo.value)
+        assert "currently in beta" in msg
+        assert "pip install -U kaggle" in msg
+
+    def test_friendly_error_on_403_lists_both_causes(self, api, tmp_path):
+        """403 maps to a message listing both verification and stale-credentials as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=403)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+        msg = str(excinfo.value)
+        assert "phone or identity verification" in msg
+        assert "https://www.kaggle.com/settings" in msg
+        assert "stale or invalid" in msg
+        assert "https://www.kaggle.com/settings/api" in msg
+
+    @pytest.mark.parametrize("status_code", [401, 429, 500, 503])
+    def test_other_http_errors_propagate_unchanged(self, api, tmp_path, status_code):
+        """Status codes outside 403/404 propagate as HTTPError (no misleading verification text)."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
+        with pytest.raises(HTTPError):
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+
+    def test_http_error_without_response_propagates(self, api, tmp_path):
+        """An HTTPError with no response object (e.g. network error) propagates raw."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=None
+        )
+        with pytest.raises(HTTPError):
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+
+    def test_non_http_errors_propagate_unchanged(self, api, tmp_path):
+        """Non-HTTP exceptions (e.g. connection errors) propagate as-is, no error wrapping."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = ConnectionError(
+            "DNS lookup failed"
+        )
+        with pytest.raises(ConnectionError, match="DNS lookup failed"):
+            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+
 
 # ============================================================
 # Benchmarks Init
@@ -2171,6 +2220,38 @@ class TestBenchmarksInit:
         content = env_file.read_text()
         assert content.startswith("EXISTING_VAR=hello\n")
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
+
+    def test_friendly_error_on_404_lists_both_causes(self, api, tmp_path):
+        """404 maps to a message listing both beta-access and stale-CLI as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=404)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_init_cli(
+                no_confirm=True,
+                env_file=str(tmp_path / ".env"),
+                example_file=str(tmp_path / "example_task.py"),
+            )
+        msg = str(excinfo.value)
+        assert "currently in beta" in msg
+        assert "pip install -U kaggle" in msg
+
+    def test_friendly_error_on_403_lists_both_causes(self, api, tmp_path):
+        """403 maps to a message listing both verification and stale-credentials as possibilities."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=403)
+        )
+        with pytest.raises(ValueError) as excinfo:
+            api.benchmarks_init_cli(
+                no_confirm=True,
+                env_file=str(tmp_path / ".env"),
+                example_file=str(tmp_path / "example_task.py"),
+            )
+        msg = str(excinfo.value)
+        assert "phone or identity verification" in msg
+        assert "https://www.kaggle.com/settings" in msg
+        assert "stale or invalid" in msg
+        assert "https://www.kaggle.com/settings/api" in msg
 
 
 # ============================================================

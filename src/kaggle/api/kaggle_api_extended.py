@@ -7147,7 +7147,27 @@ class KaggleApi:
     def _fetch_model_proxy_env(self):
         with self.build_kaggle_client() as kaggle:
             request = ApiCreateDefaultModelProxyTokenRequest()
-            response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
+            try:
+                response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
+            except HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                if status == 404:
+                    raise ValueError(
+                        "Endpoint not found (404). Possible causes:\n"
+                        "  1. Kaggle Benchmarks is currently in beta and isn't enabled on your account.\n"
+                        "     Request access from the Kaggle Benchmarks team and try again once enabled.\n"
+                        "  2. Your Kaggle CLI may be out of date.\n"
+                        "     Upgrade with `pip install -U kaggle` and re-run this command."
+                    ) from None
+                if status == 403:
+                    raise ValueError(
+                        "Authentication failed (403). Possible causes:\n"
+                        "  1. Your account is missing phone or identity verification.\n"
+                        "     Verify at https://www.kaggle.com/settings.\n"
+                        "  2. Your Kaggle API credentials are stale or invalid.\n"
+                        "     Regenerate at https://www.kaggle.com/settings/api and replace ~/.kaggle/access_token (or kaggle.json)."
+                    ) from None
+                raise
         return {
             "MODEL_PROXY_URL": response.base_uri,
             "MODEL_PROXY_API_KEY": response.token,
