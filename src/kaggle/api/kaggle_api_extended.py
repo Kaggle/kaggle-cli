@@ -7157,7 +7157,7 @@ class KaggleApi:
                         "  1. Kaggle Benchmarks is currently in beta and isn't enabled on your account.\n"
                         "     Request access from the Kaggle Benchmarks team and try again once enabled.\n"
                         "  2. Your Kaggle CLI may be out of date.\n"
-                        "     Upgrade with `pip install -U kaggle` and re-run this command."
+                        "     Upgrade with `pip install --upgrade kaggle` and re-run this command."
                     ) from None
                 if status == 403:
                     raise ValueError(

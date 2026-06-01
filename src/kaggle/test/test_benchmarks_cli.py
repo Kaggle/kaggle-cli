@@ -2093,7 +2093,7 @@ class TestBenchmarksAuth:
             api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
         msg = str(excinfo.value)
         assert "currently in beta" in msg
-        assert "pip install -U kaggle" in msg
+        assert "pip install --upgrade kaggle" in msg
 
     def test_friendly_error_on_403_lists_both_causes(self, api, tmp_path):
         """403 maps to a message listing both verification and stale-credentials as possibilities."""
@@ -2239,7 +2239,7 @@ class TestBenchmarksInit:
             )
         msg = str(excinfo.value)
         assert "currently in beta" in msg
-        assert "pip install -U kaggle" in msg
+        assert "pip install --upgrade kaggle" in msg
 
     def test_friendly_error_on_403_lists_both_causes(self, api, tmp_path):
         """403 maps to a message listing both verification and stale-credentials as possibilities."""
