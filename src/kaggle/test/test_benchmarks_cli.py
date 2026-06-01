@@ -1216,7 +1216,7 @@ class TestDownload:
         output = capsys.readouterr().out
 
         assert "Cached" in output
-        assert "1 cached run(s) lack source notebooks" in output or "lack source notebooks" in output
+        assert "1 cached run(s) lack source notebooks" in output
         assert "-f -s" in output
         # Without -f, the cached dir was not touched: no download API call
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
