@@ -108,6 +108,7 @@ kaggle m update -p tmp
 sleep 10
 echo "kaggle models get"
 kaggle m get -p tmp $KAGGLE_DEVELOPER/test-model
+kaggle m get $KAGGLE_DEVELOPER/test-model
 
 echo "kaggle models instances init"
 kaggle m instances init -p tmp
@@ -124,6 +125,7 @@ kaggle models instances update -p tmp
 sleep 10
 echo "kaggle models instances get"
 kaggle models instances get $KAGGLE_DEVELOPER/test-model/jax/main -p tmp
+kaggle models instances get $KAGGLE_DEVELOPER/test-model/jax/main
 echo "kaggle models instances files"
 kaggle models instances files $KAGGLE_DEVELOPER/test-model/jax/main -v --page-size 5
 
