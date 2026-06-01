@@ -7581,7 +7581,7 @@ class KaggleApi:
                 outdir = os.path.join(output, task, version, slug, str(r.id))
                 row_prefix = f"{slug:<{model_col}} {display_file:<{file_col}}"
 
-                if os.path.isdir(outdir) and not force:
+                if os.path.isdir(outdir) and os.listdir(outdir) and not force:
                     size_str = self._format_size(self._dir_size(outdir))
                     print(f"{row_prefix} {size_str:<{size_col}} {'Cached':<{prog_col}}")
                     cached += 1

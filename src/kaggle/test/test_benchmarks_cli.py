@@ -1184,9 +1184,11 @@ class TestDownload:
         _setup_runs_response(api, [_make_run(run_id=42)])
         self._mock_download(api)
         outdir = str(tmp_path / "out")
-        # Pre-create the output directory to simulate a previous download
+        # Pre-create the output directory with a file to simulate a previous download
         existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
         os.makedirs(existing)
+        with open(os.path.join(existing, "result.run.json"), "w") as f:
+            f.write("{}")
 
         api.benchmarks_tasks_download_cli("my-task", output=outdir)
 
@@ -1199,6 +1201,23 @@ class TestDownload:
         assert "/42/42.zip" not in output
         # No download API call should have been made
         api._mock_benchmarks.download_benchmark_task_run_output.assert_not_called()
+
+    def test_download_re_fetches_empty_existing_dir(self, api, capsys, tmp_path):
+        """An empty leftover output directory should not count as cached; re-download instead."""
+        _setup_runs_response(api, [_make_run(run_id=42)])
+        self._mock_download(api)
+        outdir = str(tmp_path / "out")
+        # Empty leftover dir from a prior interrupted run
+        existing = os.path.join(outdir, "my-task", "1", "gemini-pro", "42")
+        os.makedirs(existing)
+
+        with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
+            api.benchmarks_tasks_download_cli("my-task", output=outdir)
+
+        output = capsys.readouterr().out
+        assert "Cached" not in output
+        # The empty dir triggers a fresh download
+        api._mock_benchmarks.download_benchmark_task_run_output.assert_called_once()
 
     def test_download_cached_dir_without_source_prints_tip_when_s_passed(self, api, capsys, tmp_path):
         """When -s is passed but the cached dir lacks source notebooks, hint that -f -s is needed."""
@@ -1246,9 +1265,11 @@ class TestDownload:
         )
         self._mock_download(api)
         outdir = str(tmp_path / "out")
-        # Pre-create only run 2 to simulate a previous download
+        # Pre-create only run 2 with a file to simulate a previous download
         existing = os.path.join(outdir, "my-task", "1", "old-model", "2")
         os.makedirs(existing)
+        with open(os.path.join(existing, "result.run.json"), "w") as f:
+            f.write("{}")
 
         with patch("zipfile.ZipFile"), patch("os.remove"), patch("os.rename"):
             api.benchmarks_tasks_download_cli("my-task", output=outdir)
