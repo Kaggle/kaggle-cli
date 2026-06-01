@@ -7370,20 +7370,9 @@ class KaggleApi:
             print(f"\nPushed {banner_subject}")
             print(f"   Task Details:  {url}")
 
-            # Report datasource attachment results
-            if kaggle_datasets:
-                attached = getattr(response, "options", None)
-                if attached and attached.dataset_data_sources:
-                    print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
-                invalid = getattr(response, "invalid_dataset_sources", None)
-                if invalid:
-                    msg = self._warn(
-                        f"⚠ Warning: The following Kaggle datasets could not be resolved: " f"{', '.join(invalid)}"
-                    )
-                    print(msg, file=sys.stderr)
-
             if wait is None:
                 print(f"   Model Output:  {model_output_url}")
+                self._print_attach_result(response, kaggle_datasets)
                 print("\nNext steps:")
                 print("   Check creation status:")
                 print(f"   $ kaggle b t status {task_slug}\n")
@@ -7395,9 +7384,22 @@ class KaggleApi:
                 if completed:
                     print("\nCompleted")
                     print(f"   Model Output:  {model_output_url}")
+                self._print_attach_result(response, kaggle_datasets)
+                if completed:
                     print("\nNext step:")
                     print("   Select models to run (or use -m to skip the menu):")
                     print(f"   $ kaggle b t run {task_slug}")
+
+    def _print_attach_result(self, response, kaggle_datasets):
+        if not kaggle_datasets:
+            return
+        attached = getattr(response, "options", None)
+        if attached and attached.dataset_data_sources:
+            print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
+        invalid = getattr(response, "invalid_dataset_sources", None)
+        if invalid:
+            msg = self._warn(f"⚠ Warning: The following Kaggle datasets could not be resolved: {', '.join(invalid)}")
+            print(msg, file=sys.stderr)
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:

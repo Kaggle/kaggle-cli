@@ -468,6 +468,11 @@ class TestPush:
         assert request.options.dataset_data_sources == ["user/dataset-one", "user/dataset-two"]
         output = capsys.readouterr().out
         assert "Attached Kaggle dataset(s)" in output
+        # Attach message must appear below both Task Details and Model Output (compare URL)
+        task_idx = output.index("Task Details:")
+        model_idx = output.index("Model Output:")
+        attach_idx = output.index("Attached Kaggle dataset(s)")
+        assert task_idx < model_idx < attach_idx
 
     def test_push_with_invalid_kaggle_dataset_warns(self, api, tmp_path, capsys):
         """Push warns about invalid/unresolvable Kaggle datasets."""
