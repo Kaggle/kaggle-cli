@@ -344,6 +344,14 @@ Already-downloaded runs (where the output directory exists) are automatically sk
 
 When `--include-source` is used, the downloaded zip also contains the kernel session's source files (e.g., `__notebook__.ipynb` and `__notebook_source__.ipynb`).
 
+If you re-run with `-s` after a previous download that omitted source notebooks, the cached directories are not re-fetched and the `-s` flag is effectively ignored. The CLI detects this and prints a tip after the summary:
+
+```
+Tip: 2 cached run(s) lack source notebooks. Re-run with -f -s to fetch them.
+```
+
+Use `-f -s` together to force re-download and backfill the source notebooks into the cached runs.
+
 ---
 
 ### `kaggle benchmarks tasks log`

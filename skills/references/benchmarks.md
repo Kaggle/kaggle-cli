@@ -257,6 +257,7 @@ kaggle b t download my-task --include-source
 - Progress is rendered as a table with `Model | File | Size | Progress` columns. `Size` is the extracted on-disk size of the run's output directory.
 - Already-downloaded runs are skipped (use `--force` to re-download) and shown as a `Cached` row in the table
 - Corrupt zips show as a `Bad zip` row; the raw `.zip` is kept on disk and the next run is processed
+- If `-s` is passed but a cached run's directory lacks source notebooks (`__notebook__.ipynb` / `__notebook_source__.ipynb`), the cached row is left untouched and a tip is printed after the summary: `Tip: N cached run(s) lack source notebooks. Re-run with -f -s to fetch them.` — use `-f -s` together to backfill source notebooks into existing cached runs.
 - No downloadable runs (all still in progress): `No downloadable runs yet — N run(s) still in progress. Use 'kaggle b t status my-task' to check progress.`
 - No runs at all: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
 
