@@ -41,9 +41,7 @@ class TestTeamPublicSubmissions(unittest.TestCase):
         result = self.api.competition_team_submissions(team_id=42)
 
         self.assertEqual(result, expected)
-        called_request = (
-            mock_kaggle.competitions.competition_api_client.list_team_public_submissions.call_args[0][0]
-        )
+        called_request = mock_kaggle.competitions.competition_api_client.list_team_public_submissions.call_args[0][0]
         self.assertEqual(called_request.team_id, 42)
 
     @patch.object(KaggleApi, "competition_team_submissions")
