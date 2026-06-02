@@ -3,6 +3,16 @@ Changelog
 
 ### Next
 
+### 2.2.1
+
+* Add `kaggle competitions team-submissions` command (#1036)
+* Add `kaggle quota` command for GPU/TPU accelerator quota (#1029)
+* Support optional kernel version in specifier (#1035)
+* feat(benchmarks): Add log and download source files (#1019)
+* Fix benchmarks CLI error handling and UX improvements (#1024, #1026, #1028, #1030, #1032, #1037, #1039)
+* Fix JSON serialization and download label display (#1038, #1040, #1042)
+* Set proper permissions on auth file (#1033)
+
 ### 2.2.0
 
 * Add test runner workflow
