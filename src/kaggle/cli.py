@@ -894,6 +894,9 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_output_optional.add_argument(
         "--file-pattern", dest="file_pattern", required=False, help=Help.param_kernel_output_file_pattern
     )
+    parser_kernels_output_optional.add_argument(
+        "--page-size", dest="page_size", default=20, type=int, required=False, help=Help.param_page_size
+    )
     parser_kernels_output_optional.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
     parser_kernels_output._action_groups.append(parser_kernels_output_optional)
     parser_kernels_output.set_defaults(func=api.kernels_output_cli)

@@ -44,7 +44,7 @@ class TestKernelsLogs(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
-                "owner/kernel-slug", temp_dir, file_pattern=r".*\.png$", quiet=True
+                "owner/kernel-slug", temp_dir, file_pattern=r".*\.png$", quiet=True, page_size=1
             )
 
         self.assertEqual(token, "")
@@ -54,6 +54,7 @@ class TestKernelsLogs(unittest.TestCase):
         self.assertEqual(mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_count, 2)
         second_request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args_list[1][0][0]
         self.assertEqual(second_request.page_token, "page-2")
+        self.assertEqual(second_request.page_size, 1)
 
     @patch("kaggle.api.kaggle_api_extended.requests.get")
     @patch.object(KaggleApi, "build_kaggle_client")
@@ -73,7 +74,7 @@ class TestKernelsLogs(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
-                "owner/kernel-slug", temp_dir, quiet=True, page_token="page-2"
+                "owner/kernel-slug", temp_dir, quiet=True, page_token="page-2", page_size=50
             )
 
         self.assertEqual(token, "page-3")
@@ -82,6 +83,18 @@ class TestKernelsLogs(unittest.TestCase):
         mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.assert_called_once()
         request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args[0][0]
         self.assertEqual(request.page_token, "page-2")
+        self.assertEqual(request.page_size, 50)
+
+    @patch.object(KaggleApi, "kernels_output")
+    def test_kernels_output_cli_passes_page_size(self, mock_output):
+        """Test CLI wrapper passes page_size to kernels_output."""
+        mock_output.return_value = ([], "")
+
+        self.api.kernels_output_cli("owner/kernel-slug", page_size=75)
+
+        mock_output.assert_called_once_with(
+            "owner/kernel-slug", None, None, False, False, page_token=None, page_size=75
+        )
 
     @patch.object(KaggleApi, "build_kaggle_client")
     @patch.object(KaggleApi, "validate_kernel_string")

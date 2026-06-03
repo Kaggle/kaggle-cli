@@ -4614,6 +4614,7 @@ class KaggleApi:
         force: bool = False,
         quiet: bool = True,
         page_token: Optional[str] = None,
+        page_size: int = 20,
     ) -> Tuple[List[str], str]:
         """Retrieves the output for a specified kernel.
 
@@ -4624,6 +4625,7 @@ class KaggleApi:
             force (bool): If True, force an overwrite if the output already exists (default is False).
             quiet (bool): Suppress verbose output (default is True).
             page_token (str): Optional page token for downloading a specific page of output files.
+            page_size (int): The number of items to request per page.
 
         Returns:
             Tuple[List[str], str]: A tuple containing a list of output files and a string indicating the response status.
@@ -4656,6 +4658,7 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
+            request.page_size = page_size
             if token:
                 request.page_token = token
             try:
@@ -4689,7 +4692,13 @@ class KaggleApi:
 
         while token and page_token is None:
             page_outfiles, token = self.kernels_output(
-                kernel, path, file_pattern=file_pattern, force=force, quiet=quiet, page_token=token
+                kernel,
+                path,
+                file_pattern=file_pattern,
+                force=force,
+                quiet=quiet,
+                page_token=token,
+                page_size=page_size,
             )
             outfiles.extend(page_outfiles)
 
@@ -4705,7 +4714,15 @@ class KaggleApi:
         return outfiles, token  # Breaking change, we need to get the token to the UI
 
     def kernels_output_cli(
-        self, kernel, kernel_opt=None, path=None, force=False, quiet=False, file_pattern=None, page_token=None
+        self,
+        kernel,
+        kernel_opt=None,
+        path=None,
+        force=False,
+        quiet=False,
+        file_pattern=None,
+        page_token=None,
+        page_size=20,
     ):
         """A client wrapper for kernels_output.
 
@@ -4720,9 +4737,12 @@ class KaggleApi:
             quiet: Suppress verbose output (default is False).
             file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
             page_token: Page token for downloading a specific page of output files.
+            page_size: The number of items to request per page.
         """
         kernel = kernel or kernel_opt
-        _, token = self.kernels_output(kernel, path, file_pattern, force, quiet, page_token=page_token)
+        _, token = self.kernels_output(
+            kernel, path, file_pattern, force, quiet, page_token=page_token, page_size=page_size
+        )
         if token:
             print(f"Next page token: {token}")
 
