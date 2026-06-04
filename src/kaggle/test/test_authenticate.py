@@ -5,6 +5,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 import os
 import unittest
 from unittest.mock import patch
+from dateutil.relativedelta import relativedelta
 
 
 class TestAuthenticate(unittest.TestCase):
@@ -69,6 +70,27 @@ class TestAuthenticate(unittest.TestCase):
                 os.environ["KAGGLE_USERNAME"] = username_env
             if key_env is not None:
                 os.environ["KAGGLE_KEY"] = key_env
+
+
+class TestDurationParser(unittest.TestCase):
+    def setUp(self):
+        self.api = KaggleApi.__new__(KaggleApi)
+
+    def test_parse_duration_valid(self):
+        self.assertEqual(self.api._parse_duration("1h"), relativedelta(hours=1))
+        self.assertEqual(self.api._parse_duration("30s"), relativedelta(seconds=30))
+        self.assertEqual(self.api._parse_duration("2h30s"), relativedelta(hours=2, seconds=30))
+        self.assertEqual(self.api._parse_duration("2:30"), relativedelta(hours=2, minutes=30))
+
+    def test_parse_duration_invalid(self):
+        with self.assertRaises(ValueError):
+            self.api._parse_duration("5x")
+        with self.assertRaises(ValueError):
+            self.api._parse_duration("99z")
+        with self.assertRaises(ValueError):
+            self.api._parse_duration("abc")
+        with self.assertRaises(ValueError):
+            self.api._parse_duration("")
 
 
 if __name__ == "__main__":

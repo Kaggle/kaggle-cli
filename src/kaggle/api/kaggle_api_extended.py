@@ -1343,10 +1343,33 @@ class KaggleApi:
             print(response.token)
 
     def _parse_duration(self, duration_str: str) -> relativedelta:
+        if not duration_str:
+            raise ValueError("Invalid duration format. Please use one of the following formats: 1h, 30s, 2h30s, 2:30")
         try:
-            delta = relativedelta(**{duration_str[-1]: int(duration_str[:-1])})  # type: ignore[arg-type]
-            return delta
-        except ValueError:
+            if ":" in duration_str:
+                parts = duration_str.split(":")
+                if len(parts) == 2:
+                    return relativedelta(hours=int(parts[0]), minutes=int(parts[1]))
+                raise ValueError()
+
+            pattern = re.compile(r"(\d+)([hmsdw])")
+            matches = pattern.findall(duration_str)
+            reconstructed = "".join(f"{val}{unit}" for val, unit in matches)
+            if not matches or reconstructed != duration_str:
+                raise ValueError()
+
+            unit_map = {
+                "s": "seconds",
+                "m": "minutes",
+                "h": "hours",
+                "d": "days",
+                "w": "weeks",
+            }
+            kwargs: Dict[str, int] = {}
+            for val_str, unit in matches:
+                kwargs[unit_map[unit]] = kwargs.get(unit_map[unit], 0) + int(val_str)
+            return relativedelta(**kwargs)  # type: ignore[arg-type]
+        except (ValueError, TypeError, IndexError):
             raise ValueError("Invalid duration format. Please use one of the following formats: 1h, 30s, 2h30s, 2:30")
 
     def auth_revoke_token(self, reason: str):
