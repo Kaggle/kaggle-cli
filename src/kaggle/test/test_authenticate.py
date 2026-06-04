@@ -81,6 +81,8 @@ class TestDurationParser(unittest.TestCase):
         self.assertEqual(self.api._parse_duration("30s"), relativedelta(seconds=30))
         self.assertEqual(self.api._parse_duration("2h30s"), relativedelta(hours=2, seconds=30))
         self.assertEqual(self.api._parse_duration("2:30"), relativedelta(hours=2, minutes=30))
+        self.assertEqual(self.api._parse_duration("02:30"), relativedelta(hours=2, minutes=30))
+        self.assertEqual(self.api._parse_duration("1h30m20s"), relativedelta(hours=1, minutes=30, seconds=20))
 
     def test_parse_duration_invalid(self):
         with self.assertRaises(ValueError):
@@ -91,6 +93,10 @@ class TestDurationParser(unittest.TestCase):
             self.api._parse_duration("abc")
         with self.assertRaises(ValueError):
             self.api._parse_duration("")
+        with self.assertRaises(ValueError):
+            self.api._parse_duration("2:3")
+        with self.assertRaises(ValueError):
+            self.api._parse_duration("1h2h")
 
 
 if __name__ == "__main__":
