@@ -230,6 +230,9 @@ class TestKaggleApi(unittest.TestCase):
         try:
             self.kernel_metadata_path = api.kernels_initialize(kernel_directory)
             self.assertTrue(os.path.exists(self.kernel_metadata_path))
+            with open(self.kernel_metadata_path) as f:
+                metadata = json.load(f)
+                self.assertIn("machine_shape", metadata)
         except ApiException as e:
             self.fail(f"kernels_initialize failed: {e}")
 
