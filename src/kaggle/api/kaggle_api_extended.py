@@ -7223,8 +7223,13 @@ class KaggleApi:
 
     # -- Public CLI methods --
 
-    def _fetch_model_proxy_env(self):
+    def _fetch_model_proxy_env(self, source):
         with self.build_kaggle_client() as kaggle:
+            # Tag this request so kaggle-analytics can distinguish
+            # `kaggle benchmarks init` from `kaggle benchmarks auth` — both hit
+            # the same endpoint via this helper and would otherwise be
+            # indistinguishable in request logs.
+            kaggle.http_client()._session.headers["X-Kaggle-CLI-Source"] = f"benchmarks-{source}"
             request = ApiCreateDefaultModelProxyTokenRequest()
             try:
                 response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
@@ -7347,13 +7352,13 @@ class KaggleApi:
             print(f"Syntax reference has been written to {ref_file}.")
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
-        env_vars = self._fetch_model_proxy_env()
+        env_vars = self._fetch_model_proxy_env(source="auth")
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
 
     def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
         print("Initializing Kaggle Benchmarks environment")
         print(f"  Target:  {os.path.abspath(env_file)}\n")
-        env_vars = self._fetch_model_proxy_env()
+        env_vars = self._fetch_model_proxy_env(source="init")
         env_vars.update(
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",

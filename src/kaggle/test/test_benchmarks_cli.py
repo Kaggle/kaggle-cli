@@ -2084,6 +2084,13 @@ class TestBenchmarksAuth:
         out = capsys.readouterr().out
         assert "custom.env" in out
 
+    def test_sets_source_header_for_analytics(self, api, mock_token, tmp_path):
+        """The token request carries ``X-Kaggle-CLI-Source: benchmarks-auth`` so
+        kaggle-analytics can separate it from `kaggle benchmarks init`."""
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+        headers = api._mock_client.http_client.return_value._session.headers
+        headers.__setitem__.assert_any_call("X-Kaggle-CLI-Source", "benchmarks-auth")
+
     def test_friendly_error_on_404_lists_both_causes(self, api, tmp_path):
         """404 maps to a message listing both beta-access and stale-CLI as possibilities."""
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
@@ -2209,6 +2216,17 @@ class TestBenchmarksInit:
         api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
         content = (tmp_path / "my_task.py").read_text()
         assert "import kaggle_benchmarks as kbench" in content
+
+    def test_sets_source_header_for_analytics(self, api, mock_token, tmp_path):
+        """The token request carries ``X-Kaggle-CLI-Source: benchmarks-init`` so
+        kaggle-analytics can separate it from `kaggle benchmarks auth`."""
+        api.benchmarks_init_cli(
+            no_confirm=True,
+            env_file=str(tmp_path / ".env"),
+            example_file=str(tmp_path / "example_task.py"),
+        )
+        headers = api._mock_client.http_client.return_value._session.headers
+        headers.__setitem__.assert_any_call("X-Kaggle-CLI-Source", "benchmarks-init")
 
     def test_aborted_on_no_confirm(self, api, mock_token, capsys, tmp_path):
         env_file = str(tmp_path / ".env")
