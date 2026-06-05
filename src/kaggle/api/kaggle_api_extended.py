@@ -7391,6 +7391,7 @@ class KaggleApi:
                 response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
             except HTTPError as e:
                 status = e.response.status_code if e.response is not None else None
+                self._send_benchmarks_telemetry_beacon(kaggle, source, f"failed:{status}" if status else "failed")
                 if status == 404:
                     raise ValueError(
                         "Endpoint not found (404). Possible causes:\n"
@@ -7408,11 +7409,44 @@ class KaggleApi:
                         "     Regenerate at https://www.kaggle.com/settings/api and replace ~/.kaggle/access_token (or kaggle.json)."
                     ) from None
                 raise
+            except Exception:
+                self._send_benchmarks_telemetry_beacon(kaggle, source, "failed")
+                raise
+            self._send_benchmarks_telemetry_beacon(kaggle, source, "ok")
         return {
             "MODEL_PROXY_URL": response.base_uri,
             "MODEL_PROXY_API_KEY": response.token,
             "MODEL_PROXY_EXPIRY_TIME": response.expiry_time.isoformat() + "Z" if response.expiry_time else "",
         }
+
+    def _send_benchmarks_telemetry_beacon(self, kaggle_client, source, outcome):
+        """Fire-and-forget request whose only purpose is to land a tagged
+        User-Agent in webtier request logs.
+
+        Why: the model-proxy token endpoint backing ``benchmarks init`` /
+        ``benchmarks auth`` can fail at three layers — a 404 from the feature-
+        flag gate and a 403 from the auth middleware both bounce upstream of
+        the handler, so they never reach ``kaggle_logs.ApiRequests`` and are
+        invisible to server-side analytics. Those two are the most common
+        onboarding failures, so we beacon every attempt (success and failure)
+        from the CLI to recover a usable success/failure ratio in webtier logs.
+
+        This is a stop-gap; replace with a proper telemetry endpoint when one
+        exists. Any failure of the beacon itself must be swallowed so it
+        cannot mask the user's real error.
+        """
+        try:
+            http_client = kaggle_client.http_client()
+            http_client._init_session()
+            session = http_client._session
+            endpoint = http_client._endpoint
+            env = http_client._env
+            base = endpoint if env == KaggleEnv.PROD else f"{endpoint}/api"
+            beacon_url = f"{base}/v1/hello"
+            ua = f"kaggle-cli/{kaggle.__version__} benchmarks-{source}-{outcome}"
+            session.get(beacon_url, headers={"User-Agent": ua}, timeout=2)
+        except Exception:
+            pass
 
     def _write_benchmarks_env(self, env_vars, no_confirm, env_file, quiet=False):
         env_file_abs = os.path.abspath(env_file)

@@ -2278,6 +2278,146 @@ class TestBenchmarksInit:
 
 
 # ============================================================
+# Telemetry beacon (init / auth → webtier UA tag)
+# ============================================================
+
+
+class TestBenchmarksTelemetryBeacon:
+    """The CLI fires a tagged-User-Agent beacon on every ``benchmarks init`` /
+    ``benchmarks auth`` attempt so server-side analytics can count outcomes
+    that the model-proxy token handler never sees (FF-gate 404, auth-middleware
+    403). See ``_send_benchmarks_telemetry_beacon`` for the rationale."""
+
+    @pytest.mark.parametrize(
+        "source,cli_method",
+        [
+            ("auth", "benchmarks_auth_cli"),
+            ("init", "benchmarks_init_cli"),
+        ],
+    )
+    def test_beacon_fires_on_success(self, api, mock_token, tmp_path, source, cli_method):
+        with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
+            kwargs = {"no_confirm": True, "env_file": str(tmp_path / ".env")}
+            if cli_method == "benchmarks_init_cli":
+                kwargs["example_file"] = str(tmp_path / "example_task.py")
+            getattr(api, cli_method)(**kwargs)
+        outcomes = [c.args[2] for c in beacon.call_args_list]
+        sources = [c.args[1] for c in beacon.call_args_list]
+        assert "ok" in outcomes
+        assert all(s == source for s in sources)
+
+    @pytest.mark.parametrize(
+        "source,cli_method",
+        [
+            ("auth", "benchmarks_auth_cli"),
+            ("init", "benchmarks_init_cli"),
+        ],
+    )
+    @pytest.mark.parametrize("status_code", [403, 404, 500])
+    def test_beacon_fires_with_status_on_http_error(
+        self, api, tmp_path, source, cli_method, status_code
+    ):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=MagicMock(status_code=status_code)
+        )
+        kwargs = {"no_confirm": True, "env_file": str(tmp_path / ".env")}
+        if cli_method == "benchmarks_init_cli":
+            kwargs["example_file"] = str(tmp_path / "example_task.py")
+        with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
+            # 403/404 are translated to ValueError; everything else stays HTTPError.
+            expected_exc = ValueError if status_code in (403, 404) else HTTPError
+            with pytest.raises(expected_exc):
+                getattr(api, cli_method)(**kwargs)
+        assert beacon.called
+        last = beacon.call_args_list[-1]
+        assert last.args[1] == source
+        assert last.args[2] == f"failed:{status_code}"
+
+    @pytest.mark.parametrize(
+        "source,cli_method",
+        [
+            ("auth", "benchmarks_auth_cli"),
+            ("init", "benchmarks_init_cli"),
+        ],
+    )
+    def test_beacon_fires_when_http_error_has_no_response(self, api, tmp_path, source, cli_method):
+        """HTTPError with ``response=None`` (e.g. mid-flight network glitch) — we
+        still fire a beacon, just without a status code."""
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
+            response=None
+        )
+        kwargs = {"no_confirm": True, "env_file": str(tmp_path / ".env")}
+        if cli_method == "benchmarks_init_cli":
+            kwargs["example_file"] = str(tmp_path / "example_task.py")
+        with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
+            with pytest.raises(HTTPError):
+                getattr(api, cli_method)(**kwargs)
+        assert beacon.called
+        last = beacon.call_args_list[-1]
+        assert last.args[1] == source
+        assert last.args[2] == "failed"
+
+    @pytest.mark.parametrize(
+        "source,cli_method",
+        [
+            ("auth", "benchmarks_auth_cli"),
+            ("init", "benchmarks_init_cli"),
+        ],
+    )
+    def test_beacon_fires_on_connection_error(self, api, tmp_path, source, cli_method):
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = (
+            ConnectionError("DNS lookup failed")
+        )
+        kwargs = {"no_confirm": True, "env_file": str(tmp_path / ".env")}
+        if cli_method == "benchmarks_init_cli":
+            kwargs["example_file"] = str(tmp_path / "example_task.py")
+        with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
+            with pytest.raises(ConnectionError, match="DNS lookup failed"):
+                getattr(api, cli_method)(**kwargs)
+        assert beacon.called
+        last = beacon.call_args_list[-1]
+        assert last.args[1] == source
+        assert last.args[2] == "failed"
+
+    def test_beacon_helper_swallows_exceptions(self, api):
+        """Direct unit test on the helper: a broken session must not raise."""
+        kaggle_client = MagicMock()
+        kaggle_client.http_client.side_effect = RuntimeError("kaboom")
+        api._send_benchmarks_telemetry_beacon(kaggle_client, "init", "ok")  # must not raise
+
+    def test_beacon_helper_sends_get_with_tagged_user_agent(self, api):
+        """Direct unit test on the helper: the GET URL is path /api/v1/hello
+        on non-prod envs, with a UA encoding source + outcome + CLI version."""
+        from kagglesdk.kaggle_env import KaggleEnv
+        import kaggle as kaggle_pkg
+
+        http_client = MagicMock()
+        http_client._endpoint = "http://localhost"
+        http_client._env = KaggleEnv.LOCAL
+        kaggle_client = MagicMock()
+        kaggle_client.http_client.return_value = http_client
+        api._send_benchmarks_telemetry_beacon(kaggle_client, "init", "failed:404")
+        http_client._session.get.assert_called_once()
+        args, kwargs = http_client._session.get.call_args
+        assert args[0] == "http://localhost/api/v1/hello"
+        expected_ua = f"kaggle-cli/{kaggle_pkg.__version__} benchmarks-init-failed:404"
+        assert kwargs["headers"]["User-Agent"] == expected_ua
+
+    def test_beacon_helper_prod_endpoint_uses_no_api_prefix(self, api):
+        """On PROD the base is api.kaggle.com which doesn't take the /api/ prefix."""
+        from kagglesdk.kaggle_env import KaggleEnv
+
+        http_client = MagicMock()
+        http_client._endpoint = "https://api.kaggle.com"
+        http_client._env = KaggleEnv.PROD
+        kaggle_client = MagicMock()
+        kaggle_client.http_client.return_value = http_client
+        api._send_benchmarks_telemetry_beacon(kaggle_client, "auth", "ok")
+        args, _ = http_client._session.get.call_args
+        assert args[0] == "https://api.kaggle.com/v1/hello"
+
+
+# ============================================================
 # Upsert behavior (auth/init reruns)
 # ============================================================
 
