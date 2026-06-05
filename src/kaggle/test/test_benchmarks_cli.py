@@ -1619,10 +1619,10 @@ class TestLog:
         _setup_runs_response(api, [_make_run(model="gemini-pro", state=RUN_QUEUED, run_id=1)])
         api._mock_benchmarks.get_benchmark_task_run_logs.side_effect = HTTPError(response=MagicMock(status_code=404))
         api.benchmarks_tasks_log_cli("my-task")
-        output = capsys.readouterr().out
-        assert "No logs available" in output
-        assert "404" in output
-        assert "0 lines" in output
+        captured = capsys.readouterr()
+        assert "No logs available" in captured.err
+        assert "404" in captured.err
+        assert "0 lines" in captured.out
 
     def test_log_json_list_with_data_key(self, api, capsys):
         """JSON response containing list of {"data": ...} entries prints each entry."""
@@ -1824,7 +1824,7 @@ class TestDelete:
     def test_delete_prints_stub_message(self, api, capsys, no_confirm):
         """Delete always prints stub message; -y flag is accepted but has no effect."""
         api.benchmarks_tasks_delete_cli("my-task", no_confirm=no_confirm)
-        assert "Delete is not supported by the server yet." in capsys.readouterr().out
+        assert "Delete is not supported by the server yet." in capsys.readouterr().err
 
 
 # ============================================================
@@ -2690,8 +2690,8 @@ class TestPublish:
         task, resp = self._setup_publish(api)
         resp.is_backing_notebook_published = False
         api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
-        output = capsys.readouterr().out
-        assert "No backing notebook is associated" in output
+        captured = capsys.readouterr()
+        assert "No backing notebook is associated" in captured.err
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_publish_task_not_found(self, api, status_code):
