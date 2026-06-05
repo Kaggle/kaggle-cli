@@ -261,7 +261,7 @@ class TestEntityListTopicsCli:
         mock_response = MagicMock()
         mock_response.topics = []
         mock_response.next_page_token = ""
-        
+
         api_method_name = method_name[:-4]
         setattr(api, api_method_name, MagicMock(return_value=mock_response))
 
@@ -280,7 +280,7 @@ class TestEntityListTopicsCli:
         mock_response = MagicMock()
         mock_response.topics = [mock_topic]
         mock_response.next_page_token = ""
-        
+
         api_method_name = method_name[:-4]
         setattr(api, api_method_name, MagicMock(return_value=mock_response))
         api.print_table = MagicMock()
@@ -303,7 +303,7 @@ class TestEntityListTopicsCli:
         mock_response = MagicMock()
         mock_response.topics = []
         mock_response.next_page_token = ""
-        
+
         api_method_name = method_name[:-4]
         mock_api_method = MagicMock(return_value=mock_response)
         setattr(api, api_method_name, mock_api_method)
