@@ -729,7 +729,9 @@ def parse_datasets(subparsers) -> None:
         parents=[shared_topics],
     )
     parser_datasets_topics_list_optional = parser_datasets_topics_list._action_groups.pop()
-    parser_datasets_topics_list_optional.add_argument("entity_ref", nargs="?", default=None, help=Help.param_dataset)
+    parser_datasets_topics_list_optional.add_argument(
+        "entity_ref", metavar="dataset", nargs="?", default=None, help=Help.param_dataset
+    )
     parser_datasets_topics_list_optional.add_argument(
         "--sort-by",
         dest="sort_by",
@@ -1052,7 +1054,9 @@ def parse_models(subparsers) -> None:
         parents=[shared_topics],
     )
     parser_models_topics_list_optional = parser_models_topics_list._action_groups.pop()
-    parser_models_topics_list_optional.add_argument("entity_ref", nargs="?", default=None, help=Help.param_model)
+    parser_models_topics_list_optional.add_argument(
+        "entity_ref", metavar="model", nargs="?", default=None, help=Help.param_model
+    )
     parser_models_topics_list_optional.add_argument(
         "--sort-by",
         dest="sort_by",
@@ -1387,7 +1391,7 @@ def parse_benchmarks(subparsers) -> None:
     )
     parser_benchmarks_topics_list_optional = parser_benchmarks_topics_list._action_groups.pop()
     parser_benchmarks_topics_list_optional.add_argument(
-        "entity_ref", nargs="?", default=None, help=Help.param_benchmarks_task
+        "entity_ref", metavar="benchmark", nargs="?", default=None, help=Help.param_benchmark
     )
     parser_benchmarks_topics_list_optional.add_argument(
         "--sort-by",
@@ -2282,6 +2286,7 @@ class Help(object):
     # Benchmarks params
     param_benchmarks_env_file = "File to write environment variables to (default: .env)"
     param_benchmarks_example_file = "File to write the example benchmark task to (default: example_task.py)"
+    param_benchmark = "Benchmark URL suffix in format <owner>/<benchmark-name>"
     param_benchmarks_task = "Task name (normalized to a URL-safe slug, e.g. 'my_task' or 'My Task' becomes 'my-task')."
     param_benchmarks_file = "Path to the source Python file defining the task"
     param_benchmarks_name_regex = "Filter task names by regular expression"
