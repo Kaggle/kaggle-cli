@@ -7379,7 +7379,10 @@ class KaggleApi:
 
     # -- Public CLI methods --
 
-    def _fetch_model_proxy_env(self, source):
+    def _fetch_model_proxy_env(self, beacon_source=None):
+        """Fetch model-proxy env vars. When ``beacon_source`` is set, fire a
+        telemetry beacon on each outcome — see
+        ``_send_benchmarks_telemetry_beacon`` for why."""
         with self.build_kaggle_client() as kaggle:
             # Tag this request so kaggle-analytics can distinguish
             # `kaggle benchmarks init` from `kaggle benchmarks auth` — both hit
@@ -7391,7 +7394,10 @@ class KaggleApi:
                 response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
             except HTTPError as e:
                 status = e.response.status_code if e.response is not None else None
-                self._send_benchmarks_telemetry_beacon(kaggle, source, f"failed:{status}" if status else "failed")
+                if beacon_source:
+                    self._send_benchmarks_telemetry_beacon(
+                        kaggle, beacon_source, f"failed:{status}" if status else "failed"
+                    )
                 if status == 404:
                     raise ValueError(
                         "Endpoint not found (404). Possible causes:\n"
@@ -7410,9 +7416,11 @@ class KaggleApi:
                     ) from None
                 raise
             except Exception:
-                self._send_benchmarks_telemetry_beacon(kaggle, source, "failed")
+                if beacon_source:
+                    self._send_benchmarks_telemetry_beacon(kaggle, beacon_source, "failed")
                 raise
-            self._send_benchmarks_telemetry_beacon(kaggle, source, "ok")
+            if beacon_source:
+                self._send_benchmarks_telemetry_beacon(kaggle, beacon_source, "ok")
         return {
             "MODEL_PROXY_URL": response.base_uri,
             "MODEL_PROXY_API_KEY": response.token,
@@ -7423,13 +7431,13 @@ class KaggleApi:
         """Fire-and-forget request whose only purpose is to land a tagged
         User-Agent in webtier request logs.
 
-        Why: the model-proxy token endpoint backing ``benchmarks init`` /
-        ``benchmarks auth`` can fail at three layers — a 404 from the feature-
-        flag gate and a 403 from the auth middleware both bounce upstream of
-        the handler, so they never reach ``kaggle_logs.ApiRequests`` and are
-        invisible to server-side analytics. Those two are the most common
-        onboarding failures, so we beacon every attempt (success and failure)
-        from the CLI to recover a usable success/failure ratio in webtier logs.
+        Why: the model-proxy token endpoint backing ``benchmarks init`` can
+        fail at three layers — a 404 from the feature-flag gate and a 403
+        from the auth middleware both bounce upstream of the handler, so
+        they never reach ``kaggle_logs.ApiRequests`` and are invisible to
+        server-side analytics. Those two are the most common onboarding
+        failures, so we beacon every attempt (success and failure) from the
+        CLI to recover a usable success/failure ratio in webtier logs.
 
         This is a stop-gap; replace with a proper telemetry endpoint when one
         exists. Any failure of the beacon itself must be swallowed so it
@@ -7542,13 +7550,13 @@ class KaggleApi:
             print(f"Syntax reference has been written to {ref_file}.")
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
-        env_vars = self._fetch_model_proxy_env(source="auth")
+        env_vars = self._fetch_model_proxy_env()
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
 
     def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
         print("Initializing Kaggle Benchmarks environment")
         print(f"  Target:  {os.path.abspath(env_file)}\n")
-        env_vars = self._fetch_model_proxy_env(source="init")
+        env_vars = self._fetch_model_proxy_env(beacon_source="init")
         env_vars.update(
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",
