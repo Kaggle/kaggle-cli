@@ -13,6 +13,11 @@ kaggle forums
 kaggle forums topics
 kaggle forums topics list
 kaggle forums topics show 695158
+kaggle benchmarks topics list kaggle/chess
+kaggle datasets topics list jessicali9530/animal-crossing-new-horizons-nookplaza-dataset
+kaggle models topics list google/bird-vocalization-classifier
+kaggle forums topics list getting-started
+kaggle competitions topics list orbit-wars
 
 echo "kaggle competitions files"
 kaggle competitions files titanic --page-size=3 --page-token=abcd -v -q
