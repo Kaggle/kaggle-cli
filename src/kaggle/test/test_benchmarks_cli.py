@@ -2278,46 +2278,55 @@ class TestBenchmarksInit:
 
 
 # ============================================================
-# Telemetry beacon (init → webtier UA tag)
+# Telemetry beacon (init / auth → webtier UA tag)
 # ============================================================
 
 
-class TestBenchmarksInitTelemetryBeacon:
-    """``benchmarks init`` fires a tagged-User-Agent beacon on every attempt so
-    server-side analytics can count outcomes that the model-proxy token handler
-    never sees (FF-gate 404, auth-middleware 403). See
-    ``_send_benchmarks_telemetry_beacon`` for the rationale."""
-
-    def _init(self, api, tmp_path):
+def _invoke_benchmarks_cli(api, source, tmp_path):
+    """Drive either ``benchmarks_init_cli`` or ``benchmarks_auth_cli`` with the
+    minimum scaffolding each one needs."""
+    if source == "init":
         api.benchmarks_init_cli(
             no_confirm=True,
             env_file=str(tmp_path / ".env"),
             example_file=str(tmp_path / "example_task.py"),
         )
+    else:
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
 
-    def test_beacon_fires_on_success(self, api, mock_token, tmp_path):
+
+class TestBenchmarksTelemetryBeacon:
+    """``benchmarks init`` and ``benchmarks auth`` each fire a tagged-User-Agent
+    beacon on every attempt so server-side analytics can count outcomes that
+    the model-proxy token handler never sees (FF-gate 404, auth-middleware
+    403). See ``_send_benchmarks_telemetry_beacon`` for the rationale."""
+
+    @pytest.mark.parametrize("source", ["init", "auth"])
+    def test_beacon_fires_on_success(self, api, mock_token, tmp_path, source):
         with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
-            self._init(api, tmp_path)
+            _invoke_benchmarks_cli(api, source, tmp_path)
         outcomes = [c.args[2] for c in beacon.call_args_list]
         sources = [c.args[1] for c in beacon.call_args_list]
         assert "ok" in outcomes
-        assert all(s == "init" for s in sources)
+        assert all(s == source for s in sources)
 
+    @pytest.mark.parametrize("source", ["init", "auth"])
     @pytest.mark.parametrize("status_code", [403, 404, 500])
-    def test_beacon_fires_with_status_on_http_error(self, api, tmp_path, status_code):
+    def test_beacon_fires_with_status_on_http_error(self, api, tmp_path, source, status_code):
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
             response=MagicMock(status_code=status_code)
         )
         with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
             expected_exc = ValueError if status_code in (403, 404) else HTTPError
             with pytest.raises(expected_exc):
-                self._init(api, tmp_path)
+                _invoke_benchmarks_cli(api, source, tmp_path)
         assert beacon.called
         last = beacon.call_args_list[-1]
-        assert last.args[1] == "init"
+        assert last.args[1] == source
         assert last.args[2] == f"failed:{status_code}"
 
-    def test_beacon_fires_when_http_error_has_no_response(self, api, tmp_path):
+    @pytest.mark.parametrize("source", ["init", "auth"])
+    def test_beacon_fires_when_http_error_has_no_response(self, api, tmp_path, source):
         """HTTPError with ``response=None`` (e.g. mid-flight network glitch) — we
         still fire a beacon, just without a status code."""
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
@@ -2325,29 +2334,24 @@ class TestBenchmarksInitTelemetryBeacon:
         )
         with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
             with pytest.raises(HTTPError):
-                self._init(api, tmp_path)
+                _invoke_benchmarks_cli(api, source, tmp_path)
         assert beacon.called
         last = beacon.call_args_list[-1]
-        assert last.args[1] == "init"
+        assert last.args[1] == source
         assert last.args[2] == "failed"
 
-    def test_beacon_fires_on_connection_error(self, api, tmp_path):
+    @pytest.mark.parametrize("source", ["init", "auth"])
+    def test_beacon_fires_on_connection_error(self, api, tmp_path, source):
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = ConnectionError(
             "DNS lookup failed"
         )
         with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
             with pytest.raises(ConnectionError, match="DNS lookup failed"):
-                self._init(api, tmp_path)
+                _invoke_benchmarks_cli(api, source, tmp_path)
         assert beacon.called
         last = beacon.call_args_list[-1]
-        assert last.args[1] == "init"
+        assert last.args[1] == source
         assert last.args[2] == "failed"
-
-    def test_auth_does_not_fire_beacon(self, api, mock_token, tmp_path):
-        """``benchmarks auth`` is out of scope for this PR; it must not beacon."""
-        with patch.object(api, "_send_benchmarks_telemetry_beacon") as beacon:
-            api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
-        beacon.assert_not_called()
 
     def test_beacon_helper_swallows_exceptions(self, api):
         """Direct unit test on the helper: a broken session must not raise."""
@@ -2382,7 +2386,7 @@ class TestBenchmarksInitTelemetryBeacon:
         http_client._env = KaggleEnv.PROD
         kaggle_client = MagicMock()
         kaggle_client.http_client.return_value = http_client
-        api._send_benchmarks_telemetry_beacon(kaggle_client, "init", "ok")
+        api._send_benchmarks_telemetry_beacon(kaggle_client, "auth", "ok")
         args, _ = http_client._session.get.call_args
         assert args[0] == "https://api.kaggle.com/v1/hello"
 
