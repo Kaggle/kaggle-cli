@@ -19,6 +19,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from kaggle.api.kaggle_api_extended import KaggleApi
+from kagglesdk.discussions.types.discussions_enums import TopicListSortBy
+from kagglesdk.discussions.types.discussions_api_service import (
+    ApiListDatasetTopicsRequest,
+    ApiListModelTopicsRequest,
+    ApiListBenchmarkTopicsRequest,
+)
 
 # ---- Fixtures ----
 
@@ -255,7 +261,9 @@ class TestEntityListTopicsCli:
         mock_response = MagicMock()
         mock_response.topics = []
         mock_response.next_page_token = ""
-        api.forums_list_topics = MagicMock(return_value=mock_response)
+        
+        api_method_name = method_name[:-4]
+        setattr(api, api_method_name, MagicMock(return_value=mock_response))
 
         method = getattr(api, method_name)
         method(entity_ref="test-ref")
@@ -272,7 +280,9 @@ class TestEntityListTopicsCli:
         mock_response = MagicMock()
         mock_response.topics = [mock_topic]
         mock_response.next_page_token = ""
-        api.forums_list_topics = MagicMock(return_value=mock_response)
+        
+        api_method_name = method_name[:-4]
+        setattr(api, api_method_name, MagicMock(return_value=mock_response))
         api.print_table = MagicMock()
 
         method = getattr(api, method_name)
@@ -281,15 +291,22 @@ class TestEntityListTopicsCli:
         api.print_table.assert_called_once()
 
     @pytest.mark.parametrize(
-        "method_name",
-        ["dataset_list_topics_cli", "model_list_topics_cli", "benchmark_list_topics_cli"],
+        "method_name, arg_name",
+        [
+            ("dataset_list_topics_cli", "dataset"),
+            ("model_list_topics_cli", "model"),
+            ("benchmark_list_topics_cli", "benchmark"),
+        ],
     )
-    def test_list_topics_passes_all_params(self, api, method_name):
-        """All params are forwarded to forums_list_topics."""
+    def test_list_topics_passes_all_params(self, api, method_name, arg_name):
+        """All params are forwarded to the underlying API method."""
         mock_response = MagicMock()
         mock_response.topics = []
         mock_response.next_page_token = ""
-        api.forums_list_topics = MagicMock(return_value=mock_response)
+        
+        api_method_name = method_name[:-4]
+        mock_api_method = MagicMock(return_value=mock_response)
+        setattr(api, api_method_name, mock_api_method)
 
         method = getattr(api, method_name)
         method(
@@ -300,13 +317,14 @@ class TestEntityListTopicsCli:
             search="query",
         )
 
-        api.forums_list_topics.assert_called_once_with(
-            forum_slug="test-ref",
-            sort_by="hot",
-            page_size=50,
-            page_token="tok",
-            search="query",
-        )
+        expected_kwargs = {
+            arg_name: "test-ref",
+            "sort_by": "hot",
+            "page_size": 50,
+            "page_token": "tok",
+            "search": "query",
+        }
+        mock_api_method.assert_called_once_with(**expected_kwargs)
 
 
 # ============================================================
@@ -439,3 +457,95 @@ class TestTopicsListSubcommand:
         func, kwargs = _dispatch(parser, ["competitions", "topics", "list", "-c", "titanic"])
         assert func.__name__ == "competition_list_topics_cli"
         assert kwargs["competition_opt"] == "titanic"
+
+
+class TestDiscussionsApiMethods:
+    """Verify the KaggleApi methods for listing entity-specific topics."""
+
+    def test_dataset_list_topics_correct_request(self, api):
+        # Setup mock client
+        mock_client = api._mock_client
+        mock_list = mock_client.discussions.discussion_api_client.list_dataset_topics
+        mock_list.return_value = MagicMock()
+
+        api.dataset_list_topics(
+            dataset="owner/dataset-slug",
+            sort_by="hot",
+            page_size=10,
+            page_token="token",
+            search="query",
+        )
+
+        mock_list.assert_called_once()
+        request = mock_list.call_args[0][0]
+        assert isinstance(request, ApiListDatasetTopicsRequest)
+        assert request.owner_slug == "owner"
+        assert request.dataset_slug == "dataset-slug"
+        assert request.sort_by == TopicListSortBy.TOPIC_LIST_SORT_BY_HOT
+        assert request.page_size == 10
+        assert request.page_token == "token"
+        assert request.search_query == "query"
+
+    def test_dataset_list_topics_default_owner(self, api, monkeypatch):
+        mock_client = api._mock_client
+        mock_list = mock_client.discussions.discussion_api_client.list_dataset_topics
+        mock_list.return_value = MagicMock()
+
+        api.get_config_value = MagicMock(return_value="default-user")
+
+        api.dataset_list_topics(dataset="dataset-slug")
+
+        mock_list.assert_called_once()
+        request = mock_list.call_args[0][0]
+        assert request.owner_slug == "default-user"
+        assert request.dataset_slug == "dataset-slug"
+
+    def test_model_list_topics_correct_request(self, api):
+        mock_client = api._mock_client
+        mock_list = mock_client.discussions.discussion_api_client.list_model_topics
+        mock_list.return_value = MagicMock()
+
+        api.model_list_topics(
+            model="owner/model-slug",
+            sort_by="new",
+            page_size=20,
+            page_token="token2",
+            search="query2",
+        )
+
+        mock_list.assert_called_once()
+        request = mock_list.call_args[0][0]
+        assert isinstance(request, ApiListModelTopicsRequest)
+        assert request.owner_slug == "owner"
+        assert request.model_slug == "model-slug"
+        assert request.sort_by == TopicListSortBy.TOPIC_LIST_SORT_BY_NEW
+        assert request.page_size == 20
+        assert request.page_token == "token2"
+        assert request.search_query == "query2"
+
+    def test_benchmark_list_topics_correct_request(self, api):
+        mock_client = api._mock_client
+        mock_list = mock_client.discussions.discussion_api_client.list_benchmark_topics
+        mock_list.return_value = MagicMock()
+
+        api.benchmark_list_topics(
+            benchmark="owner/benchmark-slug",
+            sort_by="active",
+            page_size=30,
+            page_token="token3",
+            search="query3",
+        )
+
+        mock_list.assert_called_once()
+        request = mock_list.call_args[0][0]
+        assert isinstance(request, ApiListBenchmarkTopicsRequest)
+        assert request.owner_slug == "owner"
+        assert request.benchmark_slug == "benchmark-slug"
+        assert request.sort_by == TopicListSortBy.TOPIC_LIST_SORT_BY_ACTIVE
+        assert request.page_size == 30
+        assert request.page_token == "token3"
+        assert request.search_query == "query3"
+
+    def test_benchmark_list_topics_invalid_slug(self, api):
+        with pytest.raises(ValueError, match="Benchmark must be specified"):
+            api.benchmark_list_topics(benchmark="too/many/slashes")

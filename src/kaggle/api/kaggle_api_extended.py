@@ -109,10 +109,13 @@ from kagglesdk.discussions.types.discussions_api_service import (
     ApiDiscussionTopic,
     ApiGetTopicRequest,
     ApiGetTopicResponse,
+    ApiListBenchmarkTopicsRequest,
     ApiListCommentsRequest,
     ApiListCommentsResponse,
+    ApiListDatasetTopicsRequest,
     ApiListForumsRequest,
     ApiListForumsResponse,
+    ApiListModelTopicsRequest,
     ApiListTopicsRequest,
     ApiListTopicsResponse,
 )
@@ -2448,6 +2451,123 @@ class KaggleApi:
                 request.group = TopicListGroup["TOPIC_LIST_GROUP_" + group.upper()]
             return kaggle.discussions.discussion_api_client.list_topics(request)
 
+    def dataset_list_topics(
+        self,
+        dataset: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a dataset.
+
+        Args:
+            dataset (str): Dataset slug (e.g. 'zillow/zecon').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, dataset_slug, _ = self.split_dataset_string(dataset)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListDatasetTopicsRequest()
+            request.owner_slug = owner_slug
+            request.dataset_slug = dataset_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_dataset_topics(request)
+
+    def model_list_topics(
+        self,
+        model: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a model.
+
+        Args:
+            model (str): Model slug (e.g. 'google/gemma').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, model_slug = self.split_model_string(model)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListModelTopicsRequest()
+            request.owner_slug = owner_slug
+            request.model_slug = model_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_model_topics(request)
+
+    def benchmark_list_topics(
+        self,
+        benchmark: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a benchmark.
+
+        Args:
+            benchmark (str): Benchmark slug.
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListBenchmarkTopicsRequest()
+            request.owner_slug = owner_slug
+            request.benchmark_slug = benchmark_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_benchmark_topics(request)
+
     def forums_list_topics_cli(
         self,
         forum=None,
@@ -2689,8 +2809,8 @@ class KaggleApi:
         if entity_ref is None:
             raise ValueError("No dataset specified")
 
-        response = self.forums_list_topics(
-            forum_slug=entity_ref,
+        response = self.dataset_list_topics(
+            dataset=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
@@ -2726,8 +2846,8 @@ class KaggleApi:
         if entity_ref is None:
             raise ValueError("No model specified")
 
-        response = self.forums_list_topics(
-            forum_slug=entity_ref,
+        response = self.model_list_topics(
+            model=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
@@ -2763,8 +2883,8 @@ class KaggleApi:
         if entity_ref is None:
             raise ValueError("No benchmark specified")
 
-        response = self.forums_list_topics(
-            forum_slug=entity_ref,
+        response = self.benchmark_list_topics(
+            benchmark=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
@@ -6495,6 +6615,41 @@ class KaggleApi:
             return model_urls[0], model_urls[1]
         else:
             return self.get_config_value(self.CONFIG_NAME_USER), model
+
+    def validate_benchmark_string(self, benchmark: str) -> None:
+        """Validates a benchmark string.
+
+        A benchmark string is valid if it is in the format {owner}/{benchmark-slug}.
+
+        Args:
+            benchmark (str): The benchmark name to validate.
+
+        Returns:
+            None:
+        """
+        if benchmark:
+            if benchmark.count("/") != 1:
+                raise ValueError("Benchmark must be specified in the form of " "'{owner}/{benchmark-slug}'")
+
+            split = benchmark.split("/")
+            if not split[0] or not split[1]:
+                raise ValueError("Invalid benchmark specification " + benchmark)
+
+    def split_benchmark_string(self, benchmark: str) -> Tuple[Union[str, None], str]:
+        """Splits a benchmark string into owner_slug and benchmark_slug.
+
+        Args:
+            benchmark (str): The benchmark name to split.
+
+        Returns:
+            Tuple[Union[str, None], str]: A tuple containing the owner_slug and benchmark_slug.
+        """
+        if "/" in benchmark:
+            self.validate_benchmark_string(benchmark)
+            benchmark_urls = benchmark.split("/")
+            return benchmark_urls[0], benchmark_urls[1]
+        else:
+            return self.get_config_value(self.CONFIG_NAME_USER), benchmark
 
     def validate_model_instance_string(self, model_instance: str) -> None:
         """Validates a model instance string.
