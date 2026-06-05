@@ -2314,9 +2314,7 @@ class TestBenchmarksTelemetryBeacon:
         ],
     )
     @pytest.mark.parametrize("status_code", [403, 404, 500])
-    def test_beacon_fires_with_status_on_http_error(
-        self, api, tmp_path, source, cli_method, status_code
-    ):
+    def test_beacon_fires_with_status_on_http_error(self, api, tmp_path, source, cli_method, status_code):
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
             response=MagicMock(status_code=status_code)
         )
@@ -2365,8 +2363,8 @@ class TestBenchmarksTelemetryBeacon:
         ],
     )
     def test_beacon_fires_on_connection_error(self, api, tmp_path, source, cli_method):
-        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = (
-            ConnectionError("DNS lookup failed")
+        api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = ConnectionError(
+            "DNS lookup failed"
         )
         kwargs = {"no_confirm": True, "env_file": str(tmp_path / ".env")}
         if cli_method == "benchmarks_init_cli":
