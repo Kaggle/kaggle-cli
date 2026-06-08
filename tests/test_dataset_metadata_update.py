@@ -7,17 +7,20 @@ import shutil
 
 # Ensure parent directory is in path for imports
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kagglesdk.datasets.types.dataset_types import DatasetSettings, DatasetSettingsFile, DatasetSettingsFileColumn
 from kagglesdk.datasets.types.dataset_api_service import ApiUpdateDatasetMetadataRequest
+
 
 def _make_api():
     api = KaggleApi.__new__(KaggleApi)
     api.already_printed_version_warning = True
     api.config_values = {"username": "owner"}
     return api
+
 
 class TestDatasetMetadataUpdate(unittest.TestCase):
     def setUp(self):
@@ -36,11 +39,9 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
                 {
                     "name": "file.csv",
                     "description": "file desc",
-                    "columns": [
-                        {"name": "col1", "description": "col1 desc", "type": "string"}
-                    ]
+                    "columns": [{"name": "col1", "description": "col1 desc", "type": "string"}],
                 }
-            ]
+            ],
         }
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
@@ -79,11 +80,11 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
                     "schema": {
                         "fields": [
                             {"name": "col1", "description": "col1 desc", "type": "string"},
-                            {"name": "col2", "title": "col2 desc", "type": "integer"} # test title fallback
+                            {"name": "col2", "title": "col2 desc", "type": "integer"},  # test title fallback
                         ]
-                    }
+                    },
                 }
-            ]
+            ],
         }
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
@@ -110,7 +111,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertEqual(call_args.settings.data[0].columns[0].name, "col1")
         self.assertEqual(call_args.settings.data[0].columns[0].description, "col1 desc")
         self.assertEqual(call_args.settings.data[0].columns[1].name, "col2")
-        self.assertEqual(call_args.settings.data[0].columns[1].description, "col2 desc") # title mapped to description
+        self.assertEqual(call_args.settings.data[0].columns[1].description, "col2 desc")  # title mapped to description
 
     def test_process_column_description(self):
         col_dict = {"name": "col", "description": "desc", "type": "string"}
@@ -126,6 +127,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         col_dict = {"name": "col", "description": "desc", "title": "ignored", "type": "string"}
         processed = self.api.process_column(col_dict)
         self.assertEqual(processed.description, "desc")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -160,7 +160,12 @@ from kagglesdk.datasets.types.dataset_enums import (
     DatasetFileTypeGroup,
     DatasetLicenseGroup,
 )
-from kagglesdk.datasets.types.dataset_types import DatasetSettings, SettingsLicense, DatasetCollaborator, DatasetSettingsFile
+from kagglesdk.datasets.types.dataset_types import (
+    DatasetSettings,
+    SettingsLicense,
+    DatasetCollaborator,
+    DatasetSettingsFile,
+)
 from kagglesdk.kaggle_object import KaggleObject
 from kagglesdk.kernels.types.kernels_api_service import (
     ApiListKernelsRequest,
