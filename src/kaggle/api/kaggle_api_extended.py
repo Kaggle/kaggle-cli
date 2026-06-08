@@ -160,7 +160,7 @@ from kagglesdk.datasets.types.dataset_enums import (
     DatasetFileTypeGroup,
     DatasetLicenseGroup,
 )
-from kagglesdk.datasets.types.dataset_types import DatasetSettings, SettingsLicense, DatasetCollaborator
+from kagglesdk.datasets.types.dataset_types import DatasetSettings, SettingsLicense, DatasetCollaborator, DatasetSettingsFile
 from kagglesdk.kaggle_object import KaggleObject
 from kagglesdk.kernels.types.kernels_api_service import (
     ApiListKernelsRequest,
@@ -3092,7 +3092,31 @@ class KaggleApi:
                 if metadata.get("collaborators")
                 else []
             )
-            update_settings.data = metadata.get("data")
+            resources = metadata.get("resources")
+            data = metadata.get("data")
+            if resources and not data:
+                converted_data = []
+                for r in resources:
+                    file_entry = {}
+                    if "path" in r:
+                        file_entry["name"] = r["path"]
+                    if "description" in r:
+                        file_entry["description"] = r["description"]
+                    if "schema" in r and "fields" in r["schema"]:
+                        columns = []
+                        for f in r["schema"]["fields"]:
+                            col = {}
+                            if "name" in f:
+                                col["name"] = f["name"]
+                            col["description"] = f.get("description") or f.get("title") or ""
+                            if "type" in f:
+                                col["type"] = f["type"]
+                            columns.append(col)
+                        file_entry["columns"] = columns
+                    converted_data.append(file_entry)
+                update_settings.data = [DatasetSettingsFile.from_dict(d) for d in converted_data]
+            elif data:
+                update_settings.data = [DatasetSettingsFile.from_dict(d) for d in data]
             # This *should* be a list of sources, but we store them as a single string in dataset version metadata,
             # so we treat it as a different / special property than Data Package's "sources" for now:
             # https://specs.frictionlessdata.io//data-package/#sources
@@ -6413,7 +6437,9 @@ class KaggleApi:
         """
         processed_column = ApiDatasetColumn()
         processed_column.name = self.get_or_fail(column, "name")
-        processed_column.description = self.get_or_default(column, "description", "")
+        processed_column.description = self.get_or_default(
+            column, "description", self.get_or_default(column, "title", "")
+        )
 
         if "type" in column:
             original_type = column["type"].lower()
