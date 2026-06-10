@@ -319,3 +319,72 @@ kaggle kernels delete $KAGGLE_DEVELOPER/exercise-delete --yes
 **Purpose:**
 
 This command permanently removes one of your kernels from Kaggle. Use with caution.
+
+## `kaggle kernels topics list`
+
+Lists discussion topics for a kernel.
+
+**Usage:**
+
+```bash
+kaggle kernels topics list <KERNEL> [options]
+```
+
+**Arguments:**
+
+*   `<KERNEL>`: Kernel ref in format `<owner>/<kernel-slug>` (e.g., `owner/kernel-slug`).
+
+**Options:**
+
+*   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `-s, --search <SEARCH_TERM>`: Search query to filter topics.
+*   `--page-size <PAGE_SIZE>`: Number of items per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+List recent topics for the `owner/kernel-slug` kernel:
+
+```bash
+kaggle kernels topics list owner/kernel-slug --sort-by recent
+```
+
+**Purpose:**
+
+This command lets you browse discussion topics for a specific kernel.
+
+## `kaggle kernels topics show`
+
+Displays a kernel discussion topic with all comments in tree form.
+
+**Usage:**
+
+```bash
+kaggle kernels topics show <TOPIC_REF> [options]
+```
+
+**Arguments:**
+
+*   `<TOPIC_REF>`: A topic reference, which can be:
+    *   `<kernel>/<topic-id>` (e.g., `owner/kernel-slug/12345`)
+    *   `<kernel> <topic-id>` (two separate arguments, where `<topic-id>` is passed as second argument)
+    *   `<topic-id>` (bare numeric ID)
+
+**Options:**
+
+*   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+```bash
+kaggle kernels topics show owner/kernel-slug/12345
+```
+
+**Purpose:**
+
+This command displays a full discussion topic along with all of its comments rendered in an indented tree structure.

@@ -113,6 +113,7 @@ from kagglesdk.discussions.types.discussions_api_service import (
     ApiListCommentsRequest,
     ApiListCommentsResponse,
     ApiListDatasetTopicsRequest,
+    ApiListKernelTopicsRequest,
     ApiListForumsRequest,
     ApiListForumsResponse,
     ApiListModelTopicsRequest,
@@ -2495,6 +2496,45 @@ class KaggleApi:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_dataset_topics(request)
 
+    def kernel_list_topics(
+        self,
+        kernel: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a kernel.
+
+        Args:
+            kernel (str): Kernel slug (e.g. 'owner/kernel-slug').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, kernel_slug, _ = self.parse_kernel_string(kernel)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListKernelTopicsRequest()
+            request.owner_slug = owner_slug
+            request.kernel_slug = kernel_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_kernel_topics(request)
+
     def model_list_topics(
         self,
         model: str,
@@ -2816,6 +2856,43 @@ class KaggleApi:
 
         response = self.dataset_list_topics(
             dataset=entity_ref,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def kernel_list_topics_cli(
+        self,
+        entity_ref=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper that lists discussion topics for a kernel.
+
+        Args:
+            entity_ref (str): Kernel slug (e.g. 'owner/kernel-slug').
+        """
+        if entity_ref is None:
+            raise ValueError("No kernel specified")
+
+        response = self.kernel_list_topics(
+            kernel=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
