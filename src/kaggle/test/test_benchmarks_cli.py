@@ -1086,6 +1086,61 @@ class TestStatus:
         assert "gemini-1" in output
         assert "gemini-2" in output
 
+    def test_status_shows_creation_error_message(self, api, capsys):
+        """Failed task creation surfaces creation_error_message in the header."""
+        task = _make_task(state=ERRORED)
+        task.creation_error_message = "Kernel produced no run output"
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Error:    Kernel produced no run output" in output
+
+    def test_status_omits_error_when_empty(self, api, capsys):
+        """No Error line when creation_error_message is empty."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Error:" not in output
+
+
+class TestFormatState:
+    """``KaggleApi._format_state`` enum-to-label rendering."""
+
+    @pytest.mark.parametrize(
+        "state, expected",
+        [
+            (COMPLETED, "Completed"),
+            (QUEUED, "Queued"),
+            (RUNNING, "Running"),
+            (ERRORED, "Failed"),
+        ],
+    )
+    def test_known_creation_states(self, state, expected):
+        assert KaggleApi._format_state(state) == expected
+
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            ("KERNEL_WITHOUT_RUN", "Failed — No run output"),
+            ("NO_MODEL_SPECIFIED", "Failed — No model specified"),
+            ("VALIDATION_FAILED", "Failed — Validation error"),
+            ("ERRORED", "Failed"),
+            ("COMPLETED", "Completed"),
+            ("QUEUED", "Queued"),
+            ("RUNNING", "Running"),
+        ],
+    )
+    def test_known_labels(self, raw, expected):
+        assert KaggleApi._format_state(raw) == expected
+
+    def test_unknown_state_falls_back_to_titlecase(self):
+        assert KaggleApi._format_state("SOMETHING_NEW") == "Something New"
+
+    def test_unknown_state_single_word(self):
+        assert KaggleApi._format_state("PENDING") == "Pending"
+
 
 # ============================================================
 # Download

@@ -6993,10 +6993,21 @@ class KaggleApi:
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
         return s
 
+    _STATE_LABELS = {
+        "KERNEL_WITHOUT_RUN": "Failed — No run output",
+        "NO_MODEL_SPECIFIED": "Failed — No model specified",
+        "VALIDATION_FAILED": "Failed — Validation error",
+        "ERRORED": "Failed",
+        "COMPLETED": "Completed",
+        "QUEUED": "Queued",
+        "RUNNING": "Running",
+    }
+
     @staticmethod
     def _format_state(state) -> str:
-        """Render an enum state in Titlecase (e.g. ``Completed``)."""
-        return KaggleApi._clean_enum_str(state).title()
+        """Render an enum state with a friendly label, falling back to Titlecase."""
+        raw = KaggleApi._clean_enum_str(state)
+        return KaggleApi._STATE_LABELS.get(raw, raw.replace("_", " ").title())
 
     @staticmethod
     def _ansi(code: str, text: str, stream=None) -> str:
@@ -7799,6 +7810,8 @@ class KaggleApi:
             version = task_info.slug.version_number or "unset"
             print(f"Version:  {version}")
             print(f"Status:   {self._format_state(task_info.creation_state)}")
+            if task_info.creation_error_message:
+                print(f"Error:    {task_info.creation_error_message}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
             print(f"Public:   {getattr(task_info, 'is_public', False)}")
             url = getattr(task_info, "url", None)
