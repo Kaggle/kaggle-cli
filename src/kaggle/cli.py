@@ -1949,7 +1949,20 @@ class Help(object):
         "delete",
         "topics",
     ]
-    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "logs", "update", "delete", "topics"]
+    kernels_choices = [
+        "list",
+        "files",
+        "get",
+        "init",
+        "push",
+        "pull",
+        "output",
+        "status",
+        "logs",
+        "update",
+        "delete",
+        "topics",
+    ]
     models_choices = [
         "instances",
         "i",

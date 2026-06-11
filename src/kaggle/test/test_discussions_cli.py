@@ -134,7 +134,13 @@ class TestTopicsListParsing:
             ("benchmarks", ["--page-token", "abc"]),
             ("competitions", ["list", "--page", "5", "--sort-by", "recent"]),
         ],
-        ids=["datasets_sort_search", "kernels_sort_search", "models_page_size", "benchmarks_page_token", "competitions_page_sort"],
+        ids=[
+            "datasets_sort_search",
+            "kernels_sort_search",
+            "models_page_size",
+            "benchmarks_page_token",
+            "competitions_page_sort",
+        ],
     )
     def test_topics_list_with_options(self, parser, entity, extra_args):
         """Optional flags are parsed without error for entity topics."""
