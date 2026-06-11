@@ -296,15 +296,20 @@ Errors:
 If no runs exist: `No runs yet. Use 'kaggle b t run my-task' to start one.`
 
 **Task creation failures:** When the task itself failed to be created
-(e.g. notebook produced no output, no model specified, validation error),
-the `Status:` line shows a friendly description of the failure and an
-`Error:` line is appended below it with the server-provided message —
-for example:
+(e.g. `KERNEL_WITHOUT_RUN`, `NO_MODEL_SPECIFIED`, `VALIDATION_FAILED`,
+`ERRORED`), the `Status:` line shows the failure *kind* (titlecased
+enum) and an `Error:` line is appended below it with the server-provided
+`creation_error_message` — for example:
 
 ```
-Status:   Failed — Notebook finished but produced no output. Did you forget to call .run() or .evaluate()?
-Error:    <server message>
+Status:   Kernel_Without_Run
+Error:    Notebook finished but produced no output. Did you forget to call .run() or .evaluate()?
 ```
+
+The `kaggle b t run` command applies the same pattern when refusing to
+schedule runs against a non-completed task: the raised error includes
+`status: <KIND>` and, if present, an `Error: <message>` line with the
+server's explanation.
 
 ### `kaggle benchmarks tasks download`
 

@@ -566,11 +566,25 @@ class TestRun:
         with pytest.raises(ValueError, match="--poll-interval must be a positive integer"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], poll_interval=interval)
 
-    def test_run_errored_task_includes_task_info(self, api):
-        """ERRORED task error message includes task info."""
-        api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=ERRORED)
-        with pytest.raises(ValueError, match="Task Info:"):
+    def test_run_errored_task_surfaces_creation_error_message(self, api):
+        """When task creation failed, run shows status (kind) and Error (server message) separately."""
+        task = _make_task(state=ERRORED)
+        task.creation_error_message = "Notebook produced no run output"
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+        with pytest.raises(ValueError) as exc_info:
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
+        msg = str(exc_info.value)
+        assert "status: ERRORED" in msg
+        assert "Error: Notebook produced no run output" in msg
+
+    def test_run_errored_task_without_creation_error_message(self, api):
+        """When creation_error_message is empty, no Error line is appended."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=ERRORED)
+        with pytest.raises(ValueError) as exc_info:
+            api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
+        msg = str(exc_info.value)
+        assert "status: ERRORED" in msg
+        assert "Error:" not in msg
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_run_task_not_found(self, api, status_code):
@@ -1106,7 +1120,11 @@ class TestStatus:
 
 
 class TestFormatState:
-    """``KaggleApi._format_state`` enum-to-label rendering."""
+    """``KaggleApi._format_state`` renders the raw cleaned enum (the error *kind*).
+
+    Explanatory messages belong in ``creation_error_message`` on the task
+    object and are displayed by callers as a separate ``Error:`` line.
+    """
 
     @pytest.mark.parametrize(
         "state, expected",
@@ -1114,7 +1132,7 @@ class TestFormatState:
             (COMPLETED, "Completed"),
             (QUEUED, "Queued"),
             (RUNNING, "Running"),
-            (ERRORED, "Failed — Notebook encountered an error. Check the notebook log for details."),
+            (ERRORED, "Errored"),
         ],
     )
     def test_known_creation_states(self, state, expected):
@@ -1123,29 +1141,17 @@ class TestFormatState:
     @pytest.mark.parametrize(
         "raw, expected",
         [
-            (
-                "KERNEL_WITHOUT_RUN",
-                "Failed — Notebook finished but produced no output. Did you forget to call .run() or .evaluate()?",
-            ),
-            (
-                "NO_MODEL_SPECIFIED",
-                "Failed — No model found in output. Pass a model via kbench.llm in your .run() call.",
-            ),
-            ("VALIDATION_FAILED", "Failed — Task name or description exceeds the allowed length."),
-            ("ERRORED", "Failed — Notebook encountered an error. Check the notebook log for details."),
+            ("KERNEL_WITHOUT_RUN", "Kernel_Without_Run"),
+            ("NO_MODEL_SPECIFIED", "No_Model_Specified"),
+            ("VALIDATION_FAILED", "Validation_Failed"),
+            ("ERRORED", "Errored"),
             ("COMPLETED", "Completed"),
-            ("QUEUED", "Queued"),
-            ("RUNNING", "Running"),
+            ("SOMETHING_NEW", "Something_New"),
+            ("PENDING", "Pending"),
         ],
     )
-    def test_known_labels(self, raw, expected):
+    def test_renders_cleaned_enum(self, raw, expected):
         assert KaggleApi._format_state(raw) == expected
-
-    def test_unknown_state_falls_back_to_titlecase(self):
-        assert KaggleApi._format_state("SOMETHING_NEW") == "Something New"
-
-    def test_unknown_state_single_word(self):
-        assert KaggleApi._format_state("PENDING") == "Pending"
 
 
 # ============================================================

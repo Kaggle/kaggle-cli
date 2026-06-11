@@ -6993,21 +6993,10 @@ class KaggleApi:
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
         return s
 
-    _STATE_LABELS = {
-        "KERNEL_WITHOUT_RUN": "Failed — Notebook finished but produced no output. Did you forget to call .run() or .evaluate()?",
-        "NO_MODEL_SPECIFIED": "Failed — No model found in output. Pass a model via kbench.llm in your .run() call.",
-        "VALIDATION_FAILED": "Failed — Task name or description exceeds the allowed length.",
-        "ERRORED": "Failed — Notebook encountered an error. Check the notebook log for details.",
-        "COMPLETED": "Completed",
-        "QUEUED": "Queued",
-        "RUNNING": "Running",
-    }
-
     @staticmethod
     def _format_state(state) -> str:
-        """Render an enum state with a friendly label, falling back to Titlecase."""
-        raw = KaggleApi._clean_enum_str(state)
-        return KaggleApi._STATE_LABELS.get(raw, raw.replace("_", " ").title())
+        """Render an enum state in Titlecase (e.g. ``Completed``, ``Kernel_Without_Run``)."""
+        return KaggleApi._clean_enum_str(state).title()
 
     @staticmethod
     def _ansi(code: str, text: str, stream=None) -> str:
@@ -7698,8 +7687,8 @@ class KaggleApi:
                     f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)}). "
                     f"Only completed tasks can be run."
                 )
-                if state == self._TASK_CREATION_ERRORED:
-                    error_msg += f"\n  Task Info: {task_info}"
+                if task_info.creation_error_message:
+                    error_msg += f"\n  Error: {task_info.creation_error_message}"
                 raise ValueError(error_msg)
 
             if not models:
