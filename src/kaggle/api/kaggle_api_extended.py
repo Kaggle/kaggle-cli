@@ -6994,10 +6994,10 @@ class KaggleApi:
         return s
 
     _STATE_LABELS = {
-        "KERNEL_WITHOUT_RUN": "Failed — No run output",
-        "NO_MODEL_SPECIFIED": "Failed — No model specified",
-        "VALIDATION_FAILED": "Failed — Validation error",
-        "ERRORED": "Failed",
+        "KERNEL_WITHOUT_RUN": "Failed — Notebook finished but produced no output. Did you forget to call .run() or .evaluate()?",
+        "NO_MODEL_SPECIFIED": "Failed — No model found in output. Pass a model via kbench.llm in your .run() call.",
+        "VALIDATION_FAILED": "Failed — Task name or description exceeds the allowed length.",
+        "ERRORED": "Failed — Notebook encountered an error. Check the notebook log for details.",
         "COMPLETED": "Completed",
         "QUEUED": "Queued",
         "RUNNING": "Running",
