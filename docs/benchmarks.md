@@ -271,6 +271,8 @@ kaggle benchmarks tasks status <TASK> [options]
 
 Prints the task's metadata (slug, creation status, creation time, URL) followed by a table of all runs. Each run row shows the model name, run state, start time, and end time. Any errored runs display their error messages below the table.
 
+If task creation itself failed, the `Status:` line renders a friendly description of the failure (e.g. `Failed — Notebook finished but produced no output. Did you forget to call .run() or .evaluate()?`) and an `Error:` line is appended below it with the server-provided creation error message.
+
 ---
 
 ### `kaggle benchmarks tasks download`
