@@ -86,6 +86,46 @@ class TestQuota(unittest.TestCase):
         self.assertTrue(lines[2].startswith("TPU,"))
 
     @patch.object(KaggleApi, "quota_view")
+    def test_quota_view_cli_format_csv(self, mock_view):
+        mock_view.return_value = _build_response(
+            gpu=_mock_quota(5, 30),
+            tpu=_mock_quota(2, 20),
+        )
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.quota_view_cli(output_format="csv")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        lines = [line for line in captured.getvalue().splitlines() if line]
+        self.assertEqual(lines[0], "resource,used,remaining,total,refreshAt")
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[1].startswith("GPU,"))
+        self.assertTrue(lines[2].startswith("TPU,"))
+
+    @patch.object(KaggleApi, "quota_view")
+    def test_quota_view_cli_format_table(self, mock_view):
+        mock_view.return_value = _build_response(
+            gpu=_mock_quota(5, 30),
+            tpu=_mock_quota(2, 20),
+            refresh_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.quota_view_cli(output_format="table")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        output = captured.getvalue()
+        self.assertIn("GPU", output)
+        self.assertIn("TPU", output)
+        self.assertIn("5.00h", output)
+
+    @patch.object(KaggleApi, "quota_view")
     def test_quota_view_cli_skips_missing_accelerator(self, mock_view):
         mock_view.return_value = _build_response(gpu=_mock_quota(1, 30), tpu=None)
 

@@ -79,6 +79,40 @@ class TestTeamPublicSubmissions(unittest.TestCase):
         self.assertEqual(lines[1], "11,2026-01-02T00:00:00Z,100.0")
 
     @patch.object(KaggleApi, "competition_team_submissions")
+    def test_cli_format_csv_output(self, mock_view):
+        mock_view.return_value = [_mock_submission(11, "2026-01-02T00:00:00Z", "100.0")]
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.competition_team_submissions_cli(team_id=42, output_format="csv")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        lines = [line for line in captured.getvalue().splitlines() if line]
+        self.assertEqual(lines[0], "id,dateSubmitted,publicScore")
+        self.assertEqual(lines[1], "11,2026-01-02T00:00:00Z,100.0")
+
+    @patch.object(KaggleApi, "competition_team_submissions")
+    def test_cli_format_table_output(self, mock_view):
+        mock_view.return_value = [
+            _mock_submission(11, "2026-01-02T00:00:00Z", "100.0"),
+            _mock_submission(22, "2026-01-01T00:00:00Z", "50.0"),
+        ]
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.competition_team_submissions_cli(team_id=42, output_format="table")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        output = captured.getvalue()
+        self.assertIn("11", output)
+        self.assertIn("22", output)
+        self.assertIn("100.0", output)
+
+    @patch.object(KaggleApi, "competition_team_submissions")
     def test_cli_empty(self, mock_view):
         mock_view.return_value = []
 
