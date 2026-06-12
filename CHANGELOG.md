@@ -3,6 +3,19 @@ Changelog
 
 ### Next
 
+### 2.2.2
+
+* Add kernels topics command (#1056)
+* Improve benchmark task error messages in kaggle CLI (#1057)
+* Fix dataset metadata column/file description updates and docs (#1055)
+* Expand Kaggle CLI skill references (#1054)
+* Tag benchmarks token requests with CLI source for analytics (#1050)
+* Add machine_shape to kernels_initialize metadata template and docs (#1048)
+* Fix 403 for dataset, model, and benchmark topics list (#1051)
+* Fix test_benchmarks_cli.py assertions (#1049)
+* Add paginated downloads for kernel output files (#1046)
+* fix(tests): resolve infinite loop in test_kernels_d_status (#1043)
+
 ### 2.2.1
 
 * Add `kaggle competitions team-submissions` command (#1036)
