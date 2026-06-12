@@ -26,7 +26,7 @@ from requests.exceptions import HTTPError
 import kaggle
 from kaggle import KaggleApi
 from kaggle import api
-from kaggle.api.kaggle_api_extended import print_auth_help
+from kaggle.api.kaggle_api_extended import print_auth_help, OutputFormat
 
 # from rest import ApiException
 ApiException = IOError
@@ -110,11 +110,22 @@ def __parse_body(body) -> Any:
         return {}
 
 
+def _add_output_format_args(parser) -> None:
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    group.add_argument(
+        "--format",
+        dest="output_format",
+        choices=[str(f) for f in OutputFormat],
+        help=Help.param_format,
+    )
+
+
 def _get_shared_topics_parser() -> argparse.ArgumentParser:
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size)
     shared.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
-    shared.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    _add_output_format_args(shared)
     shared.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     return shared
 
@@ -122,7 +133,7 @@ def _get_shared_topics_parser() -> argparse.ArgumentParser:
 def _get_shared_competition_topics_parser() -> argparse.ArgumentParser:
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("-p", "--page", dest="page", type=int, default=1, required=False, help=Help.param_page)
-    shared.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    _add_output_format_args(shared)
     shared.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     return shared
 
@@ -155,9 +166,7 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_list_optional.add_argument(
         "-s", "--search", dest="search", required=False, help=Help.param_search
     )
-    parser_competitions_list_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_list_optional)
     parser_competitions_list_optional.add_argument(
         "--page-size", dest="page_size", required=False, type=int, help=Help.param_page_size
     )
@@ -176,9 +185,7 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_files_optional.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
-    parser_competitions_files_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_files_optional)
     parser_competitions_files_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -257,9 +264,7 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_submissions_optional.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
-    parser_competitions_submissions_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_submissions_optional)
     parser_competitions_submissions_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -290,9 +295,7 @@ def parse_competitions(subparsers) -> None:
         "-d", "--download", dest="download", action="store_true", help=Help.param_competition_leaderboard_download
     )
     parser_competitions_leaderboard_optional.add_argument("-p", "--path", dest="path", help=Help.param_downfolder)
-    parser_competitions_leaderboard_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_leaderboard_optional)
     parser_competitions_leaderboard_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -317,9 +320,7 @@ def parse_competitions(subparsers) -> None:
         type=int,
         help='Team ID (find these with "kaggle competitions leaderboard <competition> --show")',
     )
-    parser_competitions_team_submissions_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_team_submissions_optional)
     parser_competitions_team_submissions_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -336,9 +337,7 @@ def parse_competitions(subparsers) -> None:
         type=int,
         help='Submission ID (find yours with "kaggle competitions submissions <competition>")',
     )
-    parser_competitions_episodes_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_episodes_optional)
     parser_competitions_episodes_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -391,9 +390,7 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_optional.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
-    parser_competitions_pages_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_pages_optional)
     parser_competitions_pages_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -499,9 +496,7 @@ def parse_competitions(subparsers) -> None:
         required=False,
         help="Max top-level messages to return; -1 for all",
     )
-    parser_competitions_topic_messages_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_competitions_topic_messages_optional)
     parser_competitions_topic_messages_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
@@ -547,7 +542,7 @@ def parse_datasets(subparsers) -> None:
     parser_datasets_list.add_argument(
         "-p", "--page", dest="page", default=1, type=int, required=False, help=Help.param_page
     )
-    parser_datasets_list.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    _add_output_format_args(parser_datasets_list)
     parser_datasets_list.add_argument(
         "--max-size", dest="max_size", required=False, type=int, help=Help.param_dataset_maxsize
     )
@@ -566,9 +561,7 @@ def parse_datasets(subparsers) -> None:
     parser_datasets_files_optional.add_argument(
         "-d", "--dataset", dest="dataset_opt", required=False, help=argparse.SUPPRESS
     )
-    parser_datasets_files_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_datasets_files_optional)
     parser_datasets_files_optional.add_argument(
         "--page-token", dest="page_token", required=False, help=Help.param_page_token
     )
@@ -783,9 +776,7 @@ def parse_kernels(subparsers) -> None:
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
     )
     parser_kernels_list_optional.add_argument("-s", "--search", dest="search", help=Help.param_search)
-    parser_kernels_list_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_kernels_list_optional)
     parser_kernels_list_optional.add_argument("--parent", dest="parent", required=False, help=Help.param_kernel_parent)
     parser_kernels_list_optional.add_argument(
         "--competition", dest="competition", required=False, help=Help.param_kernel_competition
@@ -818,9 +809,7 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_files_optional.add_argument(
         "-k", "--kernel", dest="kernel_opt", required=False, help=argparse.SUPPRESS
     )
-    parser_kernels_files_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_kernels_files_optional)
     parser_kernels_files_optional.add_argument("--page-token", dest="page_token", help=Help.param_page_token)
     parser_kernels_files_optional.add_argument(
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
@@ -1039,7 +1028,7 @@ def parse_models(subparsers) -> None:
     parser_models_list.add_argument("--owner", dest="owner", required=False, help=Help.param_model_owner)
     parser_models_list.add_argument("--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size)
     parser_models_list.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
-    parser_models_list.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    _add_output_format_args(parser_models_list)
     parser_models_list._action_groups.append(parser_models_list_optional)
     parser_models_list.set_defaults(func=api.model_list_cli)
 
@@ -1211,9 +1200,7 @@ def parse_model_instances(subparsers) -> None:
     )
     parser_model_instances_files_optional = parser_model_instances_files._action_groups.pop()
     parser_model_instances_files_optional.add_argument("model_instance", help=Help.param_model_instance)
-    parser_model_instances_files_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_model_instances_files_optional)
     parser_model_instances_files_optional.add_argument(
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
     )
@@ -1229,9 +1216,7 @@ def parse_model_instances(subparsers) -> None:
     )
     parser_model_instances_list_optional = parser_model_instances_list._action_groups.pop()
     parser_model_instances_list_optional.add_argument("model_instance", help=Help.param_model_instance)
-    parser_model_instances_list_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_model_instances_list_optional)
     parser_model_instances_list_optional.add_argument(
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
     )
@@ -1283,9 +1268,7 @@ def parse_model_instance_versions(subparsers) -> None:
     )
     parser_model_instance_versions_list_optional = parser_model_instance_versions_list._action_groups.pop()
     parser_model_instance_versions_list_optional.add_argument("model_instance", help=Help.param_model_instance)
-    parser_model_instance_versions_list_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_model_instance_versions_list_optional)
     parser_model_instance_versions_list_optional.add_argument(
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
     )
@@ -1347,9 +1330,7 @@ def parse_model_instance_versions(subparsers) -> None:
     parser_model_instance_versions_files_optional.add_argument(
         "model_instance_version", help=Help.param_model_instance_version
     )
-    parser_model_instance_versions_files_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_model_instance_versions_files_optional)
     parser_model_instance_versions_files_optional.add_argument(
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
     )
@@ -1804,7 +1785,7 @@ def parse_auth(subparsers) -> None:
 
 def parse_quota(subparsers) -> None:
     parser_quota = subparsers.add_parser("quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_quota)
-    parser_quota.add_argument("-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv)
+    _add_output_format_args(parser_quota)
     parser_quota.set_defaults(func=api.quota_view_cli)
 
 
@@ -1828,9 +1809,7 @@ def parse_forums(subparsers) -> None:
         "list", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_forums_list
     )
     parser_forums_list_optional = parser_forums_list._action_groups.pop()
-    parser_forums_list_optional.add_argument(
-        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
-    )
+    _add_output_format_args(parser_forums_list_optional)
     parser_forums_list_optional.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     parser_forums_list._action_groups.append(parser_forums_list_optional)
     parser_forums_list.set_defaults(func=api.forums_list_cli)
@@ -2164,6 +2143,7 @@ class Help(object):
     param_code_kernel = "Name of kernel (notebook) to submit to a code competition"
     param_code_version = 'Version of kernel to submit to a code competition, e.g. "3"'
     param_csv = "Print results in CSV format (if not set print in table format)"
+    param_format = "Print results in selected format"
     param_page = "Page number for results paging. Page size is 20 by default"
     # NOTE: Default and max page size are set by the mid-tier code.
     param_page_size = "Number of items to show on a page. Default size is 20, " "max is 200"

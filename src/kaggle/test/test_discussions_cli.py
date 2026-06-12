@@ -199,6 +199,31 @@ class TestTopicsShowParsing:
         assert kwargs["csv_display"] is True
         assert kwargs["quiet"] is True
 
+    @pytest.mark.parametrize(
+        "entity",
+        ["competitions", "datasets", "kernels", "models", "benchmarks", "forums"],
+    )
+    def test_topics_show_with_format_option(self, parser, entity):
+        """Optional flags (--page-size, --format, --quiet) parse correctly."""
+        func, kwargs = _dispatch(
+            parser,
+            [entity, "topics", "show", "123", "--page-size", "10", "--format", "csv", "-q"],
+        )
+        assert func.__name__ == "forums_topic_show_cli"
+        assert kwargs["page_size"] == 10
+        assert kwargs["output_format"] == "csv"
+        assert kwargs["csv_display"] is False
+        assert kwargs["quiet"] is True
+
+    @pytest.mark.parametrize(
+        "entity",
+        ["competitions", "datasets", "kernels", "models", "benchmarks", "forums"],
+    )
+    def test_topics_show_format_and_csv_mutual_exclusion(self, parser, entity):
+        """Passing both -v and --format should raise argparse error."""
+        with pytest.raises(SystemExit):
+            parser.parse_args([entity, "topics", "show", "123", "-v", "--format", "csv"])
+
 
 # ============================================================
 # Regression: topics show must not crash from parent kwargs
