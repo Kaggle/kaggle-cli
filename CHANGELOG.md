@@ -5,6 +5,7 @@ Changelog
 
 ### 2.2.2
 
+* Clarify LLMS_AVAILABLE vs. full model set in benchmarks docs (#1061)
 * Add kernels topics command (#1056)
 * Improve benchmark task error messages in kaggle CLI (#1057)
 * Fix dataset metadata column/file description updates and docs (#1055)
