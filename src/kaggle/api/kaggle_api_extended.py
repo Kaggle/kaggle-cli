@@ -383,9 +383,9 @@ class AuthMethod(Enum):
 
 
 class OutputFormat(Enum):
-    CSV = 'csv'
-    TABLE = 'table'
-    JSON = 'json'
+    CSV = "csv"
+    TABLE = "table"
+    JSON = "json"
 
     def __str__(self):
         return self.value
@@ -2116,9 +2116,7 @@ class KaggleApi:
             response = kaggle.competitions.competition_api_client.list_team_public_submissions(request)
             return response.submissions
 
-    def competition_team_submissions_cli(
-        self, team_id, csv_display=False, quiet=False, output_format=None
-    ):
+    def competition_team_submissions_cli(self, team_id, csv_display=False, quiet=False, output_format=None):
         """CLI wrapper for competition_team_submissions.
 
         Args:
@@ -2154,9 +2152,7 @@ class KaggleApi:
             response = kaggle.competitions.competition_api_client.list_submission_episodes(request)
             return response.episodes
 
-    def competition_list_episodes_cli(
-        self, submission_id, csv_display=False, quiet=False, output_format=None
-    ):
+    def competition_list_episodes_cli(self, submission_id, csv_display=False, quiet=False, output_format=None):
         """CLI wrapper for competition_list_episodes.
 
         Args:
