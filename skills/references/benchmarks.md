@@ -65,6 +65,8 @@ default env vars, and starter benchmark files.
 - `LLM_DEFAULT_EVAL` — Default eval model slug
 - `LLMS_AVAILABLE` — Comma-separated list of available model slugs
 
+**⚠ Note:** `LLMS_AVAILABLE` is a curated subset of models for local development and testing — it is **not** the full model list, and the Model Proxy token (`MODEL_PROXY_API_KEY`) works for all models, not just those listed. Use `kaggle b t models` to list every available model and `kaggle b t run` to execute against any of them on Kaggle's infrastructure (same models available in notebooks).
+
 **⚠ Note:** Environment variables are **appended** to the env file. When loaded via `dotenv`, the last value wins, so re-running `init` or `auth` is safe. The file may accumulate duplicate entries over time; clean up manually if desired.
 
 **Files generated in the same directory as the example file:**
@@ -687,7 +689,7 @@ kaggle b t run my-task -m gemini-2.5-pro --wait && \
 kaggle b t download my-task -o ./results
 ```
 
-**⚠ Note:** Local runs use the `LLM_DEFAULT` model from your `.env` file. Server runs use whatever model(s) you specify with `-m`. Behavior may differ between models, so always validate against your target model(s) on the server after local iteration.
+**⚠ Note:** Local runs are limited to the models listed in `LLMS_AVAILABLE` (and use `LLM_DEFAULT` by default) — a curated subset for local development. Server runs via `kaggle b t run` have access to the full model catalog (use `kaggle b t models` to list them) and run on Kaggle's infrastructure. Behavior may differ between models, so always validate against your target model(s) on the server after local iteration.
 
 ### Quick Push-Run-Download
 
