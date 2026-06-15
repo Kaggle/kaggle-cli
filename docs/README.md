@@ -62,6 +62,10 @@ The Kaggle CLI is organized into several command groups:
 *   [Benchmarks](./benchmarks.md): Define evaluation tasks, run them against LLM models, and download results.
 *   [Configuration](./configuration.md): Configure the Kaggle CLI.
 
+Many commands produce output, which can be formatted for different purposes:
+
+*   [Output Format](./output_format.md): Control the format of output.
+
 ## Tutorials
 
 Explore these tutorials to learn how to perform common tasks:
