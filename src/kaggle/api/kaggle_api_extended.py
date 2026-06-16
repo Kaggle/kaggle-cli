@@ -4596,7 +4596,9 @@ class KaggleApi:
         Returns:
             str: The log content from the kernel's latest session.
         """
-        owner_slug, kernel_slug = self._split_kernel(kernel)
+        if kernel is None:
+            raise ValueError("A kernel must be specified")
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelSessionOutputRequest()

@@ -2,6 +2,7 @@
 import io
 import json
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -28,6 +29,84 @@ class TestKernelsLogs(unittest.TestCase):
     def setUp(self):
         self.api = KaggleApi.__new__(KaggleApi)
         self.api.config_values = {"username": "testuser"}
+
+    @patch("kaggle.api.kaggle_api_extended.requests.get")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_kernels_output_file_pattern_searches_all_pages(self, mock_client, mock_get):
+        """Test output download applies file_pattern across all paged results."""
+        first_response = MagicMock()
+        first_response.files = [MagicMock(file_name="first.txt", url="https://example.com/first.txt")]
+        first_response.next_page_token = "page-2"
+        first_response.log = None
+
+        second_response = MagicMock()
+        second_response.files = [MagicMock(file_name="result.png", url="https://example.com/result.png")]
+        second_response.next_page_token = ""
+        second_response.log = None
+
+        mock_kaggle = MagicMock()
+        mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.side_effect = [
+            first_response,
+            second_response,
+        ]
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+        mock_get.return_value = MagicMock(content=b"png")
+        self.api.download_needed = MagicMock(return_value=True)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            outfiles, token = self.api.kernels_output(
+                "owner/kernel-slug", temp_dir, file_pattern=r".*\.png$", quiet=True, page_size=1
+            )
+
+        self.assertEqual(token, "")
+        self.assertEqual(len(outfiles), 1)
+        self.assertTrue(outfiles[0].endswith("result.png"))
+        mock_get.assert_called_once_with("https://example.com/result.png", stream=True)
+        self.assertEqual(mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_count, 2)
+        second_request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args_list[1][0][0]
+        self.assertEqual(second_request.page_token, "page-2")
+        self.assertEqual(second_request.page_size, 1)
+
+    @patch("kaggle.api.kaggle_api_extended.requests.get")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_kernels_output_page_token_downloads_specific_page(self, mock_client, mock_get):
+        """Test output download uses a supplied page token for one page only."""
+        response = MagicMock()
+        response.files = [MagicMock(file_name="page-file.csv", url="https://example.com/page-file.csv")]
+        response.next_page_token = "page-3"
+        response.log = None
+
+        mock_kaggle = MagicMock()
+        mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.return_value = response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+        mock_get.return_value = MagicMock(content=b"csv")
+        self.api.download_needed = MagicMock(return_value=True)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            outfiles, token = self.api.kernels_output(
+                "owner/kernel-slug", temp_dir, quiet=True, page_token="page-2", page_size=50
+            )
+
+        self.assertEqual(token, "page-3")
+        self.assertEqual(len(outfiles), 1)
+        self.assertTrue(outfiles[0].endswith("page-file.csv"))
+        mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.assert_called_once()
+        request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args[0][0]
+        self.assertEqual(request.page_token, "page-2")
+        self.assertEqual(request.page_size, 50)
+
+    @patch.object(KaggleApi, "kernels_output")
+    def test_kernels_output_cli_passes_page_size(self, mock_output):
+        """Test CLI wrapper passes page_size to kernels_output."""
+        mock_output.return_value = ([], "")
+
+        self.api.kernels_output_cli("owner/kernel-slug", page_size=75)
+
+        mock_output.assert_called_once_with(
+            "owner/kernel-slug", None, None, False, False, page_token=None, page_size=75
+        )
 
     # ------------------------------------------------------------------
     # kernels_logs (one-shot, persisted blob)
