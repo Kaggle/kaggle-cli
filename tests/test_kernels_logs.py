@@ -1,10 +1,10 @@
 # coding=utf-8
+import unittest
+from unittest.mock import patch, MagicMock, call
 import io
 import json
-import sys
 import tempfile
-import unittest
-from unittest.mock import MagicMock, patch
+import sys
 
 sys.path.insert(0, "..")
 
@@ -107,10 +107,6 @@ class TestKernelsLogs(unittest.TestCase):
         mock_output.assert_called_once_with(
             "owner/kernel-slug", None, None, False, False, page_token=None, page_size=75
         )
-
-    # ------------------------------------------------------------------
-    # kernels_logs (one-shot, persisted blob)
-    # ------------------------------------------------------------------
 
     @patch.object(KaggleApi, "build_kaggle_client")
     @patch.object(KaggleApi, "validate_kernel_string")
