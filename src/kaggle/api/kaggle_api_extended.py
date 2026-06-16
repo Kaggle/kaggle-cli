@@ -5340,6 +5340,12 @@ class KaggleApi:
                 continue
             yield {"data": raw_line}
 
+    # `--follow` reconnects on transient network drops (e.g. load-balancer
+    # idle timeouts). On reconnect the server replays the stream from the
+    # beginning, so we dedup by counting events handled so far.
+    _LOG_STREAM_MAX_FAILURES = 5
+    _LOG_STREAM_RECONNECT_DELAY_SEC = 1
+
     def kernels_logs_cli(self, kernel, kernel_opt=None, follow=False, interval=None):
         """Print kernel execution logs to stdout.
 
@@ -5347,6 +5353,9 @@ class KaggleApi:
         kernel's latest session. In `--follow` mode attaches to the midtier
         SSE log stream and prints log lines as they are produced by the
         running session, exiting when the server signals end-of-stream.
+        Transient connection drops are retried transparently; the server
+        replays from the beginning on reconnect and already-seen events
+        are skipped.
 
         Args:
             kernel: The kernel for which to retrieve the logs.
@@ -5361,11 +5370,39 @@ class KaggleApi:
             print(self.kernels_logs(kernel))
             return
 
-        for event in self.kernels_logs_stream(kernel):
-            data = event.get("data")
-            if data is None:
-                continue
-            print(data, flush=True, end="" if data.endswith("\n") else "\n")
+        seen_count = 0
+        failures_without_progress = 0
+
+        while True:
+            seen_before = seen_count
+            try:
+                for index, event in enumerate(self.kernels_logs_stream(kernel)):
+                    if index < seen_count:
+                        continue
+                    seen_count = index + 1
+                    data = event.get("data")
+                    if data is None:
+                        continue
+                    print(data, flush=True, end="" if data.endswith("\n") else "\n")
+                return
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                urllib3_exceptions.ProtocolError,
+            ):
+                if seen_count == seen_before:
+                    failures_without_progress += 1
+                else:
+                    failures_without_progress = 0
+                if failures_without_progress >= self._LOG_STREAM_MAX_FAILURES:
+                    print(
+                        f"Log stream connection failed {self._LOG_STREAM_MAX_FAILURES} "
+                        "times with no new data; giving up.",
+                        file=sys.stderr,
+                    )
+                    return
+                print("Log stream connection lost, reconnecting...", file=sys.stderr)
+                time.sleep(self._LOG_STREAM_RECONNECT_DELAY_SEC)
 
     def model_get(self, model: str) -> ApiModel:
         """Gets a model.

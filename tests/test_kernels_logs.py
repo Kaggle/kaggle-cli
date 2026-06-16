@@ -368,6 +368,64 @@ class TestKernelsLogs(unittest.TestCase):
         self.api.kernels_logs_cli("owner/kernel-slug", follow=True, interval=42)
         mock_logs.assert_not_called()
 
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch.object(KaggleApi, "kernels_logs_stream")
+    def test_kernels_logs_cli_follow_reconnects_and_dedupes(self, mock_stream, mock_sleep):
+        """On a mid-stream drop the CLI reconnects and skips replayed events."""
+        import requests as _requests
+
+        def first_attempt():
+            yield {"stream_name": "stdout", "time": "t1", "data": "one"}
+            yield {"stream_name": "stdout", "time": "t2", "data": "two"}
+            raise _requests.exceptions.ChunkedEncodingError("dropped")
+
+        def second_attempt():
+            # Server replays from the beginning on reconnect.
+            yield {"stream_name": "stdout", "time": "t1", "data": "one"}
+            yield {"stream_name": "stdout", "time": "t2", "data": "two"}
+            yield {"stream_name": "stdout", "time": "t3", "data": "three"}
+
+        mock_stream.side_effect = [first_attempt(), second_attempt()]
+
+        captured_out = io.StringIO()
+        captured_err = io.StringIO()
+        sys.stdout = captured_out
+        sys.stderr = captured_err
+        try:
+            self.api.kernels_logs_cli("owner/kernel-slug", follow=True)
+        finally:
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+
+        self.assertEqual(captured_out.getvalue(), "one\ntwo\nthree\n")
+        self.assertIn("reconnecting", captured_err.getvalue())
+        self.assertEqual(mock_stream.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch.object(KaggleApi, "kernels_logs_stream")
+    def test_kernels_logs_cli_follow_gives_up_after_max_failures(self, mock_stream, mock_sleep):
+        """After repeated failures with no new data the CLI exits gracefully."""
+        import requests as _requests
+
+        def always_fails():
+            if False:
+                yield  # generator that never yields, then raises
+            raise _requests.exceptions.ConnectionError("nope")
+
+        # Five consecutive failures with no progress should trigger giveup.
+        mock_stream.side_effect = [always_fails() for _ in range(5)]
+
+        captured_err = io.StringIO()
+        sys.stderr = captured_err
+        try:
+            self.api.kernels_logs_cli("owner/kernel-slug", follow=True)
+        finally:
+            sys.stderr = sys.__stderr__
+
+        self.assertIn("giving up", captured_err.getvalue())
+        self.assertEqual(mock_stream.call_count, 5)
+
 
 if __name__ == "__main__":
     unittest.main()
