@@ -1,1 +1,12 @@
-python
+# Source control
+.git/
+.github/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Builds & related cache
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/

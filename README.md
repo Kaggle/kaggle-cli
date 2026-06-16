@@ -40,6 +40,13 @@ See the [User documentation](docs/README.md) for more examples & tutorials.
 
 ## Development
 
+### `kagglesdk` Updates
+
+New features that interact with `kaggle.com` probably require changes to the Python library, `kagglesdk`.
+Make sure to bump the minimum version required for `kagglesdk` in the `dependencies` list specified in
+[pyproject.toml][pyproject.toml]]. Make sure the required version is available on the
+[pypi.org kagglesdk project](https://pypi.org/project/kagglesdk/#history).
+
 ### Prerequisites
 
 We use [hatch](https://hatch.pypa.io) to manage this project.

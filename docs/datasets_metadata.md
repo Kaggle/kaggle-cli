@@ -74,7 +74,7 @@ The following metadata is currently supported:
     * `schema`: File schema (definition below):
       * `fields`: Array of fields in the dataset.  Please note that this needs to include ALL of the fields in the data in order or they will not be matched up correctly.  A later version of the API will fix this bug.
         * `name`: Field name
-        * `title`: Field description
+        * `description`: Field description (Note: `title` is also accepted for backward compatibility, but `description` is preferred)
         * `type`: Field type. A best-effort list of types will be kept at the bottom of this page, but new types may be added that are not documented here.
   * `keywords`: Contains an array of strings that correspond to an existing tag on Kaggle.  If a specified tag doesn't exist, the upload will continue, but that specific tag won't be added.  
 * `kaggle datasets version` (create a new version for an existing Dataset):
@@ -88,7 +88,7 @@ The following metadata is currently supported:
     * `schema`: File schema (definition below):
       * `fields`: Array of fields in the dataset.  Please note that this needs to include ALL of the fields in the data in order or they will not be matched up correctly.  A later version of the API will fix this bug.
         * `name`: Field name
-        * `title`: Field description
+        * `description`: Field description (Note: `title` is also accepted for backward compatibility, but `description` is preferred)
         * `type`: Field type. A best-effort list of types will be kept at the bottom of this page, but new types may be added that are not documented here.
   * `keywords`: Contains an array of strings that correspond to an existing tag on Kaggle.  If a specified tag doesn't exist, the upload will continue, but that specific tag won't be added.  
 * `kaggle datasets metadata --update` (update metadata for an existing Dataset) supports all fields mentioned above for `kaggle datasets version`, and additionally:

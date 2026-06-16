@@ -12,6 +12,7 @@ Here's a basic example for `kernel-metadata.json`:
   "is_private": "false",
   "enable_gpu": "false",
   "enable_internet": "false",
+  "machine_shape": "",
   "dataset_sources": ["timoboz/my-awesome-dataset"],
   "competition_sources": [],
   "kernel_sources": [],
@@ -34,6 +35,7 @@ We currently support the following metadata fields for kernels.
 * `is_private`: Whether or not the kernel should be private. If not specified, will be `true`.
 * `enable_gpu`: Whether or not the kernel should run on a GPU. If not specified, will be `false`.
 * `enable_internet`: Whether or not the kernel should be able to access the internet. If not specified, will be `false`.
+* `machine_shape`: The accelerator/GPU type to use (e.g., `NvidiaTeslaT4`, `NvidiaTeslaP100`, or `Tpu1VmV38`).
 * `dataset_sources`: A list of dataset sources, specified as `"username/dataset-slug"`
 * `competition_sources`: A list of competition sources, specified as `"competition-slug"`
 * `kernel_sources`: A list of kernel sources, specified as `"username/kernel-slug"`

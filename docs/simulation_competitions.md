@@ -27,25 +27,22 @@ kaggle competitions pages connectx --content
 You can also browse the competition's discussion forum to see what other participants are talking about — top strategies, common pitfalls, environment quirks. List the topics with:
 
 ```bash
-kaggle competitions topics connectx
+kaggle competitions topics list connectx
 ```
 
-This prints a table of topics with `id`, `title`, `authorName`, `commentCount`, `votes`, and `postDate`. Sort and paginate with `-s/--sort-by` (one of `hot`, `top`, `new`, `recent`, `active`, `relevance`) and `-p/--page`:
+This prints a table of topics with `id`, `title`, `authorName`, `commentCount`, `votes`, and `postDate`. Sort and paginate with `-s/--sort-by` (one of `hot`, `top`, `new`, `recent`, `active`, `relevance`) and `--page-size`:
 
 ```bash
-kaggle competitions topics connectx -s top -p 1
+kaggle competitions topics list connectx -s top --page-size 10
 ```
 
-To read the full discussion under a topic, pass the topic id to `topic-messages`:
+To read the full discussion under a topic, use the `show` subcommand:
 
 ```bash
-kaggle competitions topic-messages connectx 12345
+kaggle competitions topics show connectx 12345
 ```
 
-By default this returns the top 30 top-level messages (replies are flattened in-order beneath their parent). Use `-n -1` to fetch them all, or `-s` (one of `hot`, `new`, `old`, `top`) to change ordering:
-
-```bash
-kaggle competitions topic-messages connectx 12345 -s new -n -1
+This returns the topic content and all its comments rendered in an indented tree structure.
 ```
 
 ## 2. Accept the Competition Rules
@@ -143,6 +140,30 @@ kaggle competitions logs 98765432 1 -p ./logs
 
 This downloads the log file as `episode-98765432-agent-0-logs.json`.
 
+## 9. Inspect Top Teams' Active Agents
+
+You can study how the leading teams' agents are performing — useful for scouting strategies or understanding the metagame. Start from the leaderboard to grab the team ID:
+
+```bash
+kaggle competitions leaderboard connectx -s
+```
+
+This prints a table with columns `teamId`, `teamName`, `submissionDate`, `score`. Take the `teamId` of the team you want to inspect (e.g., first place), then list every active submission they have on the leaderboard:
+
+```bash
+kaggle competitions team-submissions 42
+```
+
+This returns the team's public-safe submissions — `id`, `dateSubmitted`, and `publicScore`. For simulation competitions every leaderboard-eligible submission is listed (not just the best one), so you can see the full rotation of agents a top team is fielding.
+
+Pick the submission with the highest `publicScore` and list its episodes, just like you would for your own:
+
+```bash
+kaggle competitions episodes 98765432
+```
+
+From there you can pull replays and agent logs for any episode that submission played in (`kaggle competitions replay <episode_id>` / `kaggle competitions logs <episode_id> <agent_index>`).
+
 ## Putting It All Together
 
 Here's a typical workflow for iterating on a simulation competition agent:
@@ -170,4 +191,8 @@ kaggle competitions logs 98765432 0
 
 # Check the leaderboard
 kaggle competitions leaderboard connectx -s
+
+# Scout the leader: list their active agents, then pick the best one's episodes
+kaggle competitions team-submissions <leader-team-id>
+kaggle competitions episodes <best-submission-id>
 ```

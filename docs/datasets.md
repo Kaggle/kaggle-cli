@@ -308,14 +308,14 @@ kaggle datasets delete username/dataset-slug --yes
 
 This command permanently removes one of your datasets from Kaggle. Use with caution.
 
-## `kaggle datasets topics`
+## `kaggle datasets topics list`
 
 Lists discussion topics for a dataset.
 
 **Usage:**
 
 ```bash
-kaggle datasets topics <DATASET> [options]
+kaggle datasets topics list <DATASET> [options]
 ```
 
 **Arguments:**
@@ -325,9 +325,9 @@ kaggle datasets topics <DATASET> [options]
 **Options:**
 
 *   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
+*   `-s, --search <SEARCH_TERM>`: Search query to filter topics.
 *   `--page-size <PAGE_SIZE>`: Number of items per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for pagination.
-*   `-s, --search <SEARCH_TERM>`: Search query.
 *   `-v, --csv`: Print results in CSV format.
 *   `-q, --quiet`: Suppress verbose output.
 
@@ -336,7 +336,7 @@ kaggle datasets topics <DATASET> [options]
 List recent topics for the zillow/zecon dataset:
 
 ```bash
-kaggle datasets topics zillow/zecon --sort-by recent
+kaggle datasets topics list zillow/zecon --sort-by recent
 ```
 
 **Purpose:**
@@ -350,22 +350,22 @@ Displays a dataset discussion topic with all comments in tree form.
 **Usage:**
 
 ```bash
-kaggle datasets topics show <DATASET>/<TOPIC_ID> [options]
+kaggle datasets topics show <TOPIC_REF> [options]
 ```
 
 **Arguments:**
 
 *   `<TOPIC_REF>`: A topic reference, which can be:
-    *   `<dataset>/<topic-id>` (e.g., `zillow/zecon/12345`)
-    *   `<dataset> <topic-id>` (two separate arguments)
+    *   `<dataset>/<topic-id>` (e.g., `zillow/zecon/12345` - note that this supports multi-slash dataset slugs)
+    *   `<dataset> <topic-id>` (two separate arguments, where `<topic-id>` is passed as second argument)
     *   `<topic-id>` (bare numeric ID)
 
 **Options:**
 
-*   `-v, --csv`: Print results in CSV format.
-*   `-q, --quiet`: Suppress verbose output.
 *   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 

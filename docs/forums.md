@@ -6,7 +6,7 @@ Commands for browsing and reading Kaggle discussion forums.
 
 Lists all discussion forums. Also available as `kaggle forums list`.
 
-**Alias:** `fo`
+**Alias:** `f`
 
 **Usage:**
 
@@ -31,28 +31,30 @@ kaggle forums -v
 
 This command helps you discover all available discussion forums on Kaggle.
 
-## `kaggle forums topics`
+## `kaggle forums topics list`
 
 Lists discussion topics in a forum.
 
 **Usage:**
 
 ```bash
-kaggle forums topics <FORUM> [options]
+kaggle forums topics list [FORUM] [options]
 ```
+
+Note: `kaggle forums topics` (without `list` subcommand) is supported as a shortcut to list all topics (without forum filtering).
 
 **Arguments:**
 
-*   `<FORUM>`: Forum slug (e.g., `getting-started`, `product-feedback`).
+*   `[FORUM]`: Forum slug (e.g., `1`, `product-feedback`). Optional.
 
 **Options:**
 
 *   `--sort-by <SORT_BY>`: Sort order. Valid options: `hot`, `top`, `new`, `recent`, `active`, `relevance`.
-*   `--page-size <PAGE_SIZE>`: Number of items per page.
-*   `--page-token <PAGE_TOKEN>`: Page token for pagination.
-*   `-s, --search <SEARCH_TERM>`: Search query.
+*   `-s, --search <SEARCH_TERM>`: Search query to filter topics.
 *   `--category <CATEGORY>`: Filter by category. Valid options: `all`, `forums`, `competitions`, `datasets`, `competition_write_ups`, `models`, `benchmarks`.
 *   `--group <GROUP>`: Filter by group. Valid options: `all`, `owned`, `upvoted`, `bookmarked`, `my_activity`, `drafts`.
+*   `--page-size <PAGE_SIZE>`: Number of items per page.
+*   `--page-token <PAGE_TOKEN>`: Page token for pagination.
 *   `-v, --csv`: Print results in CSV format.
 *   `-q, --quiet`: Suppress verbose output.
 
@@ -61,7 +63,7 @@ kaggle forums topics <FORUM> [options]
 List topics in the "getting-started" forum sorted by most recent, showing 5 per page:
 
 ```bash
-kaggle forums topics getting-started --sort-by recent --page-size 5
+kaggle forums topics list getting-started --sort-by recent --page-size 5
 ```
 
 **Purpose:**
@@ -82,15 +84,15 @@ kaggle forums topics show <TOPIC_REF> [options]
 
 *   `<TOPIC_REF>`: A topic reference, which can be:
     *   `<forum-name>/<topic-id>` (e.g., `getting-started/12345`)
-    *   `<forum-name> <topic-id>` (two separate arguments)
+    *   `<forum-name> <topic-id>` (two separate arguments, where `<topic-id>` is passed as second argument)
     *   `<topic-id>` (bare numeric ID)
 
 **Options:**
 
-*   `-v, --csv`: Print results in CSV format.
-*   `-q, --quiet`: Suppress verbose output.
 *   `--page-size <PAGE_SIZE>`: Number of comments to show per page.
 *   `--page-token <PAGE_TOKEN>`: Page token for comment pagination.
+*   `-v, --csv`: Print results in CSV format.
+*   `-q, --quiet`: Suppress verbose output.
 
 **Example:**
 

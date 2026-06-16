@@ -2,18 +2,19 @@ steps:
   # Import builder if exists.
   # Note: the reason to use bash is to be able to return an exit code 0 even if
   # the docker image doesn't exist yet.
-  - name: "gcr.io/cloud-builders/docker"
-    entrypoint: "bash"
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - "-c"
+      - -c
       - |
         docker pull ${_IMAGE_REPO_NAME}/${PROJECT_ID}/cli-releaser || exit 0
 
   # Build a modified version of the python image, including tools to build and
   # release the Kaggle CLI.
   # Use the previous built image as cache.
-  - name: "gcr.io/cloud-builders/docker"
-    dir: "tools/releases"
+  - name: gcr.io/cloud-builders/docker
+    id: cli-releaser-build
+    dir: tools/releases
     args:
       - build
       - -f
@@ -24,28 +25,24 @@ steps:
       - ${_IMAGE_REPO_NAME}/${PROJECT_ID}/cli-releaser
       - .
 
-  - name: "${_IMAGE_REPO_NAME}/${PROJECT_ID}/cli-releaser"
-    id: generate-cli
+  # Get the GitHub access token from Secret Manager.
+  # The token is used to talk to GitHub API, specifically to create a release.
+  - name: gcr.io/cloud-builders/gcloud
+    id: github-token
     entrypoint: bash
-    args:
-      - "-c"
-      - |
-        rm -f kaggle
-        cp -r src/kaggle .
-        python3 -m pip install build --break-system-packages
-        python3 -m build
-        # Move the built CLI to a volume that will survive to next steps.
-        mv dist /root/
+    args: 
+    - -c
+    - gcloud secrets versions access latest --secret=kaggleteam-github-access-token > /root/github_token
     volumes:
-      - name: "root"
-        path: /root
+    - name: root
+      path: /root
 
   # Get the pypi token from Secret Manager, and create the ~/.pypirc file.
-  - name: "gcr.io/cloud-builders/gcloud"
+  - name: gcr.io/cloud-builders/gcloud
     id: create-credentials-pypirc
-    entrypoint: "bash"
+    entrypoint: bash
     args:
-      - "-c"
+      - -c
       - |
         token_test=$(gcloud secrets versions access latest --secret=test-pypi-token)
         token=$(gcloud secrets versions access latest --secret=pypi-token)
@@ -64,44 +61,73 @@ steps:
         password=${token_test}
         EOL
     volumes:
-      - name: "root"
+      - name: root
         path: /root
 
   - name: ${_IMAGE_REPO_NAME}/${PROJECT_ID}/cli-releaser
-    id: release-pypitest
-    waitFor: ["generate-cli", "create-credentials-pypirc"]
+    id: generate-cli
+    waitFor: ['cli-releaser-build']
     entrypoint: bash
     args:
-      - "-c"
+      - -c
       - |
-        if [ "$_TO_TEST" = "false" ] ; then
-            echo "Deployment to pypitest disabled, set substitution _TO_TEST to true if you want otherwise."
-            exit 0
-        fi
-        twine upload /root/dist/* -r pypitest
+        rm -f kaggle
+        cp -r src/kaggle .
+        python3 -m pip install build --break-system-packages
+        python3 -m build
+        # Move the built CLI to a volume that will survive to next steps.
+        mv dist /root/
     volumes:
-      - name: "root"
+      - name: root
         path: /root
 
+  # Create a release on GitHub.
+  # The `hub` image has been built previously in the project:
+  # $ git clone https://github.com/GoogleCloudPlatform/cloud-builders-community.git
+  # $ cd cloud-builders-community/hub
+  # $ gcloud builds submit
+  - name: us-docker.pkg.dev/$PROJECT_ID/tools/hub
+    id: release
+    waitFor: ['generate-cli', 'github-token']
+    entrypoint: bash
+    env:
+    - GITHUB_USER=kaggle
+    - GITHUB_REPOSITORY=kaggle-cli
+    - HUB_PROTOCOL=https
+    args:
+    - -c
+    # $$RELEASE_VERSION (two '$') is not a typo. This is to avoid conflicts with Google Cloud Build substitutions.
+    - |
+      export RELEASE_VERSION=`grep __version__ src/kaggle/__init__.py | sed -E "s/.*['\"]([^'\"]+)['\"].*/\1/"`
+      echo "Preparing release for version $$RELEASE_VERSION"
+      export GITHUB_TOKEN=$(</root/github_token)
+      if [ "${_PYPY_REPOSITORY}" = "pypi" ]; then
+        echo "Creating a release on GitHub..."
+        git clone https://github.com/kaggle/kaggle-cli.git release-repo
+        cd release-repo
+        hub release create -m "release v$$RELEASE_VERSION" "v$$RELEASE_VERSION"
+      else
+        echo "Skipping GitHub release, this is a release to pypitest"
+      fi
+    volumes:
+    - name: root
+      path: /root
+
+  # Release package to pypi.
   - name: ${_IMAGE_REPO_NAME}/${PROJECT_ID}/cli-releaser
     id: release-pypi
-    waitFor: ["release-pypitest"]
-    entrypoint: bash
+    waitFor: ['generate-cli', 'create-credentials-pypirc']
+    entrypoint: bash 
     args:
-      - "-c"
-      - |
-        if [ "$_TO_PROD" = "false" ] ; then
-            echo "Deployment to pypi disabled, set substitution _TO_PROD to true if you want otherwise."
-            exit 0
-        fi
-        twine upload /root/dist/* -r pypi
+    - -c
+    - |
+      twine upload /root/dist/* --repository ${_PYPY_REPOSITORY}
     volumes:
-      - name: "root"
-        path: /root
+    - name: root
+      path: /root
 
 images: ["${_IMAGE_REPO_NAME}/${PROJECT_ID}/cli-releaser"]
 
 substitutions:
   _IMAGE_REPO_NAME: us-docker.pkg.dev/kaggle-cicd/tools
-  _TO_TEST: "false"
-  _TO_PROD: "false"
+  _PYPY_REPOSITORY: pypitest

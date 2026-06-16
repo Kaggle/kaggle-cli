@@ -49,6 +49,7 @@ coverage.xml
 *,cover
 .hypothesis/
 venv/
+.venv
 .python-version
 
 # Translations
@@ -79,3 +80,6 @@ target/
 
 # Kagent
 .kagent-context/**
+
+# Jetski
+.jetskicli/

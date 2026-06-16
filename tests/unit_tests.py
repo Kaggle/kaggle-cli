@@ -5,6 +5,7 @@ import unittest
 import os
 import sys
 import time
+import uuid
 
 from requests import HTTPError
 
@@ -12,6 +13,7 @@ from requests import HTTPError
 sys.path.insert(0, "..")
 
 from kaggle import api
+from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus
 
 ApiException = IOError
 # Unit test names include a letter to sort them in run order.
@@ -37,7 +39,7 @@ model_title = "testing"
 instance_name = "test"
 framework_name = "jax"
 kernel_name = "testing-x"
-dataset_name = "kaggleapi-dataset-x"
+dataset_name = f"kaggleapi-dataset-{uuid.uuid4().hex[:8]}"
 up_file = "sample_submission.csv"
 description = "House prices submission message"
 competition = "house-prices-advanced-regression-techniques"
@@ -228,6 +230,9 @@ class TestKaggleApi(unittest.TestCase):
         try:
             self.kernel_metadata_path = api.kernels_initialize(kernel_directory)
             self.assertTrue(os.path.exists(self.kernel_metadata_path))
+            with open(self.kernel_metadata_path) as f:
+                metadata = json.load(f)
+                self.assertIn("machine_shape", metadata)
         except ApiException as e:
             self.fail(f"kernels_initialize failed: {e}")
 
@@ -254,10 +259,13 @@ class TestKaggleApi(unittest.TestCase):
             # on localhost and cancel the active event. That will exit the loop, but you may
             # need to clean up other active kernels to get it to run again.
             count = 0
-            while status_result.status == "running" or status_result.status == "queued" or count >= max_status_tries:
+            while (
+                status_result.status == KernelWorkerStatus.RUNNING or status_result.status == KernelWorkerStatus.QUEUED
+            ) and count < max_status_tries:
                 time.sleep(5)
                 status_result = api.kernels_status(self.kernel_slug)
                 print(status_result.status)
+                count += 1
             if count >= max_status_tries:
                 self.fail(f"Could not get kernel status in allowed trys. Status: {status_result.status}")
             end_time = time.time()

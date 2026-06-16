@@ -3,6 +3,59 @@ Changelog
 
 ### Next
 
+### 2.2.2
+
+* Clarify LLMS_AVAILABLE vs. full model set in benchmarks docs (#1061)
+* Add kernels topics command (#1056)
+* Improve benchmark task error messages in kaggle CLI (#1057)
+* Fix dataset metadata column/file description updates and docs (#1055)
+* Expand Kaggle CLI skill references (#1054)
+* Tag benchmarks token requests with CLI source for analytics (#1050)
+* Add machine_shape to kernels_initialize metadata template and docs (#1048)
+* Fix 403 for dataset, model, and benchmark topics list (#1051)
+* Fix test_benchmarks_cli.py assertions (#1049)
+* Add paginated downloads for kernel output files (#1046)
+* fix(tests): resolve infinite loop in test_kernels_d_status (#1043)
+
+### 2.2.1
+
+* Add `kaggle competitions team-submissions` command (#1036)
+* Add `kaggle quota` command for GPU/TPU accelerator quota (#1029)
+* Support optional kernel version in specifier (#1035)
+* feat(benchmarks): Add log and download source files (#1019)
+* Fix benchmarks CLI error handling and UX improvements (#1024, #1026, #1028, #1030, #1032, #1037, #1039)
+* Fix JSON serialization and download label display (#1038, #1040, #1042)
+* Set proper permissions on auth file (#1033)
+
+### 2.2.0
+
+* Add test runner workflow
+* Patch discussions code (#1018)
+* fix(benchmarks): normalize provider-prefixed and @-containing model s… (#1016)
+* fix(benchmarks): handle EOF when selecting models without -m (#1013)
+* fix(benchmarks): dual layer rate limiting (#1014)
+* Small changes to improve debugging (#1008)
+* feat: add forums commands for browsing Kaggle discussions (#993)
+* Add competitions topics CLI command (#982)
+
+### 2.1.2
+
+* Update kagglesdk version
+
+### 2.1.1
+
+* Add instructions re kagglesdk (#1000)
+* fix(benchmarks cli): bugs and additional features (#997)
+* Add submission ref to competition submissions output (#989)
+* Add Gemini Agent Skill for Benchmarks CLI (#994)
+* (Off Platform SDK) add new models (#991)
+* fix (cli): kaggle benchmark tasks (#988)
+* Update `kaggle b init` to include example and reference (#990)
+* Update API token page URL (#987)
+* Update `b auth` and `b init` confirmations (#986)
+* Enable & document OAuth authentication flow. (#983)
+* Add `--format` flag to `datasets status` for JSON output (#972)
+
 ### 2.1.0
 
 * Add `kaggle benchmarks init` command (#981)
