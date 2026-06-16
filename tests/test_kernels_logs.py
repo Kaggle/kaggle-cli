@@ -149,7 +149,7 @@ class TestKernelsLogs(unittest.TestCase):
         # Verify URL and Accept header (advertise SSE but accept anything for blob fallback).
         call_args = http_session.get.call_args
         url = call_args[0][0]
-        self.assertEqual(url, "http://localhost/api/v1/kernels/owner/kernel-slug/logs/stream")
+        self.assertEqual(url, "http://localhost/api/v1/kernels/logs/stream/owner/kernel-slug")
         self.assertEqual(call_args.kwargs["headers"]["Accept"], "text/event-stream, */*")
         self.assertNotIn("Content-Type", call_args.kwargs["headers"])
         self.assertTrue(call_args.kwargs["stream"])

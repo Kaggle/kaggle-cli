@@ -4631,7 +4631,7 @@ class KaggleApi:
     def kernels_logs_stream(self, kernel: str) -> Iterator[Dict[str, str]]:
         """Stream execution logs for a kernel via the midtier logs endpoint.
 
-        `GET /api/v1/kernels/{owner}/{slug}/logs/stream` adapts to the session
+        `GET /api/v1/kernels/logs/stream/{owner}/{slug}` adapts to the session
         state: while the session is running it proxies the upstream SSE feed
         (`Content-Type: text/event-stream`, JSON `{stream_name, time, data}`
         events terminated by an `END_OF_LOG` sentinel); once the session is
@@ -4651,7 +4651,7 @@ class KaggleApi:
             http = kaggle._http_client
             http._init_session()
             base = http._endpoint if http._env == KaggleEnv.PROD else f"{http._endpoint}/api"
-            url = f"{base}/v1/kernels/{owner_slug}/{kernel_slug}/logs/stream"
+            url = f"{base}/v1/kernels/logs/stream/{owner_slug}/{kernel_slug}"
 
             headers = dict(http._session.headers)
             headers["Accept"] = "text/event-stream, */*"
