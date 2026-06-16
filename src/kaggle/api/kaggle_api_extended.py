@@ -5401,7 +5401,11 @@ class KaggleApi:
                         file=sys.stderr,
                     )
                     return
-                print("Log stream connection lost, reconnecting...", file=sys.stderr)
+                # Stay quiet on the first reconnect — the load balancer cuts
+                # idle SSE connections every few minutes, so a single retry is
+                # the common case and shouldn't be reported as noise.
+                if failures_without_progress > 1:
+                    print("Log stream connection lost, reconnecting...", file=sys.stderr)
                 time.sleep(self._LOG_STREAM_RECONNECT_DELAY_SEC)
 
     def model_get(self, model: str) -> ApiModel:

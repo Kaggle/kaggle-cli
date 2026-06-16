@@ -398,9 +398,43 @@ class TestKernelsLogs(unittest.TestCase):
             sys.stderr = sys.__stderr__
 
         self.assertEqual(captured_out.getvalue(), "one\ntwo\nthree\n")
-        self.assertIn("reconnecting", captured_err.getvalue())
+        # The first reconnect after a successful read stays silent — the LB
+        # cuts idle SSE connections routinely, so reporting it would be noise.
+        self.assertEqual(captured_err.getvalue(), "")
         self.assertEqual(mock_stream.call_count, 2)
         mock_sleep.assert_called_once()
+
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch.object(KaggleApi, "kernels_logs_stream")
+    def test_kernels_logs_cli_follow_reports_only_repeat_failures(self, mock_stream, mock_sleep):
+        """A second consecutive failure with no new data surfaces the warning."""
+        import requests as _requests
+
+        def fail_immediately():
+            if False:
+                yield
+            raise _requests.exceptions.ConnectionError("nope")
+
+        def succeed():
+            yield {"stream_name": "stdout", "time": "t1", "data": "done"}
+
+        # Two back-to-back failures (no progress), then a clean stream.
+        mock_stream.side_effect = [fail_immediately(), fail_immediately(), succeed()]
+
+        captured_out = io.StringIO()
+        captured_err = io.StringIO()
+        sys.stdout = captured_out
+        sys.stderr = captured_err
+        try:
+            self.api.kernels_logs_cli("owner/kernel-slug", follow=True)
+        finally:
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+
+        self.assertEqual(captured_out.getvalue(), "done\n")
+        # Exactly one "reconnecting" message — printed on the second failure
+        # (the first stays silent).
+        self.assertEqual(captured_err.getvalue().count("reconnecting"), 1)
 
     @patch("kaggle.api.kaggle_api_extended.time.sleep")
     @patch.object(KaggleApi, "kernels_logs_stream")
