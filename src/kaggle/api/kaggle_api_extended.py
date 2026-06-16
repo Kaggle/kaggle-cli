@@ -5334,11 +5334,29 @@ class KaggleApi:
                 yield {"data": payload}
 
     def _iter_blob_lines(self, response) -> Iterator[Dict[str, str]]:
-        """Yield one event per line from a non-SSE blob (completed session fallback)."""
-        for raw_line in response.iter_lines(decode_unicode=True):
-            if raw_line is None:
-                continue
-            yield {"data": raw_line}
+        """Yield events from a non-SSE blob (completed session fallback).
+
+        The midtier serves the persisted GCS log as a JSON array of
+        `{stream_name, time, data}` objects — the same shape as live SSE
+        events. Parsing and yielding each entry lets the CLI render
+        completed-session output the same way as a live stream (one
+        `data` value per line) instead of dumping raw JSON. Unknown
+        blob formats fall back to line-by-line so callers still see
+        something readable.
+        """
+        body = response.text
+        try:
+            payload = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            for line in body.splitlines():
+                if line:
+                    yield {"data": line}
+            return
+
+        events = payload if isinstance(payload, list) else [payload]
+        for event in events:
+            if isinstance(event, dict):
+                yield event
 
     # `--follow` reconnects on transient network drops (e.g. load-balancer
     # idle timeouts). On reconnect the server replays the stream from the

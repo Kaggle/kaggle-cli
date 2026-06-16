@@ -189,10 +189,20 @@ class TestKernelsLogs(unittest.TestCase):
         return response
 
     @staticmethod
-    def _blob_response(lines, content_type="text/plain"):
+    def _blob_response(events, content_type="application/json"):
+        # The midtier serves completed-session logs as a JSON array of
+        # {stream_name, time, data} objects — same shape as live SSE events.
         response = MagicMock()
         response.headers = {"Content-Type": content_type}
-        response.iter_lines.return_value = iter(lines)
+        response.text = json.dumps(events)
+        response.raise_for_status = MagicMock()
+        return response
+
+    @staticmethod
+    def _raw_blob_response(body, content_type="text/plain"):
+        response = MagicMock()
+        response.headers = {"Content-Type": content_type}
+        response.text = body
         response.raise_for_status = MagicMock()
         return response
 
@@ -251,8 +261,16 @@ class TestKernelsLogs(unittest.TestCase):
     @patch.object(KaggleApi, "validate_kernel_string")
     def test_kernels_logs_stream_falls_back_to_blob_for_completed_session(self, _validate, mock_client):
         # When the session is done the midtier returns the persisted GCS blob
-        # with a non-SSE content type. We should yield one event per line.
-        response = self._blob_response(["line one", "line two", "line three"])
+        # as a JSON array of {stream_name, time, data} objects — same shape
+        # as live SSE events. Yield them as-is so the CLI renders them
+        # identically to a live stream.
+        response = self._blob_response(
+            [
+                {"stream_name": "stdout", "time": 1.0, "data": "line one\n"},
+                {"stream_name": "stderr", "time": 2.0, "data": "line two\n"},
+                {"stream_name": "stdout", "time": 3.0, "data": "line three\n"},
+            ]
+        )
 
         cm, _ = self._make_streaming_kaggle_client(response)
         with patch("kaggle.api.kaggle_api_extended.KaggleEnv") as mock_env:
@@ -262,16 +280,21 @@ class TestKernelsLogs(unittest.TestCase):
             result = list(self.api.kernels_logs_stream("owner/kernel-slug"))
 
         self.assertEqual(
-            result,
-            [{"data": "line one"}, {"data": "line two"}, {"data": "line three"}],
+            [event["data"] for event in result],
+            ["line one\n", "line two\n", "line three\n"],
         )
+        self.assertEqual(result[1]["stream_name"], "stderr")
         response.close.assert_called_once()
 
     @patch.object(KaggleApi, "build_kaggle_client")
     @patch.object(KaggleApi, "validate_kernel_string")
     def test_kernels_logs_stream_blob_fallback_with_octet_stream(self, _validate, mock_client):
-        # GCS blobs may come back as application/octet-stream; same handling.
-        response = self._blob_response(["only-line"], content_type="application/octet-stream")
+        # GCS blobs may come back as application/octet-stream; same JSON
+        # handling applies.
+        response = self._blob_response(
+            [{"stream_name": "stdout", "time": 1.0, "data": "only-line\n"}],
+            content_type="application/octet-stream",
+        )
 
         cm, _ = self._make_streaming_kaggle_client(response)
         with patch("kaggle.api.kaggle_api_extended.KaggleEnv") as mock_env:
@@ -280,7 +303,23 @@ class TestKernelsLogs(unittest.TestCase):
             mock_client.return_value = cm
             result = list(self.api.kernels_logs_stream("owner/kernel-slug"))
 
-        self.assertEqual(result, [{"data": "only-line"}])
+        self.assertEqual([event["data"] for event in result], ["only-line\n"])
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    @patch.object(KaggleApi, "validate_kernel_string")
+    def test_kernels_logs_stream_blob_fallback_handles_non_json(self, _validate, mock_client):
+        # If the blob isn't JSON (legacy or unexpected format), still yield
+        # something readable line-by-line.
+        response = self._raw_blob_response("plain line one\nplain line two\n")
+
+        cm, _ = self._make_streaming_kaggle_client(response)
+        with patch("kaggle.api.kaggle_api_extended.KaggleEnv") as mock_env:
+            mock_env.PROD = "PROD"
+            cm.__enter__.return_value._http_client._env = "LOCAL"
+            mock_client.return_value = cm
+            result = list(self.api.kernels_logs_stream("owner/kernel-slug"))
+
+        self.assertEqual(result, [{"data": "plain line one"}, {"data": "plain line two"}])
 
     def test_kernels_logs_stream_raises_when_kernel_none(self):
         with self.assertRaises(ValueError):
