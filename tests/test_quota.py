@@ -141,6 +141,7 @@ class TestQuota(unittest.TestCase):
             sys.stdout = sys.__stdout__
 
         import json
+
         output = json.loads(captured.getvalue())
         self.assertEqual(len(output), 2)
         self.assertEqual(output[0]["resource"], "GPU")
@@ -148,7 +149,7 @@ class TestQuota(unittest.TestCase):
         self.assertEqual(output[0]["remaining"], "25.00h")
         self.assertEqual(output[0]["total"], "30.00h")
         self.assertEqual(output[0]["refreshAt"], "2026-06-01T00:00:00+00:00")
-        
+
         self.assertEqual(output[1]["resource"], "TPU")
         self.assertEqual(output[1]["used"], "2.00h")
         self.assertEqual(output[1]["remaining"], "18.00h")
@@ -171,6 +172,7 @@ class TestQuota(unittest.TestCase):
             sys.stdout = sys.__stdout__
 
         import json
+
         output = json.loads(captured.getvalue())
         self.assertEqual(len(output), 2)
         self.assertEqual(list(output[0].keys()), ["resource", "remaining"])

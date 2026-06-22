@@ -1043,10 +1043,7 @@ class KaggleApi:
                 resolved_labels.append(field_to_label[proj])
             else:
                 allowed = sorted(list(set(fields + labels)))
-                raise ValueError(
-                    f"Unknown field in projection: {proj!r}. "
-                    f"Allowed fields: {', '.join(allowed)}"
-                )
+                raise ValueError(f"Unknown field in projection: {proj!r}. " f"Allowed fields: {', '.join(allowed)}")
 
         return resolved_fields, resolved_labels
 

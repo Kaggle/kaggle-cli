@@ -127,6 +127,7 @@ class TestTeamPublicSubmissions(unittest.TestCase):
             sys.stdout = sys.__stdout__
 
         import json
+
         output = json.loads(captured.getvalue())
         self.assertEqual(len(output), 2)
         self.assertEqual(output[0]["id"], 11)
@@ -151,6 +152,7 @@ class TestTeamPublicSubmissions(unittest.TestCase):
             sys.stdout = sys.__stdout__
 
         import json
+
         output = json.loads(captured.getvalue())
         self.assertEqual(len(output), 2)
         self.assertEqual(list(output[0].keys()), ["id", "publicScore"])
