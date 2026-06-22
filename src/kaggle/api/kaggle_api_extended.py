@@ -1000,11 +1000,55 @@ class KaggleApi:
         if csv_display:
             return OutputFormat.CSV
         if output_format:
+            format_name, _ = _parse_format(output_format)
             try:
-                return OutputFormat(output_format)
+                return OutputFormat(format_name)
             except ValueError:
                 return OutputFormat.TABLE
         return OutputFormat.TABLE
+
+    def _resolve_projection(self, output_format, fields, labels=None):
+        """Resolves projection fields from --format option.
+
+        Args:
+            output_format (str): The format option value, e.g. "json(field1,field2)".
+            fields (list): The list of available field names.
+            labels (list): The list of labels corresponding to fields.
+
+        Returns:
+            tuple: (resolved_fields, resolved_labels)
+        """
+        if labels is None:
+            labels = fields
+
+        if not output_format:
+            return fields, labels
+
+        format_name, proj_labels = _parse_format(output_format)
+        if not proj_labels:
+            return fields, labels
+
+        resolved_fields = []
+        resolved_labels = []
+
+        label_to_field = dict(zip(labels, fields))
+        field_to_label = dict(zip(fields, labels))
+
+        for proj in proj_labels:
+            if proj in label_to_field:
+                resolved_fields.append(label_to_field[proj])
+                resolved_labels.append(proj)
+            elif proj in field_to_label:
+                resolved_fields.append(proj)
+                resolved_labels.append(field_to_label[proj])
+            else:
+                allowed = sorted(list(set(fields + labels)))
+                raise ValueError(
+                    f"Unknown field in projection: {proj!r}. "
+                    f"Allowed fields: {', '.join(allowed)}"
+                )
+
+        return resolved_fields, resolved_labels
 
     def _load_config(self) -> None:
         """Load configuration from file and environment variables."""
@@ -1584,13 +1628,12 @@ class KaggleApi:
         if response and response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
         if response and response.competitions:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(response.competitions, self.competition_fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(response.competitions, self.competition_fields)
+            self.print_results(
+                response.competitions,
+                self.competition_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No competitions found")
 
@@ -1825,13 +1868,12 @@ class KaggleApi:
                 competition, page_number=page, page_token=page_token, page_size=page_size
             )
             if submissions:
-                output_fmt = self._get_output_format(csv_display, output_format)
-                if output_fmt == OutputFormat.CSV:
-                    self.print_csv(submissions, self.submission_fields)
-                elif output_fmt == OutputFormat.JSON:
-                    print("JSON format not yet implemented", file=sys.stderr)
-                else:
-                    self.print_table(submissions, self.submission_fields)
+                self.print_results(
+                    submissions,
+                    self.submission_fields,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
             else:
                 print("No submissions found")
 
@@ -1893,13 +1935,13 @@ class KaggleApi:
             if next_page_token:
                 print("Next Page Token = {}".format(next_page_token))
             if result:
-                output_fmt = self._get_output_format(csv_display, output_format)
-                if output_fmt == OutputFormat.CSV:
-                    self.print_csv(result.files, self.competition_file_fields, self.competition_file_labels)
-                elif output_fmt == OutputFormat.JSON:
-                    print("JSON format not yet implemented", file=sys.stderr)
-                else:
-                    self.print_table(result.files, self.competition_file_fields, self.competition_file_labels)
+                self.print_results(
+                    result.files,
+                    self.competition_file_fields,
+                    self.competition_file_labels,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
             else:
                 print("No files found")
 
@@ -2083,13 +2125,12 @@ class KaggleApi:
         if view:
             results = self.competition_leaderboard_view(competition, page_size, page_token)
             if results:
-                output_fmt = self._get_output_format(csv_display, output_format)
-                if output_fmt == OutputFormat.CSV:
-                    self.print_csv(results, self.competition_leaderboard_fields)
-                elif output_fmt == OutputFormat.JSON:
-                    print("JSON format not yet implemented", file=sys.stderr)
-                else:
-                    self.print_table(results, self.competition_leaderboard_fields)
+                self.print_results(
+                    results,
+                    self.competition_leaderboard_fields,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
             else:
                 print("No results found")
 
@@ -2129,13 +2170,12 @@ class KaggleApi:
         if not submissions:
             print("No submissions found")
             return
-        output_fmt = self._get_output_format(csv_display, output_format)
-        if output_fmt == OutputFormat.CSV:
-            self.print_csv(submissions, self.team_public_submission_fields)
-        elif output_fmt == OutputFormat.JSON:
-            print("JSON format not yet implemented", file=sys.stderr)
-        else:
-            self.print_table(submissions, self.team_public_submission_fields)
+        self.print_results(
+            submissions,
+            self.team_public_submission_fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
 
     def competition_list_episodes(self, submission_id: int):
         """List episodes for a submission in a simulation competition.
@@ -2163,13 +2203,12 @@ class KaggleApi:
         """
         episodes = self.competition_list_episodes(submission_id)
         if episodes:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(episodes, self.episode_fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(episodes, self.episode_fields)
+            self.print_results(
+                episodes,
+                self.episode_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet:
                 print(
                     '\nUse "kaggle competitions replay <episode_id>" to download a replay, '
@@ -2296,13 +2335,12 @@ class KaggleApi:
         pages = self.competition_list_pages(competition, page_name=page_name)
         if pages:
             fields = ["name", "content"] if content else self.competition_page_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(pages, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(pages, fields)
+            self.print_results(
+                pages,
+                fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No pages found")
 
@@ -2376,14 +2414,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.competition_topic_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(topics, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.competition_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No topics found")
 
@@ -2456,14 +2492,12 @@ class KaggleApi:
         )
         messages = self._flatten_topic_messages(response.messages)
         if messages:
-            fields = self.competition_topic_message_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(messages, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(messages, fields)
+            self.print_results(
+                messages,
+                self.competition_topic_message_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No messages found")
 
@@ -2499,14 +2533,12 @@ class KaggleApi:
         response = self.forums_list()
         forums = response.forums
         if forums:
-            fields = self.forum_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(forums, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(forums, fields)
+            self.print_results(
+                forums,
+                self.forum_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No forums found")
 
@@ -2756,14 +2788,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(topics, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -2901,14 +2931,27 @@ class KaggleApi:
             return
 
         output_fmt = self._get_output_format(csv_display, output_format)
+        all_fields = self.forum_topic_fields + self.forum_comment_fields
+        resolved_all, _ = self._resolve_projection(output_format, all_fields)
+        resolved_topic_fields = [f for f in resolved_all if f in self.forum_topic_fields]
+        resolved_comment_fields = [f for f in resolved_all if f in self.forum_comment_fields]
+
         if output_fmt == OutputFormat.CSV:
-            # In CSV mode, print the topic then flat comments
-            self.print_csv([topic], self.forum_topic_fields)
+            if resolved_topic_fields:
+                self.print_csv([topic], resolved_topic_fields)
             flat = self._flatten_discussion_comments(comments)
-            if flat:
-                self.print_csv(flat, self.forum_comment_fields)
+            if flat and resolved_comment_fields:
+                self.print_csv(flat, resolved_comment_fields)
         elif output_fmt == OutputFormat.JSON:
-            print("JSON format not yet implemented", file=sys.stderr)
+            output = {}
+            if resolved_topic_fields:
+                topic_json = self.get_json_serializable([topic], resolved_topic_fields)[0]
+                output["topic"] = topic_json
+            if resolved_comment_fields:
+                flat_comments = self._flatten_discussion_comments(comments)
+                comments_json = self.get_json_serializable(flat_comments, resolved_comment_fields)
+                output["comments"] = comments_json
+            print(json.dumps(output, indent=2))
         else:
             # Pretty-print the topic header
             print(f"Topic #{topic.id}: {topic.title}")
@@ -3007,14 +3050,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(topics, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -3055,14 +3096,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(topics, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -3103,14 +3142,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(topics, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -3151,14 +3188,12 @@ class KaggleApi:
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(topics, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(topics, fields)
+            self.print_results(
+                topics,
+                self.forum_topic_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
             if not quiet and response.next_page_token:
                 print(f"Next page token: {response.next_page_token}")
         else:
@@ -3297,13 +3332,13 @@ class KaggleApi:
             sort_by, size, file_type, license_name, tag_ids, search, user, mine, page, max_size, min_size
         )
         if datasets:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(datasets, self.dataset_fields, self.dataset_labels)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(datasets, self.dataset_fields, self.dataset_labels)
+            self.print_results(
+                datasets,
+                self.dataset_fields,
+                self.dataset_labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No datasets found")
 
@@ -3568,13 +3603,12 @@ class KaggleApi:
                     print("Next Page Token = {}".format(next_page_token))
                 fields = ["name", "size", "creationDate"]
                 ApiDatasetFile.size = ApiDatasetFile.total_bytes  # type: ignore[attr-defined]
-                output_fmt = self._get_output_format(csv_display, output_format)
-                if output_fmt == OutputFormat.CSV:
-                    self.print_csv(result.files, fields)
-                elif output_fmt == OutputFormat.JSON:
-                    print("JSON format not yet implemented", file=sys.stderr)
-                else:
-                    self.print_table(result.files, fields)
+                self.print_results(
+                    result.files,
+                    fields,
+                    csv_display=csv_display,
+                    output_format=output_format,
+                )
         else:
             print("No files found")
 
@@ -4557,13 +4591,12 @@ class KaggleApi:
         )
         fields = ["ref", "title", "author", "lastRunTime", "totalVotes"]
         if kernels:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(kernels, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(kernels, fields)
+            self.print_results(
+                kernels,
+                fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("Not found")
 
@@ -4607,13 +4640,12 @@ class KaggleApi:
             print("No quota information available")
             return
         fields = ["resource", "used", "remaining", "total", "refreshAt"]
-        output_fmt = self._get_output_format(csv_display, output_format)
-        if output_fmt == OutputFormat.CSV:
-            self.print_csv(rows, fields)
-        elif output_fmt == OutputFormat.JSON:
-            print("JSON format not yet implemented", file=sys.stderr)
-        else:
-            self.print_table(rows, fields)
+        self.print_results(
+            rows,
+            fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
 
     def kernels_list_files(self, kernel, page_token=None, page_size=20):
         """Lists files for a kernel.
@@ -4659,13 +4691,12 @@ class KaggleApi:
         if next_page_token:
             print("Next Page Token = {}".format(next_page_token))
         fields = ["name", "size", "creationDate"]
-        output_fmt = self._get_output_format(csv_display, output_format)
-        if output_fmt == OutputFormat.CSV:
-            self.print_csv(result.files, fields)
-        elif output_fmt == OutputFormat.JSON:
-            print("JSON format not yet implemented", file=sys.stderr)
-        else:
-            self.print_table(result.files, fields)
+        self.print_results(
+            result.files,
+            fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
 
     def kernels_initialize(self, folder: str) -> str:
         """Initializes a new kernel in a specified folder from a template.
@@ -5540,13 +5571,12 @@ class KaggleApi:
         models = self.model_list(sort_by, search, owner, page_size, page_token)
         fields = ["id", "ref", "title", "subtitle", "author"]
         if models:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(models, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(models, fields)
+            self.print_results(
+                models,
+                fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No models found")
 
@@ -6092,14 +6122,12 @@ class KaggleApi:
             model_instance, page_token=page_token, page_size=page_size, csv_display=csv_display
         )
         if result and result.files is not None:
-            fields = self.dataset_file_fields
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(result.files, fields)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(result.files, fields)
+            self.print_results(
+                result.files,
+                self.dataset_file_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
 
     def model_instances_list(self, model_instance, page_size=20, page_token=None) -> ApiListModelInstancesResponse:
         owner_slug, model_slug = self.split_model_string(model_instance)
@@ -6128,13 +6156,13 @@ class KaggleApi:
             print("Next Page Token = {}".format(response.next_page_token))
         instances = response.instances
         if instances:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(instances, self.model_instance_fields, self.model_instance_labels)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(instances, self.model_instance_fields, self.model_instance_labels)
+            self.print_results(
+                instances,
+                self.model_instance_fields,
+                self.model_instance_labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No instances found")
 
@@ -6441,13 +6469,13 @@ class KaggleApi:
         if result and result.files is not None:
             fields = ["name", "size", "creation_date"]
             labels = ["name", "size", "creationDate"]
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(result.files, fields, labels)
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(result.files, fields, labels)
+            self.print_results(
+                result.files,
+                fields,
+                labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
 
     def model_instance_versions_list(
         self, model_instance, page_size=20, page_token=None
@@ -6480,17 +6508,13 @@ class KaggleApi:
             print("Next Page Token = {}".format(response.next_page_token))
         versions = response.version_list
         if versions:
-            output_fmt = self._get_output_format(csv_display, output_format)
-            if output_fmt == OutputFormat.CSV:
-                self.print_csv(
-                    versions.versions, self.model_instance_version_fields, self.model_instance_version_labels
-                )
-            elif output_fmt == OutputFormat.JSON:
-                print("JSON format not yet implemented", file=sys.stderr)
-            else:
-                self.print_table(
-                    versions.versions, self.model_instance_version_fields, self.model_instance_version_labels
-                )
+            self.print_results(
+                versions.versions,
+                self.model_instance_version_fields,
+                self.model_instance_version_labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
         else:
             print("No versions found")
 
@@ -6670,6 +6694,62 @@ class KaggleApi:
         for i in items:
             i_fields = [self.string(getattr(i, self.camel_to_snake(f))) for f in fields]
             writer.writerow(i_fields)
+
+    def get_json_serializable(self, items, fields, labels=None):
+        """Converts a set of fields from a set of items into a JSON-serializable list of dicts.
+
+        Args:
+            items: A list of items to convert.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+
+        Returns:
+            list: A list of dictionaries containing the selected fields.
+        """
+        if labels is None:
+            labels = fields
+        json_items = []
+        for i in items:
+            item_dict = {}
+            for f, label in zip(fields, labels):
+                val = getattr(i, self.camel_to_snake(f))
+                if isinstance(val, datetime):
+                    val = val.isoformat()
+                elif not isinstance(val, (int, float, bool, str)) and val is not None:
+                    val = str(val)
+                item_dict[label] = val
+            json_items.append(item_dict)
+        return json_items
+
+    def print_json(self, items, fields, labels=None):
+        """Prints a set of fields from a set of items in JSON format.
+
+        Args:
+            items: A list of items to print.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+        """
+        print(json.dumps(self.get_json_serializable(items, fields, labels), indent=2))
+
+    def print_results(self, items, fields, labels=None, csv_display=False, output_format=None):
+        """Prints results in the selected format, applying projection if present.
+
+        Args:
+            items: A list of items to print.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+            csv_display: If True, print CSV (legacy option).
+            output_format: The format option value, e.g. "json(field1,field2)".
+        """
+        output_fmt = self._get_output_format(csv_display, output_format)
+        resolved_fields, resolved_labels = self._resolve_projection(output_format, fields, labels)
+
+        if output_fmt == OutputFormat.CSV:
+            self.print_csv(items, resolved_fields, resolved_labels)
+        elif output_fmt == OutputFormat.JSON:
+            self.print_json(items, resolved_fields, resolved_labels)
+        else:
+            self.print_table(items, resolved_fields, resolved_labels)
 
     def string(self, item):
         return item if isinstance(item, str) else str(item)

@@ -116,7 +116,6 @@ def _add_output_format_args(parser) -> None:
     group.add_argument(
         "--format",
         dest="output_format",
-        choices=[str(f) for f in OutputFormat],
         help=Help.param_format,
     )
 

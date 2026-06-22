@@ -632,3 +632,77 @@ class TestDiscussionsApiMethods:
     def test_benchmark_list_topics_invalid_slug(self, api):
         with pytest.raises(ValueError, match="Benchmark must be specified"):
             api.benchmark_list_topics(benchmark="too/many/slashes")
+
+
+class TestForumsTopicShowCliOutput:
+    """Verify forums_topic_show_cli output formatting."""
+
+    def test_json_output(self, api, capsys):
+        mock_topic = MagicMock()
+        mock_topic.id = 123
+        mock_topic.title = "Test Title"
+        mock_topic.author_name = "test-author"
+        mock_topic.post_date = "2026-06-01"
+        mock_topic.votes = 5
+        mock_topic.comment_count = 1
+        mock_topic.content = "Test Content"
+
+        mock_comment = MagicMock()
+        mock_comment.id = 456
+        mock_comment.author_name = "comment-author"
+        mock_comment.post_date = "2026-06-02"
+        mock_comment.votes = 2
+        mock_comment.content = "Comment Content"
+        mock_comment.replies = []
+
+        api.forums_topic_show = MagicMock(return_value=(mock_topic, [mock_comment], ""))
+
+        import json
+
+        api.forums_topic_show_cli(topic_ref="123", output_format="json")
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+
+        assert output["topic"]["id"] == 123
+        assert output["topic"]["title"] == "Test Title"
+        assert output["topic"]["authorName"] == "test-author"
+
+        assert len(output["comments"]) == 1
+        assert output["comments"][0]["id"] == 456
+        assert output["comments"][0]["authorName"] == "comment-author"
+
+    def test_json_projection_output(self, api, capsys):
+        mock_topic = MagicMock()
+        mock_topic.id = 123
+        mock_topic.title = "Test Title"
+        mock_topic.author_name = "test-author"
+        mock_topic.post_date = "2026-06-01"
+        mock_topic.votes = 5
+        mock_topic.comment_count = 1
+
+        mock_comment = MagicMock()
+        mock_comment.id = 456
+        mock_comment.author_name = "comment-author"
+        mock_comment.post_date = "2026-06-02"
+        mock_comment.votes = 2
+        mock_comment.content = "Comment Content"
+        mock_comment.replies = []
+
+        api.forums_topic_show = MagicMock(return_value=(mock_topic, [mock_comment], ""))
+
+        import json
+
+        api.forums_topic_show_cli(topic_ref="123", output_format="json(title,content)")
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+
+        assert list(output["topic"].keys()) == ["title"]
+        assert output["topic"]["title"] == "Test Title"
+        assert "id" not in output["topic"]
+
+        assert len(output["comments"]) == 1
+        assert list(output["comments"][0].keys()) == ["content"]
+        assert output["comments"][0]["content"] == "Comment Content"
+        assert "id" not in output["comments"][0]

@@ -113,6 +113,56 @@ class TestTeamPublicSubmissions(unittest.TestCase):
         self.assertIn("100.0", output)
 
     @patch.object(KaggleApi, "competition_team_submissions")
+    def test_cli_format_json_output(self, mock_view):
+        mock_view.return_value = [
+            _mock_submission(11, "2026-01-02T00:00:00Z", "100.0"),
+            _mock_submission(22, "2026-01-01T00:00:00Z", "50.0"),
+        ]
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.competition_team_submissions_cli(team_id=42, output_format="json")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        import json
+        output = json.loads(captured.getvalue())
+        self.assertEqual(len(output), 2)
+        self.assertEqual(output[0]["id"], 11)
+        self.assertEqual(output[0]["dateSubmitted"], "2026-01-02T00:00:00Z")
+        self.assertEqual(output[0]["publicScore"], "100.0")
+        self.assertEqual(output[1]["id"], 22)
+        self.assertEqual(output[1]["dateSubmitted"], "2026-01-01T00:00:00Z")
+        self.assertEqual(output[1]["publicScore"], "50.0")
+
+    @patch.object(KaggleApi, "competition_team_submissions")
+    def test_cli_format_json_projection_output(self, mock_view):
+        mock_view.return_value = [
+            _mock_submission(11, "2026-01-02T00:00:00Z", "100.0"),
+            _mock_submission(22, "2026-01-01T00:00:00Z", "50.0"),
+        ]
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.competition_team_submissions_cli(team_id=42, output_format="json(id,publicScore)")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        import json
+        output = json.loads(captured.getvalue())
+        self.assertEqual(len(output), 2)
+        self.assertEqual(list(output[0].keys()), ["id", "publicScore"])
+        self.assertEqual(output[0]["id"], 11)
+        self.assertEqual(output[0]["publicScore"], "100.0")
+        self.assertNotIn("dateSubmitted", output[0])
+
+        self.assertEqual(list(output[1].keys()), ["id", "publicScore"])
+        self.assertEqual(output[1]["id"], 22)
+        self.assertEqual(output[1]["publicScore"], "50.0")
+
+    @patch.object(KaggleApi, "competition_team_submissions")
     def test_cli_empty(self, mock_view):
         mock_view.return_value = []
 

@@ -126,6 +126,65 @@ class TestQuota(unittest.TestCase):
         self.assertIn("5.00h", output)
 
     @patch.object(KaggleApi, "quota_view")
+    def test_quota_view_cli_format_json(self, mock_view):
+        mock_view.return_value = _build_response(
+            gpu=_mock_quota(5, 30),
+            tpu=_mock_quota(2, 20),
+            refresh_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.quota_view_cli(output_format="json")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        import json
+        output = json.loads(captured.getvalue())
+        self.assertEqual(len(output), 2)
+        self.assertEqual(output[0]["resource"], "GPU")
+        self.assertEqual(output[0]["used"], "5.00h")
+        self.assertEqual(output[0]["remaining"], "25.00h")
+        self.assertEqual(output[0]["total"], "30.00h")
+        self.assertEqual(output[0]["refreshAt"], "2026-06-01T00:00:00+00:00")
+        
+        self.assertEqual(output[1]["resource"], "TPU")
+        self.assertEqual(output[1]["used"], "2.00h")
+        self.assertEqual(output[1]["remaining"], "18.00h")
+        self.assertEqual(output[1]["total"], "20.00h")
+        self.assertEqual(output[1]["refreshAt"], "2026-06-01T00:00:00+00:00")
+
+    @patch.object(KaggleApi, "quota_view")
+    def test_quota_view_cli_format_json_projection(self, mock_view):
+        mock_view.return_value = _build_response(
+            gpu=_mock_quota(5, 30),
+            tpu=_mock_quota(2, 20),
+            refresh_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            self.api.quota_view_cli(output_format="json(resource,remaining)")
+        finally:
+            sys.stdout = sys.__stdout__
+
+        import json
+        output = json.loads(captured.getvalue())
+        self.assertEqual(len(output), 2)
+        self.assertEqual(list(output[0].keys()), ["resource", "remaining"])
+        self.assertEqual(output[0]["resource"], "GPU")
+        self.assertEqual(output[0]["remaining"], "25.00h")
+        self.assertNotIn("used", output[0])
+        self.assertNotIn("total", output[0])
+        self.assertNotIn("refreshAt", output[0])
+
+        self.assertEqual(list(output[1].keys()), ["resource", "remaining"])
+        self.assertEqual(output[1]["resource"], "TPU")
+        self.assertEqual(output[1]["remaining"], "18.00h")
+
+    @patch.object(KaggleApi, "quota_view")
     def test_quota_view_cli_skips_missing_accelerator(self, mock_view):
         mock_view.return_value = _build_response(gpu=_mock_quota(1, 30), tpu=None)
 
