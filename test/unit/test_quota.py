@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, "..")
+sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 

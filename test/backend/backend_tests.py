@@ -10,7 +10,7 @@ import uuid
 from requests import HTTPError
 
 # noinspection PyTypeChecker
-sys.path.insert(0, "..")
+sys.path.insert(0, "../..")
 
 from kaggle import api
 from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus
@@ -23,8 +23,8 @@ ApiException = IOError
 # In the case of unresolvable failure, run reset_database.sh.
 
 # To run from Rider, create a Python tests>Unittests run config.
-# Give it the module: unit_tests.TestKaggleApi
-# Set the working directory to: kaggle-cli/tests
+# Give it the module: backend_tests.TestKaggleApi
+# Set the working directory to: kaggle-cli/test/backend
 # Define some envars:
 # KAGGLE_API_ENVIRONMENT=LOCALHOST
 # KAGGLE_CONFIG_DIR=/home/kaggle/.config/kaggle/dev

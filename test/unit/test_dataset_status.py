@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import sys
 
-sys.path.insert(0, "..")
+sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi, _parse_format
 

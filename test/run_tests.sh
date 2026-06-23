@@ -12,8 +12,8 @@ echo "Running fast unit tests with pytest..."
 
 # Run live integration tests only if stdin is a TTY (invoked interactively)
 if [ -t 0 ]; then
-  echo "Running live integration tests (unit_tests.py)..."
-  python3 -m unittest unit_tests.py
+  echo "Running live integration tests (backend_tests.py)..."
+  (cd "$SCRIPT_DIR/backend" && python3 -m unittest backend_tests.py)
 fi
 
 echo "All tests passed!"

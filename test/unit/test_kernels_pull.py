@@ -5,7 +5,7 @@ import sys
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 
-sys.path.insert(0, "../src")
+sys.path.insert(0, "../../src")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
