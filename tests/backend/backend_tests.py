@@ -24,7 +24,7 @@ ApiException = IOError
 
 # To run from Rider, create a Python tests>Unittests run config.
 # Give it the module: backend_tests.TestKaggleApi
-# Set the working directory to: kaggle-cli/test/backend
+# Set the working directory to: kaggle-cli/tests/backend
 # Define some envars:
 # KAGGLE_API_ENVIRONMENT=LOCALHOST
 # KAGGLE_CONFIG_DIR=/home/kaggle/.config/kaggle/dev

@@ -55,9 +55,9 @@ dependencies = [
 ]
 
 [tool.hatch.envs.test.scripts]
-local = "source tools/use-localhost.sh; cd test/backend; python backend_tests.py --failfast"
-prod = "source tools/use-prod.sh; cd test/backend; python backend_tests.py --failfast"
-integration = "pytest test/integration"
+local = "source tools/use-localhost.sh; cd tests/backend; python backend_tests.py --failfast"
+prod = "source tools/use-prod.sh; cd tests/backend; python backend_tests.py --failfast"
+integration = "pytest tests/integration"
 
 [tool.hatch.envs.lint]
 detached = true
@@ -73,7 +73,7 @@ dependencies = [
 ]
 
 [tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:src/kaggle test}"
+typing = "mypy --install-types --non-interactive {args:src/kaggle tests}"
 style = [
   "black --check --diff {args:.}",
 ]
@@ -105,6 +105,6 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = [
-    "test/unit",
+    "tests/unit",
 ]
 pythonpath = ["src"]
