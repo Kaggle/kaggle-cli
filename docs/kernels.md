@@ -179,7 +179,7 @@ kaggle kernels pull <KERNEL> [options]
 
 **Arguments:**
 
-*   `<KERNEL>`: Kernel URL suffix (format: `owner/kernel-slug`, e.g., `$KAGGLE_DEVELOPER/exercise-as-with`).
+*   `<KERNEL>`: Kernel URL suffix (format: `owner/kernel-slug` or `owner/kernel-slug/version`, e.g., `$KAGGLE_DEVELOPER/exercise-as-with` or `$KAGGLE_DEVELOPER/exercise-as-with/2`).
 
 **Options:**
 
@@ -199,6 +199,12 @@ kaggle kernels pull <KERNEL> [options]
 
     ```bash
     kaggle kernels pull --wp $KAGGLE_DEVELOPER/exercise-as-with
+    ```
+
+3.  Pull version 2 of the kernel `$KAGGLE_DEVELOPER/exercise-as-with` into the current working directory:
+
+    ```bash
+    kaggle kernels pull --wp $KAGGLE_DEVELOPER/exercise-as-with/2
     ```
 
 **Purpose:**
