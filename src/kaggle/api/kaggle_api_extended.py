@@ -4018,7 +4018,7 @@ class KaggleApi:
         else:
             print("Dataset version creation error: " + result.error)
 
-    def dataset_delete(self, owner_slug: str, dataset_slug: str, no_confirm: bool = False) -> None:
+    def dataset_delete(self, owner_slug: str, dataset_slug: str, no_confirm: bool = False) -> bool:
         """Deletes a dataset.
 
         Args:
@@ -4027,7 +4027,7 @@ class KaggleApi:
             no_confirm (bool): If True, skip confirmation (default is False).
 
         Returns:
-            None:
+            bool: True if deleted, False if cancelled.
         """
 
         if not owner_slug:
@@ -4036,13 +4036,14 @@ class KaggleApi:
         if not no_confirm:
             if not self.confirmation(f"delete the dataset: {owner_slug}/{dataset_slug}"):
                 print("Deletion cancelled")
-                return
+                return False
 
         with self.build_kaggle_client() as kaggle:
             request = ApiDeleteDatasetRequest()
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
             kaggle.datasets.dataset_api_client.delete_dataset(request)
+        return True
 
     def kernels_delete(self, kernel: str, no_confirm: bool = False) -> None:
         """Deletes a kernel.
@@ -4099,8 +4100,8 @@ class KaggleApi:
             raise ValueError("A dataset must be specified")
         owner_slug, dataset_slug, _ = self.split_dataset_string(dataset)
 
-        self.dataset_delete(owner_slug, dataset_slug, no_confirm)
-        print(f'Dataset "{dataset}" deleted successfully.')
+        if self.dataset_delete(owner_slug, dataset_slug, no_confirm):
+            print(f'Dataset "{dataset}" deleted successfully.')
 
     def dataset_initialize(self, folder: str) -> str:
         """Initializes a folder with a dataset configuration (metadata) file.
