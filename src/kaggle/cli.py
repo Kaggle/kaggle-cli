@@ -2144,7 +2144,7 @@ class Help(object):
     param_csv = "Print results in CSV format (if not set print in table format)"
     param_format = (
         "Print results in selected format (csv, table, json). For details on "
-        "advanced options, see "
+        "advanced options, see\n"
         "https://github.com/Kaggle/kaggle-cli/blob/main/docs/output_format.md"
     )
     param_page = "Page number for results paging. Page size is 20 by default"
