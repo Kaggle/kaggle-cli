@@ -2142,7 +2142,11 @@ class Help(object):
     param_code_kernel = "Name of kernel (notebook) to submit to a code competition"
     param_code_version = 'Version of kernel to submit to a code competition, e.g. "3"'
     param_csv = "Print results in CSV format (if not set print in table format)"
-    param_format = "Print results in selected format"
+    param_format = (
+        "Print results in selected format (csv, table, json). For details on "
+        "advanced options, see "
+        "https://github.com/Kaggle/kaggle-cli/blob/main/docs/output_format.md"
+    )
     param_page = "Page number for results paging. Page size is 20 by default"
     # NOTE: Default and max page size are set by the mid-tier code.
     param_page_size = "Number of items to show on a page. Default size is 20, " "max is 200"
