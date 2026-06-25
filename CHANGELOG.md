@@ -3,6 +3,15 @@ Changelog
 
 ### Next
 
+### 2.2.3
+
+* Update --format help text to reference output_format.md (#1074)
+* Update kernel pull docs with version example (#1072)
+* Reorganize tests and rename unit_tests.py to backend_tests.py (#1071)
+* Add support for formatting projections (#1068)
+* Rewrite `kaggle kernels logs --follow` to use SSE log stream (#999)
+* Add --format option to CLI commands supporting --csv (#1062)
+
 ### 2.2.2
 
 * Clarify LLMS_AVAILABLE vs. full model set in benchmarks docs (#1061)
