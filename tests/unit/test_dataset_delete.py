@@ -27,13 +27,13 @@ class TestDatasetDelete(unittest.TestCase):
     def test_dataset_delete_cli_cancelled(self, mock_confirmation, mock_print):
         """When confirmation is cancelled (returns False), print 'Deletion cancelled' and no success message."""
         self.api.dataset_delete_cli("owner/dataset-slug")
-        
+
         # Verify confirmation was called
         mock_confirmation.assert_called_once_with("delete the dataset: owner/dataset-slug")
-        
+
         # Verify that print("Deletion cancelled") was called
         mock_print.assert_any_call("Deletion cancelled")
-        
+
         # Verify that the success message was NOT printed
         for call_args in mock_print.call_args_list:
             printed_str = call_args[0][0]
@@ -52,10 +52,10 @@ class TestDatasetDelete(unittest.TestCase):
         self.api.dataset_delete_cli("owner/dataset-slug")
 
         mock_confirmation.assert_called_once_with("delete the dataset: owner/dataset-slug")
-        
+
         # Verify backend client delete_dataset was called
         mock_kaggle.datasets.dataset_api_client.delete_dataset.assert_called_once()
-        
+
         # Verify success message was printed
         mock_print.assert_any_call('Dataset "owner/dataset-slug" deleted successfully.')
 
