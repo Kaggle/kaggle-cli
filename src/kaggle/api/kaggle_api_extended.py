@@ -100,6 +100,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionPagesResponse,
     ApiCreateCompetitionPageRequest,
     ApiCompetitionPage,
+    ApiLaunchCompetitionRequest,
     ApiListCompetitionTopicsRequest,
     ApiListCompetitionTopicsResponse,
     ApiListTopicMessagesRequest,
@@ -2422,6 +2423,53 @@ class KaggleApi:
         )
         status = "published" if page.is_published else "staged (unpublished)"
         print(f'Page "{page.name}" created on competition "{competition_name}" — {status}.')
+
+    def competition_launch(self, competition_name: str, future_time: Optional[datetime] = None) -> None:
+        """Launch a competition you host, optionally at a future UTC time.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            future_time (Optional[datetime]): If set, schedule launch for this UTC
+                instant. If omitted, launch immediately.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiLaunchCompetitionRequest()
+            request.competition_name = competition_name
+            if future_time is not None:
+                request.future_time = future_time
+            kaggle.competitions.competition_api_client.launch_competition(request)
+
+    def competition_launch_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        at=None,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_launch."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        future_time = None
+        if at:
+            try:
+                parsed = datetime.fromisoformat(at.rstrip("Z"))
+            except ValueError as exc:
+                raise ValueError(f"Invalid --at value '{at}'. Use ISO-8601 UTC (e.g. 2027-01-01T00:00:00Z).") from exc
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            future_time = parsed
+
+        self.competition_launch(competition_name=competition_name, future_time=future_time)
+        if future_time is not None:
+            print(f'Competition "{competition_name}" scheduled to launch at {future_time.isoformat()}.')
+        else:
+            print(f'Competition "{competition_name}" launched.')
 
     def competition_list_topics(self, competition: str, sort_by: Optional[str] = None, page: Optional[int] = None):
         """List discussion topics for a competition.

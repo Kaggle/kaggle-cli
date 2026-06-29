@@ -467,6 +467,29 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_create._action_groups.append(parser_competitions_pages_create_optional)
     parser_competitions_pages_create.set_defaults(func=api.competition_create_page_cli)
 
+    # Competitions launch (publish now, or schedule for a future UTC time)
+    parser_competitions_launch = subparsers_competitions.add_parser(
+        "launch", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_launch
+    )
+    parser_competitions_launch_optional = parser_competitions_launch._action_groups.pop()
+    parser_competitions_launch_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_launch_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_launch_optional.add_argument(
+        "--at",
+        dest="at",
+        required=False,
+        help='Schedule launch at this UTC ISO-8601 time (e.g. "2027-01-01T00:00:00Z"). Omit to launch now.',
+    )
+    parser_competitions_launch_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_launch._action_groups.append(parser_competitions_launch_optional)
+    parser_competitions_launch.set_defaults(func=api.competition_launch_cli)
+
     shared_topics = _get_shared_topics_parser()
     shared_competition_topics = _get_shared_competition_topics_parser()
 
@@ -1974,6 +1997,7 @@ class Help(object):
         "replay",
         "logs",
         "pages",
+        "launch",
         "topics",
         "topic-messages",
     ]
@@ -2109,6 +2133,7 @@ class Help(object):
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
     command_competitions_pages = "List pages for a competition"
     command_competitions_pages_create = "Create a new page on a competition you host"
+    command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_topics = "List discussion topics for a competition"
     command_competitions_topic_messages = "List messages within a competition discussion topic"
 
