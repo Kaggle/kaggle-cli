@@ -15,6 +15,7 @@ kaggle-cli documentation
    intro
    configuration
    competitions
+   competition_creation
    datasets
    kernels
    models
