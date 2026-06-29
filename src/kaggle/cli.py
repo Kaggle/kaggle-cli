@@ -382,9 +382,7 @@ def parse_competitions(subparsers) -> None:
 
     # Competitions pages (group: list / create)
     shared_competition_pages_list = argparse.ArgumentParser(add_help=False)
-    shared_competition_pages_list.add_argument(
-        "competition", nargs="?", default=None, help=Help.param_competition
-    )
+    shared_competition_pages_list.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
     shared_competition_pages_list.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
@@ -437,8 +435,8 @@ def parse_competitions(subparsers) -> None:
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
     parser_competitions_pages_create_optional.add_argument(
-        "--name",
-        dest="name",
+        "--page-name",
+        dest="page_name",
         required=True,
         help='Page name (e.g. "description", "rules", "evaluation").',
     )

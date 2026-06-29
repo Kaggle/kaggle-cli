@@ -2345,8 +2345,8 @@ class KaggleApi:
 
     def competition_create_page(
         self,
-        competition: str,
-        name: str,
+        competition_name: str,
+        page_name: str,
         content_path: str,
         mime_type: Optional[str] = None,
         post_title: Optional[str] = None,
@@ -2355,13 +2355,13 @@ class KaggleApi:
         """Create a new page on a competition you host.
 
         Args:
-            competition (str): The competition name (slug).
-            name (str): Page name (e.g. "description", "rules", "evaluation").
+            competition_name (str): The competition name (slug).
+            page_name (str): Page name (e.g. "description", "rules", "evaluation").
             content_path (str): Path to a file whose contents become the page body.
             mime_type (Optional[str]): MIME type of the content. Defaults to "text/html"
                 server-side if omitted.
             post_title (Optional[str]): Title shown above the content. Defaults to
-                ``name`` server-side if omitted.
+                ``page_name`` server-side if omitted.
             publish (bool): If True, publish the page immediately (default: staged
                 as unpublished).
 
@@ -2374,7 +2374,7 @@ class KaggleApi:
             content = f.read()
 
         page = ApiCompetitionPage()
-        page.name = name
+        page.name = page_name
         page.content = content
         if mime_type is not None:
             page.mime_type = mime_type
@@ -2384,7 +2384,7 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             request = ApiCreateCompetitionPageRequest()
-            request.competition_name = competition
+            request.competition_name = competition_name
             request.page = page
             return kaggle.competitions.competition_api_client.create_competition_page(request)
 
@@ -2392,7 +2392,7 @@ class KaggleApi:
         self,
         competition=None,
         competition_opt=None,
-        name=None,
+        page_name=None,
         file_path=None,
         mime_type=None,
         post_title=None,
@@ -2400,28 +2400,28 @@ class KaggleApi:
         quiet=False,
     ):
         """CLI wrapper for competition_create_page."""
-        competition = competition or competition_opt
-        if competition is None:
-            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
-            if competition is not None and not quiet:
-                print("Using competition: " + competition)
-        if competition is None:
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
             raise ValueError("No competition specified")
-        if not name:
-            raise ValueError("--name is required")
+        if not page_name:
+            raise ValueError("--page-name is required")
         if not file_path:
             raise ValueError("-f/--file is required")
 
         page = self.competition_create_page(
-            competition,
-            name=name,
+            competition_name=competition_name,
+            page_name=page_name,
             content_path=file_path,
             mime_type=mime_type,
             post_title=post_title,
             publish=publish,
         )
         status = "published" if page.is_published else "staged (unpublished)"
-        print(f'Page "{page.name}" created on competition "{competition}" — {status}.')
+        print(f'Page "{page.name}" created on competition "{competition_name}" — {status}.')
 
     def competition_list_topics(self, competition: str, sort_by: Optional[str] = None, page: Optional[int] = None):
         """List discussion topics for a competition.
