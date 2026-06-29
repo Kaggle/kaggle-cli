@@ -490,6 +490,35 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_launch._action_groups.append(parser_competitions_launch_optional)
     parser_competitions_launch.set_defaults(func=api.competition_launch_cli)
 
+    # Competitions init (write competition-metadata.json template)
+    parser_competitions_init = subparsers_competitions.add_parser(
+        "init", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_init
+    )
+    parser_competitions_init_optional = parser_competitions_init._action_groups.pop()
+    parser_competitions_init_optional.add_argument(
+        "folder",
+        nargs="?",
+        default=None,
+        help="Folder to write competition-metadata.json into (default: current directory).",
+    )
+    parser_competitions_init._action_groups.append(parser_competitions_init_optional)
+    parser_competitions_init.set_defaults(func=api.competition_initialize_cli)
+
+    # Competitions create (read competition-metadata.json and create competition)
+    parser_competitions_create = subparsers_competitions.add_parser(
+        "create", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_create
+    )
+    parser_competitions_create_optional = parser_competitions_create._action_groups.pop()
+    parser_competitions_create_optional.add_argument(
+        "-p",
+        "--path",
+        dest="folder",
+        required=False,
+        help="Folder containing competition-metadata.json (default: current directory).",
+    )
+    parser_competitions_create._action_groups.append(parser_competitions_create_optional)
+    parser_competitions_create.set_defaults(func=api.competition_create_new_cli)
+
     shared_topics = _get_shared_topics_parser()
     shared_competition_topics = _get_shared_competition_topics_parser()
 
@@ -1998,6 +2027,8 @@ class Help(object):
         "logs",
         "pages",
         "launch",
+        "init",
+        "create",
         "topics",
         "topic-messages",
     ]
@@ -2134,6 +2165,8 @@ class Help(object):
     command_competitions_pages = "List pages for a competition"
     command_competitions_pages_create = "Create a new page on a competition you host"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
+    command_competitions_init = "Initialize folder with a competition-metadata.json template"
+    command_competitions_create = "Create a new competition from competition-metadata.json"
     command_competitions_topics = "List discussion topics for a competition"
     command_competitions_topic_messages = "List messages within a competition discussion topic"
 

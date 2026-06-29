@@ -100,6 +100,8 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionPagesResponse,
     ApiCreateCompetitionPageRequest,
     ApiCompetitionPage,
+    ApiCreateCompetitionRequest,
+    ApiCreateCompetitionResponse,
     ApiLaunchCompetitionRequest,
     ApiListCompetitionTopicsRequest,
     ApiListCompetitionTopicsResponse,
@@ -131,11 +133,14 @@ from kagglesdk.discussions.types.discussions_enums import (
 )
 from kagglesdk.competitions.types.competition_enums import (
     CompetitionListTab,
+    CompetitionPrivacy,
     HostSegment,
     CompetitionSortBy,
     SubmissionGroup,
     SubmissionSortBy,
 )
+
+from kagglesdk.competitions.types.competition import Reward, RewardTypeId
 
 from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
 
@@ -764,6 +769,7 @@ class KaggleApi:
     KERNEL_METADATA_FILE = "kernel-metadata.json"
     MODEL_METADATA_FILE = "model-metadata.json"
     MODEL_INSTANCE_METADATA_FILE = "model-instance-metadata.json"
+    COMPETITION_METADATA_FILE = "competition-metadata.json"
     MAX_NUM_INBOX_FILES_TO_UPLOAD = 1000
     MAX_UPLOAD_RESUME_ATTEMPTS = 10
 
@@ -2470,6 +2476,130 @@ class KaggleApi:
             print(f'Competition "{competition_name}" scheduled to launch at {future_time.isoformat()}.')
         else:
             print(f'Competition "{competition_name}" launched.')
+
+    def competition_initialize(self, folder: str) -> str:
+        """Initialize a folder with a competition-metadata.json template.
+
+        Args:
+            folder (str): Folder in which to write the template.
+
+        Returns:
+            str: Path to the written metadata file.
+        """
+        if not os.path.isdir(folder):
+            raise ValueError("Invalid folder: " + folder)
+
+        meta_data = {
+            "title": "INSERT_TITLE_HERE",
+            "slug": "INSERT_SLUG_HERE",
+            "briefDescription": "INSERT_BRIEF_DESCRIPTION_HERE",
+            "privacy": "PUBLIC",
+            "disableKernels": False,
+            "hackathon": False,
+            "cloneCompetitionId": None,
+            "cloneExcludeCompetitionData": None,
+            "clonePageNames": None,
+            "licenseId": None,
+            "organizationId": None,
+            "numPrizes": None,
+            "restrictLinkToEmailList": None,
+            "reward": None,
+        }
+        meta_file = os.path.join(folder, self.COMPETITION_METADATA_FILE)
+        with open(meta_file, "w") as f:
+            json.dump(meta_data, f, indent=2)
+
+        print("Competition metadata template written to: " + meta_file)
+        return meta_file
+
+    def competition_initialize_cli(self, folder=None):
+        folder = folder or os.getcwd()
+        self.competition_initialize(folder)
+
+    def competition_create_new(self, folder: str) -> ApiCreateCompetitionResponse:
+        """Create a new competition from ``competition-metadata.json`` in ``folder``.
+
+        Args:
+            folder (str): Folder containing competition-metadata.json.
+
+        Returns:
+            ApiCreateCompetitionResponse: with id, ref, url of the new competition.
+        """
+        if not os.path.isdir(folder):
+            raise ValueError("Invalid folder: " + folder)
+
+        meta_file = os.path.join(folder, self.COMPETITION_METADATA_FILE)
+        if not os.path.isfile(meta_file):
+            raise ValueError("Metadata file not found: " + self.COMPETITION_METADATA_FILE)
+
+        with open(meta_file) as f:
+            meta = json.load(f)
+
+        title = cast(str, self.get_or_fail(meta, "title"))
+        slug = cast(str, self.get_or_fail(meta, "slug"))
+        brief_description = cast(str, self.get_or_fail(meta, "briefDescription"))
+        privacy_str = cast(str, self.get_or_fail(meta, "privacy"))
+
+        if title == "INSERT_TITLE_HERE":
+            raise ValueError("Default title detected, please update competition-metadata.json before creating")
+        if slug == "INSERT_SLUG_HERE":
+            raise ValueError("Default slug detected, please update competition-metadata.json before creating")
+        if brief_description == "INSERT_BRIEF_DESCRIPTION_HERE":
+            raise ValueError(
+                "Default briefDescription detected, please update competition-metadata.json before creating"
+            )
+
+        try:
+            privacy = CompetitionPrivacy[privacy_str.upper()]
+        except KeyError as exc:
+            valid = [n for n in CompetitionPrivacy.__members__ if n != "COMPETITION_PRIVACY_UNSPECIFIED"]
+            raise ValueError(f"Invalid privacy '{privacy_str}'. Valid: {', '.join(valid)}") from exc
+
+        request = ApiCreateCompetitionRequest()
+        request.title = title
+        request.slug = slug
+        request.brief_description = brief_description
+        request.privacy = privacy
+
+        if meta.get("disableKernels") is not None:
+            request.disable_kernels = bool(meta["disableKernels"])
+        if meta.get("hackathon") is not None:
+            request.hackathon = bool(meta["hackathon"])
+        if meta.get("restrictLinkToEmailList") is not None:
+            request.restrict_link_to_email_list = bool(meta["restrictLinkToEmailList"])
+        if meta.get("cloneCompetitionId") is not None:
+            request.clone_competition_id = int(meta["cloneCompetitionId"])
+        if meta.get("cloneExcludeCompetitionData") is not None:
+            request.clone_exclude_competition_data = bool(meta["cloneExcludeCompetitionData"])
+        if meta.get("clonePageNames"):
+            request.clone_page_names = list(meta["clonePageNames"])
+        if meta.get("licenseId") is not None:
+            request.license_id = int(meta["licenseId"])
+        if meta.get("organizationId") is not None:
+            request.organization_id = int(meta["organizationId"])
+        if meta.get("numPrizes") is not None:
+            request.num_prizes = int(meta["numPrizes"])
+        if meta.get("reward") is not None:
+            reward_meta = meta["reward"]
+            reward = Reward()
+            reward_id_str = cast(str, self.get_or_fail(reward_meta, "id"))
+            try:
+                reward.id = RewardTypeId[reward_id_str.upper()]
+            except KeyError as exc:
+                valid = [n for n in RewardTypeId.__members__ if n != "REWARD_TYPE_ID_UNSPECIFIED"]
+                raise ValueError(f"Invalid reward.id '{reward_id_str}'. Valid: {', '.join(valid)}") from exc
+            reward.quantity = int(self.get_or_fail(reward_meta, "quantity"))
+            if reward_meta.get("clarification") is not None:
+                reward.clarification = reward_meta["clarification"]
+            request.reward = reward
+
+        with self.build_kaggle_client() as kaggle:
+            return kaggle.competitions.competition_api_client.create_competition(request)
+
+    def competition_create_new_cli(self, folder=None):
+        folder = folder or os.getcwd()
+        response = self.competition_create_new(folder)
+        print(f"Competition created: {response.url}")
 
     def competition_list_topics(self, competition: str, sort_by: Optional[str] = None, page: Optional[int] = None):
         """List discussion topics for a competition.

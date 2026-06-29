@@ -39,7 +39,11 @@ kaggle c pages titanic
 kaggle c pages titanic -v -q
 kaggle c pages titanic --page-name rules --content
 kaggle c pages list titanic --page-name rules
-rm -r titanic.zip tost sample_submission.csv leaders leaderboard.txt
+echo "kaggle competitions init"
+mkdir -p tests/comp-init
+kaggle c init tests/comp-init
+cat tests/comp-init/competition-metadata.json
+rm -r titanic.zip tost sample_submission.csv leaders leaderboard.txt tests/comp-init
 
 echo "kaggle kernels list"
 kaggle k list -m -s Exercise --page-size 5 -p 2 -v  --sort-by dateRun
