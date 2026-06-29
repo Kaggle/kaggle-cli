@@ -380,30 +380,94 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_episode_logs._action_groups.append(parser_competitions_episode_logs_optional)
     parser_competitions_episode_logs.set_defaults(func=api.competition_episode_agent_logs_cli)
 
-    # Competitions list pages
-    parser_competitions_pages = subparsers_competitions.add_parser(
-        "pages", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_pages
+    # Competitions pages (group: list / create)
+    shared_competition_pages_list = argparse.ArgumentParser(add_help=False)
+    shared_competition_pages_list.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
     )
-    parser_competitions_pages_optional = parser_competitions_pages._action_groups.pop()
-    parser_competitions_pages_optional.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
-    parser_competitions_pages_optional.add_argument(
+    shared_competition_pages_list.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
-    _add_output_format_args(parser_competitions_pages_optional)
-    parser_competitions_pages_optional.add_argument(
+    _add_output_format_args(shared_competition_pages_list)
+    shared_competition_pages_list.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
-    parser_competitions_pages_optional.add_argument(
+    shared_competition_pages_list.add_argument(
         "--content", dest="content", action="store_true", help="Show full page content"
     )
-    parser_competitions_pages_optional.add_argument(
+    shared_competition_pages_list.add_argument(
         "--page-name",
         dest="page_name",
         required=False,
         help='Filter to a specific page (e.g. "description", "rules", "evaluation")',
     )
-    parser_competitions_pages._action_groups.append(parser_competitions_pages_optional)
+
+    parser_competitions_pages = subparsers_competitions.add_parser(
+        "pages",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_pages,
+        parents=[shared_competition_pages_list],
+    )
+    subparsers_competitions_pages = parser_competitions_pages.add_subparsers(title="commands", dest="command")
+    subparsers_competitions_pages.choices = Help.entity_pages_choices
+
+    # Default action when no subcommand is given: list
     parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
+
+    # Competitions pages list (explicit)
+    parser_competitions_pages_list = subparsers_competitions_pages.add_parser(
+        "list",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_pages,
+        parents=[shared_competition_pages_list],
+    )
+    parser_competitions_pages_list.set_defaults(func=api.competition_list_pages_cli)
+
+    # Competitions pages create
+    parser_competitions_pages_create = subparsers_competitions_pages.add_parser(
+        "create",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_pages_create,
+    )
+    parser_competitions_pages_create_optional = parser_competitions_pages_create._action_groups.pop()
+    parser_competitions_pages_create_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "--name",
+        dest="name",
+        required=True,
+        help='Page name (e.g. "description", "rules", "evaluation").',
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "-f", "--file", dest="file_path", required=True, help="Path to a file containing the page body."
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "--mime-type",
+        dest="mime_type",
+        required=False,
+        help='MIME type of the content (defaults to "text/html" server-side).',
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "--post-title",
+        dest="post_title",
+        required=False,
+        help="Title displayed above the page content (defaults to the page name).",
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "--publish",
+        dest="publish",
+        action="store_true",
+        help="Publish the page immediately (default: staged as unpublished).",
+    )
+    parser_competitions_pages_create_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_pages_create._action_groups.append(parser_competitions_pages_create_optional)
+    parser_competitions_pages_create.set_defaults(func=api.competition_create_page_cli)
 
     shared_topics = _get_shared_topics_parser()
     shared_competition_topics = _get_shared_competition_topics_parser()
@@ -1973,6 +2037,7 @@ class Help(object):
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
+    entity_pages_choices = ["list", "create"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2045,6 +2110,7 @@ class Help(object):
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
     command_competitions_pages = "List pages for a competition"
+    command_competitions_pages_create = "Create a new page on a competition you host"
     command_competitions_topics = "List discussion topics for a competition"
     command_competitions_topic_messages = "List messages within a competition discussion topic"
 

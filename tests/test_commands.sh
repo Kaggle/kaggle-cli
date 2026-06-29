@@ -38,6 +38,7 @@ echo "kaggle competitions pages"
 kaggle c pages titanic
 kaggle c pages titanic -v -q
 kaggle c pages titanic --page-name rules --content
+kaggle c pages list titanic --page-name rules
 rm -r titanic.zip tost sample_submission.csv leaders leaderboard.txt
 
 echo "kaggle kernels list"
