@@ -467,6 +467,38 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_create._action_groups.append(parser_competitions_pages_create_optional)
     parser_competitions_pages_create.set_defaults(func=api.competition_create_page_cli)
 
+    # Competitions pages delete
+    parser_competitions_pages_delete = subparsers_competitions_pages.add_parser(
+        "delete",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_pages_delete,
+    )
+    parser_competitions_pages_delete_optional = parser_competitions_pages_delete._action_groups.pop()
+    parser_competitions_pages_delete_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_pages_delete_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_pages_delete_optional.add_argument(
+        "--page-name",
+        dest="page_name",
+        required=True,
+        help="Name of the page to delete.",
+    )
+    parser_competitions_pages_delete_optional.add_argument(
+        "-y",
+        "--yes",
+        dest="no_confirm",
+        action="store_true",
+        help="Skip the confirmation prompt.",
+    )
+    parser_competitions_pages_delete_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_pages_delete._action_groups.append(parser_competitions_pages_delete_optional)
+    parser_competitions_pages_delete.set_defaults(func=api.competition_delete_page_cli)
+
     # Competitions launch (publish now, or schedule for a future UTC time)
     parser_competitions_launch = subparsers_competitions.add_parser(
         "launch", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_launch
@@ -2090,7 +2122,7 @@ class Help(object):
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
-    entity_pages_choices = ["list", "create"]
+    entity_pages_choices = ["list", "create", "delete"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2164,6 +2196,7 @@ class Help(object):
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
     command_competitions_pages = "List pages for a competition"
     command_competitions_pages_create = "Create a new page on a competition you host"
+    command_competitions_pages_delete = "Delete a page from a competition you host"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_init = "Initialize folder with a competition-metadata.json template"
     command_competitions_create = "Create a new competition from competition-metadata.json"

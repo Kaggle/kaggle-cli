@@ -99,6 +99,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionPagesRequest,
     ApiListCompetitionPagesResponse,
     ApiCreateCompetitionPageRequest,
+    ApiDeleteCompetitionPageRequest,
     ApiCompetitionPage,
     ApiCreateCompetitionRequest,
     ApiCreateCompetitionResponse,
@@ -2429,6 +2430,56 @@ class KaggleApi:
         )
         status = "published" if page.is_published else "staged (unpublished)"
         print(f'Page "{page.name}" created on competition "{competition_name}" — {status}.')
+
+    def competition_delete_page(
+        self,
+        competition_name: str,
+        page_name: str,
+        no_confirm: bool = False,
+    ) -> bool:
+        """Delete a page from a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            page_name (str): Name of the page to delete.
+            no_confirm (bool): If True, skip the confirmation prompt.
+
+        Returns:
+            bool: True if deleted, False if cancelled.
+        """
+        if not no_confirm:
+            if not self.confirmation(f"delete the page '{page_name}' from competition '{competition_name}'"):
+                print("Deletion cancelled")
+                return False
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiDeleteCompetitionPageRequest()
+            request.competition_name = competition_name
+            request.page_name = page_name
+            kaggle.competitions.competition_api_client.delete_competition_page(request)
+        return True
+
+    def competition_delete_page_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        page_name=None,
+        no_confirm=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_delete_page."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not page_name:
+            raise ValueError("--page-name is required")
+
+        if self.competition_delete_page(competition_name, page_name, no_confirm=no_confirm):
+            print(f'Page "{page_name}" deleted from competition "{competition_name}".')
 
     def competition_launch(self, competition_name: str, future_time: Optional[datetime] = None) -> None:
         """Launch a competition you host, optionally at a future UTC time.

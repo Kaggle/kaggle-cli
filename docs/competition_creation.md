@@ -204,10 +204,50 @@ kaggle competitions pages create my-comp --name rules -f ./rules-final.md --publ
 ```
 
 **Note:** `pages create` does not update an existing page in place — it creates
-a new page. Update / delete endpoints are not yet exposed in the public API.
+a new page. Use [`kaggle competitions pages delete`](#kaggle-competitions-pages-delete)
+to remove a page.
 
 You can list and inspect existing pages with `kaggle competitions pages`
 (or the explicit `kaggle competitions pages list`).
+
+---
+
+## `kaggle competitions pages delete`
+
+Deletes a page from a competition you host. Prompts for confirmation unless
+`-y/--yes` is passed (matches the existing `kaggle datasets delete` /
+`kaggle kernels delete` patterns).
+
+**Usage:**
+
+```bash
+kaggle competitions pages delete <competition> --page-name <name> [-y]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `--page-name <name>` (required): Name of the page to delete.
+- `-y, --yes` (optional): Skip the confirmation prompt — useful for scripts.
+
+**Examples:**
+
+```bash
+# Interactive: prompts "Are you sure you want to delete the page 'faq' ...?"
+kaggle competitions pages delete my-comp --page-name faq
+
+# Scripted: skip the prompt.
+kaggle competitions pages delete my-comp --page-name faq -y
+```
+
+**Note:** a small set of pages is protected by the backend and cannot be
+deleted; attempting to delete one returns an error from the server.
+
+Deletion is not recoverable — there is no "undelete". List pages first with
+`kaggle competitions pages list <competition>` if you're unsure of the name.
 
 ---
 
