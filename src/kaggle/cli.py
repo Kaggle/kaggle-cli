@@ -558,6 +558,66 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_delete._action_groups.append(parser_competitions_pages_delete_optional)
     parser_competitions_pages_delete.set_defaults(func=api.competition_delete_page_cli)
 
+    # Competitions data (group: update)
+    parser_competitions_data = subparsers_competitions.add_parser(
+        "data",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_data,
+    )
+    subparsers_competitions_data = parser_competitions_data.add_subparsers(title="commands", dest="command")
+    subparsers_competitions_data.required = True
+    subparsers_competitions_data.choices = Help.entity_data_choices
+
+    # Competitions data update
+    parser_competitions_data_update = subparsers_competitions_data.add_parser(
+        "update",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_data_update,
+    )
+    parser_competitions_data_update_optional = parser_competitions_data_update._action_groups.pop()
+    parser_competitions_data_update_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_data_update_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_data_update_optional.add_argument(
+        "-p",
+        "--path",
+        dest="path",
+        required=True,
+        help=(
+            "Path to upload. May be either a directory (walked recursively — "
+            "sub-directory paths are preserved in each file's name) or a "
+            "single archive file (e.g. a pre-packed .zip / .tar), which is "
+            "uploaded as-is."
+        ),
+    )
+    parser_competitions_data_update_optional.add_argument(
+        "-m",
+        "--message",
+        dest="version_notes",
+        required=True,
+        help='Notes describing this version (e.g. "Added test set").',
+    )
+    parser_competitions_data_update_optional.add_argument(
+        "--rerun",
+        dest="rerun",
+        action="store_true",
+        help="Update the RERUN databundle (private host-only data used during rerun scoring).",
+    )
+    parser_competitions_data_update_optional.add_argument(
+        "--include-hidden",
+        dest="include_hidden",
+        action="store_true",
+        help="Include hidden files and directories (names starting with '.'). Skipped by default.",
+    )
+    parser_competitions_data_update_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_data_update._action_groups.append(parser_competitions_data_update_optional)
+    parser_competitions_data_update.set_defaults(func=api.competition_data_update_cli)
+
     # Competitions launch (publish now, or schedule for a future UTC time)
     parser_competitions_launch = subparsers_competitions.add_parser(
         "launch", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_launch
@@ -2117,6 +2177,7 @@ class Help(object):
         "replay",
         "logs",
         "pages",
+        "data",
         "launch",
         "init",
         "create",
@@ -2182,6 +2243,7 @@ class Help(object):
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
     entity_pages_choices = ["list", "create", "update", "delete"]
+    entity_data_choices = ["update"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2257,6 +2319,8 @@ class Help(object):
     command_competitions_pages_create = "Create a new page on a competition you host"
     command_competitions_pages_update = "Update fields on an existing competition page"
     command_competitions_pages_delete = "Delete a page from a competition you host"
+    command_competitions_data = "Manage a competition's data files"
+    command_competitions_data_update = "Update (version) the data files for a competition you host"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_init = "Initialize folder with a competition-metadata.json template"
     command_competitions_create = "Create a new competition from competition-metadata.json"
