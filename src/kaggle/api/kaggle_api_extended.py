@@ -100,6 +100,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionPagesResponse,
     ApiCreateCompetitionPageRequest,
     ApiDeleteCompetitionPageRequest,
+    ApiUpdateCompetitionPageRequest,
     ApiCompetitionPage,
     ApiCreateCompetitionRequest,
     ApiCreateCompetitionResponse,
@@ -2430,6 +2431,114 @@ class KaggleApi:
         )
         status = "published" if page.is_published else "staged (unpublished)"
         print(f'Page "{page.name}" created on competition "{competition_name}" — {status}.')
+
+    def competition_update_page(
+        self,
+        competition_name: str,
+        page_name: str,
+        content_path: Optional[str] = None,
+        new_name: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        post_title: Optional[str] = None,
+        is_published: Optional[bool] = None,
+    ) -> ApiCompetitionPage:
+        """Update fields on an existing competition page.
+
+        Only fields supplied here are sent to the server (the FieldMask is built
+        from which arguments are non-None). Pass ``new_name`` to rename the page.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            page_name (str): Current page name (identifier).
+            content_path (Optional[str]): Path to a file whose contents become
+                the new page body.
+            new_name (Optional[str]): New page name (renames the page).
+            mime_type (Optional[str]): New MIME type for the content.
+            post_title (Optional[str]): New title shown above the content.
+            is_published (Optional[bool]): True publishes the page, False
+                unpublishes it.
+
+        Returns:
+            ApiCompetitionPage: the updated page.
+        """
+        page = ApiCompetitionPage()
+        paths: List[str] = []
+
+        if content_path is not None:
+            if not os.path.isfile(content_path):
+                raise ValueError("Content file not found: " + content_path)
+            with open(content_path, "r", encoding="utf-8") as f:
+                page.content = f.read()
+            paths.append("content")
+        if new_name is not None:
+            page.name = new_name
+            paths.append("name")
+        if mime_type is not None:
+            page.mime_type = mime_type
+            paths.append("mime_type")
+        if post_title is not None:
+            page.post_title = post_title
+            paths.append("post_title")
+        if is_published is not None:
+            page.is_published = is_published
+            paths.append("is_published")
+
+        if not paths:
+            raise ValueError(
+                "Nothing to update — pass at least one of -f, --new-name, "
+                "--mime-type, --post-title, --publish/--unpublish."
+            )
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiUpdateCompetitionPageRequest()
+            request.competition_name = competition_name
+            request.page_name = page_name
+            request.page = page
+            request.update_mask = field_mask_pb2.FieldMask(paths=paths)
+            return kaggle.competitions.competition_api_client.update_competition_page(request)
+
+    def competition_update_page_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        page_name=None,
+        file_path=None,
+        new_name=None,
+        mime_type=None,
+        post_title=None,
+        publish=False,
+        unpublish=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_update_page."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not page_name:
+            raise ValueError("--page-name is required")
+        if publish and unpublish:
+            raise ValueError("--publish and --unpublish are mutually exclusive")
+
+        is_published: Optional[bool] = None
+        if publish:
+            is_published = True
+        elif unpublish:
+            is_published = False
+
+        page = self.competition_update_page(
+            competition_name=competition_name,
+            page_name=page_name,
+            content_path=file_path,
+            new_name=new_name,
+            mime_type=mime_type,
+            post_title=post_title,
+            is_published=is_published,
+        )
+        print(f'Page "{page.name}" updated on competition "{competition_name}".')
 
     def competition_delete_page(
         self,

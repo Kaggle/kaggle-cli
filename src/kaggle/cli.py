@@ -467,6 +467,65 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_create._action_groups.append(parser_competitions_pages_create_optional)
     parser_competitions_pages_create.set_defaults(func=api.competition_create_page_cli)
 
+    # Competitions pages update
+    parser_competitions_pages_update = subparsers_competitions_pages.add_parser(
+        "update",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_pages_update,
+    )
+    parser_competitions_pages_update_optional = parser_competitions_pages_update._action_groups.pop()
+    parser_competitions_pages_update_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "--page-name",
+        dest="page_name",
+        required=True,
+        help="Current page name (identifier).",
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "-f", "--file", dest="file_path", required=False, help="Path to a file with the new page body."
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "--new-name",
+        dest="new_name",
+        required=False,
+        help="Rename the page to this value.",
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "--mime-type",
+        dest="mime_type",
+        required=False,
+        help='New MIME type of the content (e.g. "text/markdown").',
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "--post-title",
+        dest="post_title",
+        required=False,
+        help="New title shown above the page content.",
+    )
+    publish_group = parser_competitions_pages_update_optional.add_mutually_exclusive_group()
+    publish_group.add_argument(
+        "--publish",
+        dest="publish",
+        action="store_true",
+        help="Publish the page.",
+    )
+    publish_group.add_argument(
+        "--unpublish",
+        dest="unpublish",
+        action="store_true",
+        help="Unpublish the page (stage it).",
+    )
+    parser_competitions_pages_update_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_pages_update._action_groups.append(parser_competitions_pages_update_optional)
+    parser_competitions_pages_update.set_defaults(func=api.competition_update_page_cli)
+
     # Competitions pages delete
     parser_competitions_pages_delete = subparsers_competitions_pages.add_parser(
         "delete",
@@ -2122,7 +2181,7 @@ class Help(object):
     forums_choices = ["list", "topics"]
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
-    entity_pages_choices = ["list", "create", "delete"]
+    entity_pages_choices = ["list", "create", "update", "delete"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2196,6 +2255,7 @@ class Help(object):
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
     command_competitions_pages = "List pages for a competition"
     command_competitions_pages_create = "Create a new page on a competition you host"
+    command_competitions_pages_update = "Update fields on an existing competition page"
     command_competitions_pages_delete = "Delete a page from a competition you host"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_init = "Initialize folder with a competition-metadata.json template"

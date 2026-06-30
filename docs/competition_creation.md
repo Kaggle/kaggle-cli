@@ -168,7 +168,7 @@ competition you host.
 **Usage:**
 
 ```bash
-kaggle competitions pages create <competition> --name <page-name> -f <path> \
+kaggle competitions pages create <competition> --page-name <page-name> -f <path> \
     [--mime-type <type>] [--post-title "<title>"] [--publish]
 ```
 
@@ -178,7 +178,7 @@ kaggle competitions pages create <competition> --name <page-name> -f <path> \
 
 **Options:**
 
-- `--name <page-name>` (required): Page name (e.g. `description`, `rules`,
+- `--page-name <page-name>` (required): Page name (e.g. `description`, `rules`,
   `evaluation`, `data-description`, `prizes`). Conventional names are
   recognized by the competition page UI; new names are allowed but won't be
   shown in the standard tabs.
@@ -195,20 +195,75 @@ kaggle competitions pages create <competition> --name <page-name> -f <path> \
 **Example:**
 
 ```bash
-# Stage a draft of the rules page.
-kaggle competitions pages create my-comp --name rules -f ./rules.md \
+# Create the rules page in a staged (not-yet-published) state.
+kaggle competitions pages create my-comp --page-name rules -f ./rules.md \
     --mime-type text/markdown --post-title "Competition Rules"
 
-# Replace with a published version once you're happy.
-kaggle competitions pages create my-comp --name rules -f ./rules-final.md --publish
+# When you're ready to make it visible to participants:
+kaggle competitions pages update my-comp --page-name rules --publish
 ```
 
-**Note:** `pages create` does not update an existing page in place — it creates
-a new page. Use [`kaggle competitions pages delete`](#kaggle-competitions-pages-delete)
-to remove a page.
+Each page exists as a single record; `--publish` / `--unpublish` toggles its
+visibility rather than creating separate draft and live copies. To swap in new
+content later, use
+[`kaggle competitions pages update`](#kaggle-competitions-pages-update) — a
+second `create` for the same page name will be rejected.
 
 You can list and inspect existing pages with `kaggle competitions pages`
-(or the explicit `kaggle competitions pages list`).
+(or the explicit `kaggle competitions pages list`), modify one in place with
+[`kaggle competitions pages update`](#kaggle-competitions-pages-update), or
+remove one with [`kaggle competitions pages delete`](#kaggle-competitions-pages-delete).
+
+---
+
+## `kaggle competitions pages update`
+
+Updates fields on an existing competition page. Only the flags you supply are
+sent (the FieldMask is built from which arguments are non-default), so this is
+also how you publish or unpublish a page in place.
+
+**Usage:**
+
+```bash
+kaggle competitions pages update <competition> --page-name <current-name> \
+    [-f <path>] [--new-name <name>] [--mime-type <type>] \
+    [--post-title "<title>"] [--publish | --unpublish]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `--page-name <current-name>` (required): The page's current name (used as the
+  identifier; rename via `--new-name`).
+- `-f, --file <path>` (optional): Path to a file with the new page body.
+- `--new-name <name>` (optional): Rename the page.
+- `--mime-type <type>` (optional): New MIME type of the content.
+- `--post-title "<title>"` (optional): New title shown above the page content.
+- `--publish` / `--unpublish` (optional, mutually exclusive): Publish or
+  unpublish the page.
+
+At least one update flag is required.
+
+**Examples:**
+
+```bash
+# Publish a staged page without changing its content.
+kaggle competitions pages update my-comp --page-name rules --publish
+
+# Swap in new content and update the visible title in one call.
+kaggle competitions pages update my-comp --page-name rules \
+    -f ./rules-v2.md --post-title "Competition Rules (v2)"
+
+# Rename a page.
+kaggle competitions pages update my-comp --page-name evaluation \
+    --new-name scoring
+```
+
+**Note:** a small set of pages is reserved by the backend and cannot be
+renamed; attempting to rename one returns an error from the server.
 
 ---
 
