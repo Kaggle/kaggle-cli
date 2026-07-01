@@ -12,7 +12,6 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 from kagglesdk.competitions.types.competition_enums import CompetitionPrivacy
 from kagglesdk.competitions.types.competition import RewardTypeId
 
-
 _MINIMAL_META = {
     "title": "My Awesome Comp",
     "slug": "my-awesome-comp",
