@@ -70,6 +70,63 @@ class TestAuthenticate(unittest.TestCase):
             if key_env is not None:
                 os.environ["KAGGLE_KEY"] = key_env
 
+    @patch.object(KaggleApi, "_load_config")
+    @patch.object(KaggleApi, "_authenticate_with_access_token")
+    @patch.object(KaggleApi, "_authenticate_with_legacy_apikey")
+    @patch.object(KaggleApi, "_authenticate_with_oauth_creds")
+    @patch.object(KaggleApi, "_authenticate_anonymously")
+    def test_authenticate_call_sequence_and_fallback(
+        self, mock_anon, mock_oauth, mock_legacy, mock_access, mock_load
+    ):
+        api = KaggleApi()
+
+        # Access token succeeds
+        mock_access.return_value = True
+        api.authenticate()
+        mock_load.assert_called_once()
+        mock_access.assert_called_once()
+        mock_legacy.assert_not_called()
+
+        # Legacy key succeeds
+        mock_load.reset_mock()
+        mock_access.reset_mock()
+        mock_access.return_value = False
+        mock_legacy.return_value = True
+        api.authenticate()
+        mock_access.assert_called_once()
+        mock_legacy.assert_called_once()
+        mock_oauth.assert_not_called()
+
+        # OAuth credentials succeeds
+        mock_legacy.reset_mock()
+        mock_legacy.return_value = False
+        mock_oauth.return_value = True
+        api.authenticate()
+        mock_legacy.assert_called_once()
+        mock_oauth.assert_called_once()
+        mock_anon.assert_not_called()
+
+        # Anonymous fallback succeeds
+        mock_oauth.reset_mock()
+        mock_oauth.return_value = False
+        mock_anon.return_value = True
+        api.authenticate()
+        mock_oauth.assert_called_once()
+        mock_anon.assert_called_once()
+
+    def test_authenticate_anonymously_detects_logged_out_commands(self):
+        api = KaggleApi()
+        with patch("sys.argv", ["kaggle", "datasets", "download", "some/dataset"]):
+            self.assertTrue(api._authenticate_anonymously())
+        with patch("sys.argv", ["kaggle", "datasets", "status", "some/dataset"]):
+            self.assertFalse(api._authenticate_anonymously())
+
+    def test_legacy_apikey_does_not_handle_anonymous_fallback(self):
+        api = KaggleApi()
+        api.config_values = {}
+        with patch("sys.argv", ["kaggle", "datasets", "download", "some/dataset"]):
+            self.assertFalse(api._authenticate_with_legacy_apikey())
+
 
 if __name__ == "__main__":
     unittest.main()

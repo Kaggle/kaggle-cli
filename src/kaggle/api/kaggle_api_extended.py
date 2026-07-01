@@ -1063,7 +1063,13 @@ class KaggleApi:
         self.config_values = self.read_config_environment(config_values)
 
     def authenticate(self) -> None:
-        """Authenticate the user with the Kaggle API, using either a legacy API key or a Kaggle OAuth token.
+        """Authenticate the user with the Kaggle API.
+
+        This method attempts to authenticate using one of the following methods in order:
+        1. An active access token
+        2. A legacy API key.
+        3. OAuth credentials
+        4. Anonymous fallback, if allowed by the command.
 
         Returns:
             None:
@@ -1075,31 +1081,36 @@ class KaggleApi:
             return
         if self._authenticate_with_oauth_creds():
             return
+        if self._authenticate_anonymously():
+            return
         print_auth_help()
         exit(1)
 
     def _authenticate_with_legacy_apikey(self) -> bool:
         """Authenticate the user with the Kaggle API using legacy API key.
 
-        This method will generate a configuration, first checking the
-        environment for credential variables, and falling back to looking
-        for the .kaggle/kaggle.json configuration file.
+        This method checks for username and key in the loaded configuration,
+        which are populated from environment variables or the .kaggle/kaggle.json
+        configuration file.
 
         Returns:
-            bool: True if auth succeeded.
+            bool: True if legacy credentials are available.
         """
-        # Ex: 'datasets list', 'competitions files', 'models instances get', etc.
-        api_command = " ".join(sys.argv[1:])
-
         if self.CONFIG_NAME_USER in self.config_values and self.CONFIG_NAME_KEY in self.config_values:
             self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.LEGACY_API_KEY)
             self.logger.debug(f"Authenticated with legacy api key in: {self.config}")
             return True
 
-        if self._command_allows_logged_out(api_command):
-            return True
-
         return False
+
+    def _authenticate_anonymously(self) -> bool:
+        """Check if the command can run anonymously.
+
+        Returns:
+            bool: True if anonymous access is allowed.
+        """
+        api_command = " ".join(sys.argv[1:])
+        return self._command_allows_logged_out(api_command)
 
     def _authenticate_with_access_token(self) -> bool:
         access_token, source = get_access_token_from_env()
