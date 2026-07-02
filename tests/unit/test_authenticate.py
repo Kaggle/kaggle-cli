@@ -75,9 +75,7 @@ class TestAuthenticate(unittest.TestCase):
     @patch.object(KaggleApi, "_authenticate_with_legacy_apikey")
     @patch.object(KaggleApi, "_authenticate_with_oauth_creds")
     @patch.object(KaggleApi, "_authenticate_anonymously")
-    def test_authenticate_call_sequence_and_fallback(
-        self, mock_anon, mock_oauth, mock_legacy, mock_access, mock_load
-    ):
+    def test_authenticate_call_sequence_and_fallback(self, mock_anon, mock_oauth, mock_legacy, mock_access, mock_load):
         api = KaggleApi()
 
         # Access token succeeds
