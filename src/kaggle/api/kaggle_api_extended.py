@@ -101,6 +101,9 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiCreateCompetitionPageRequest,
     ApiDeleteCompetitionPageRequest,
     ApiUpdateCompetitionPageRequest,
+    ApiCreateCompetitionDataRequest,
+    ApiCreateCompetitionDataResponse,
+    ApiCompetitionDataFile,
     ApiCompetitionPage,
     ApiCreateCompetitionRequest,
     ApiCreateCompetitionResponse,
@@ -135,6 +138,7 @@ from kagglesdk.discussions.types.discussions_enums import (
 )
 from kagglesdk.competitions.types.competition_enums import (
     CompetitionListTab,
+    CompetitionDatabundleType,
     CompetitionPrivacy,
     HostSegment,
     CompetitionSortBy,
@@ -2608,6 +2612,129 @@ class KaggleApi:
 
         if self.competition_delete_page(competition_name, page_name, no_confirm=no_confirm):
             print(f'Page "{page_name}" deleted from competition "{competition_name}".')
+
+    def competition_data_update(
+        self,
+        competition_name: str,
+        path: str,
+        version_notes: str,
+        rerun: bool = False,
+        quiet: bool = False,
+        include_hidden: bool = False,
+    ) -> ApiCreateCompetitionDataResponse:
+        """Update (version) the data files for a competition you host.
+
+        Uploads the files at ``path`` via the blob-upload pipeline and sends
+        a CreateCompetitionData request bundling the resulting tokens. Each
+        update replaces the prior version's file set in full.
+
+        - If ``path`` is a single file (e.g. a pre-packed .zip or .tar), it is
+          uploaded as-is; the file's basename becomes its entry name.
+        - If ``path`` is a directory, it is walked recursively — every file
+          becomes its own upload with the path relative to ``path`` preserved
+          in the API's ``name`` field (e.g. ``train/images/img1.jpg``).
+          Sub-directories are always traversed. Hidden entries (names starting
+          with ``.``, including ``.DS_Store`` / ``.git`` / ``.gitignore``) are
+          skipped by default; pass ``include_hidden=True`` to upload them too.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            path (str): Path to a directory or a single archive file.
+            version_notes (str): Notes describing this version (required).
+            rerun (bool): If True, update the RERUN databundle (private
+                host-only data used during rerun scoring).
+            quiet (bool): Suppress per-file upload progress lines.
+            include_hidden (bool): If True, upload hidden files and traverse
+                hidden sub-directories. Default False.
+
+        Returns:
+            ApiCreateCompetitionDataResponse: url, databundle_id,
+            databundle_version_id of the new version.
+        """
+        if not version_notes or not version_notes.strip():
+            raise ValueError("--message/-m version notes are required")
+        if not os.path.exists(path):
+            raise ValueError("Invalid path: " + path)
+
+        # Collect (relative_name, full_path) tuples first so we can validate
+        # and then upload deterministically.
+        uploads: List[Tuple[str, str]] = []
+        if os.path.isfile(path):
+            uploads.append((os.path.basename(path), path))
+        else:
+            for dirpath, dirnames, filenames in os.walk(path):
+                if not include_hidden:
+                    # Prune hidden sub-directories in place so os.walk skips them.
+                    dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+                    filenames = [n for n in filenames if not n.startswith(".")]
+                for name in filenames:
+                    full = os.path.join(dirpath, name)
+                    rel = os.path.relpath(full, path).replace(os.sep, "/")
+                    uploads.append((rel, full))
+            uploads.sort()
+
+        if not uploads:
+            raise ValueError(f"No files found under {path} to upload")
+
+        files: List[ApiCompetitionDataFile] = []
+        # TODO: confirm with backend whether competition data should use
+        # ApiBlobType.INBOX (used here as the closest catch-all) or whether a
+        # dedicated COMPETITION_DATA blob type needs adding.
+        with ResumableUploadContext() as upload_context:
+            for rel_name, full_path in uploads:
+                upload_file = self._upload_file(
+                    rel_name, full_path, ApiBlobType.INBOX, upload_context, quiet, resources=None
+                )
+                if upload_file is not None:
+                    f = ApiCompetitionDataFile()
+                    f.name = rel_name
+                    f.token = upload_file.token
+                    files.append(f)
+
+        if not files:
+            raise ValueError("All file uploads failed; nothing to update")
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateCompetitionDataRequest()
+            request.competition_name = competition_name
+            request.version_notes = version_notes
+            request.files = files
+            if rerun:
+                request.competition_databundle_type = CompetitionDatabundleType.COMPETITION_DATABUNDLE_TYPE_RERUN
+            return kaggle.competitions.competition_api_client.create_competition_data(request)
+
+    def competition_data_update_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        path=None,
+        version_notes=None,
+        rerun=False,
+        quiet=False,
+        include_hidden=False,
+    ):
+        """CLI wrapper for competition_data_update."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not path:
+            raise ValueError("-p/--path is required (folder or archive file)")
+        if not version_notes:
+            raise ValueError("-m/--message version notes are required")
+
+        response = self.competition_data_update(
+            competition_name=competition_name,
+            path=path,
+            version_notes=version_notes,
+            rerun=rerun,
+            quiet=quiet,
+            include_hidden=include_hidden,
+        )
+        print(f'New data version created for "{competition_name}": {response.url}')
 
     def competition_launch(self, competition_name: str, future_time: Optional[datetime] = None) -> None:
         """Launch a competition you host, optionally at a future UTC time.

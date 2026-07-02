@@ -7,8 +7,9 @@ public competition-creation API endpoints (kagglesdk 0.1.31+):
 - [`kaggle competitions create`](#kaggle-competitions-create)
 - [`kaggle competitions pages create`](#kaggle-competitions-pages-create)
 - [`kaggle competitions launch`](#kaggle-competitions-launch)
+- [`kaggle competitions data update`](#kaggle-competitions-data-update)
 
-All four commands require an authenticated session
+All of these commands require an authenticated session
 (`kaggle config set username/password` or an API token).
 
 A typical end-to-end host workflow looks like:
@@ -27,11 +28,14 @@ kaggle competitions create -p ./my-comp
 kaggle competitions pages create my-comp-slug --name description -f ./description.md --publish
 kaggle competitions pages create my-comp-slug --name rules -f ./rules.md --publish
 
-# 5. Launch the competition (now, or schedule a future UTC time).
+# 5. Update the competition data (train.csv, test.csv, sample_submission.csv, ...).
+kaggle competitions data update my-comp-slug -p ./data -m "Initial release"
+
+# 6. Launch the competition (now, or schedule a future UTC time).
 kaggle competitions launch my-comp-slug --at 2027-01-01T00:00:00Z
 ```
 
-The four commands are independent — for example, you can call `pages create`
+These commands are independent — for example, you can call `pages create`
 on a competition that already exists, or use `launch` on a competition created
 via the host wizard.
 
@@ -340,3 +344,73 @@ kaggle competitions launch my-comp --at 2027-01-01T00:00:00Z
 
 A competition can only be launched once. Subsequent calls will be rejected by
 the backend.
+
+---
+
+## `kaggle competitions data update`
+
+Creates a new version of the data files for a competition you host. Uploads
+via the standard blob-upload pipeline, then sends a single request bundling
+the uploaded tokens. Each update **replaces the prior version's file set in
+full** — there is no per-file "keep from previous" mode in v1, so list every
+file you want in the new version.
+
+**Usage:**
+
+```bash
+kaggle competitions data update <competition> -p <path> -m "<version notes>" \
+    [--rerun] [--include-hidden]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `-p, --path <path>` (required): Either a **directory** (walked recursively —
+  every file becomes an upload with its relative path preserved in the API's
+  `name` field, e.g. `train/images/img1.jpg`), or a **single archive file**
+  (e.g. a pre-packed `.zip` or `.tar`) uploaded as-is. Sub-directories are
+  always traversed; hidden entries (see `--include-hidden`) are the only files
+  skipped by default.
+- `-m, --message "<notes>"` (required): Notes describing this version
+  (e.g. `"Added test set"`).
+- `--rerun` (optional): Update the RERUN databundle — the private host-only
+  data swapped in during rerun scoring. Requires Kaggle admin access for now.
+  Without this flag, the update targets the PUBLIC databundle (what
+  participants download).
+- `--include-hidden` (optional): Upload hidden files and traverse hidden
+  sub-directories (names starting with `.` — e.g. `.DS_Store`, `.git/`,
+  `.gitignore`). Skipped by default so you don't accidentally publish OS
+  metadata or version-control detritus.
+
+**Examples:**
+
+```bash
+# Update using a directory tree (recurses into sub-folders).
+kaggle competitions data update my-comp -p ./data -m "Initial release"
+
+# Update using a pre-packed archive as a single file (useful when you already
+# need a zip for other purposes, or for directory-shaped file formats like
+# Zarr).
+kaggle competitions data update my-comp -p ./data.zip -m "Initial release"
+
+# New version with a bug-fix.
+kaggle competitions data update my-comp -p ./data -m "Fix label encoding in train.csv"
+
+# Update the private rerun-scoring data.
+kaggle competitions data update my-comp -p ./rerun-data \
+    -m "Held-out test set" --rerun
+```
+
+**A note on directory-shaped file formats:** some formats (Zarr, some
+TensorFlow SavedModel layouts, etc.) are on-disk directories that are logically
+a single unit. If you pass a directory containing such a format, the recursive
+walk uploads each internal chunk as its own file — often what you want for
+Zarr, since participants can then stream individual chunks. If you'd rather
+keep the format as an opaque single upload, pre-pack it into a `.zip` or
+`.tar` and pass that file to `-p` instead.
+
+The command prints the public URL plus the new `databundle_id` and
+`databundle_version_id` on success.
