@@ -797,6 +797,7 @@ class KaggleApi:
     config = os.path.join(config_dir, config_file)
     config_values: Dict[str, str] = {}
     already_printed_version_warning = False
+    _authenticated = False
 
     args: List[str] = []
     if os.environ.get("KAGGLE_API_ENVIRONMENT") == "LOCALHOST":
@@ -1081,12 +1082,16 @@ class KaggleApi:
         """
         self._load_config()
         if self._authenticate_with_access_token():
+            self._authenticated = True
             return
         if self._authenticate_with_legacy_apikey():
+            self._authenticated = True
             return
         if self._authenticate_with_oauth_creds():
+            self._authenticated = True
             return
         if self._authenticate_anonymously():
+            self._authenticated = True
             return
         print_auth_help()
         exit(1)
@@ -1134,24 +1139,30 @@ class KaggleApi:
         return True
 
     def _authenticate_with_oauth_creds(self) -> bool:
-        with self.build_kaggle_client() as kaggle:
-            creds = KaggleCredentials.load(client=kaggle)
-            if not creds:
-                return False
-            try:
-                access_token = creds.get_access_token()
-            except HTTPError as e:
-                if e.response.status_code == 401:
-                    print("Invalid credentials!")
-                    creds.delete()
+        try:
+            with self.build_kaggle_client() as kaggle:
+                creds = KaggleCredentials.load(client=kaggle)
+                if not creds:
                     return False
-                raise
-            self.config_values[self.CONFIG_NAME_TOKEN] = access_token
-            self.config_values[self.CONFIG_NAME_USER] = creds.get_username()
-            self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.OAUTH)
-            creds_path = os.path.expanduser(KaggleCredentials.DEFAULT_CREDENTIALS_FILE)
-            self.logger.debug(f"Authenticated with OAuth credentials in: {creds_path}")
-            return True
+                try:
+                    access_token = creds.get_access_token()
+                except HTTPError as e:
+                    if e.response.status_code == 401:
+                        print("Invalid credentials!")
+                        creds.delete()
+                        return False
+                    raise
+                self.config_values[self.CONFIG_NAME_TOKEN] = access_token
+                self.config_values[self.CONFIG_NAME_USER] = creds.get_username()
+                self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.OAUTH)
+                creds_path = os.path.expanduser(KaggleCredentials.DEFAULT_CREDENTIALS_FILE)
+                self.logger.debug(f"Authenticated with OAuth credentials in: {creds_path}")
+                return True
+        except KeyError as e:
+            if e.args[0] == "username":
+                self.logger.debug("Failed to authenticate with OAuth due to missing username in API key config.")
+                return False
+            raise
 
     def _introspect_token(self, access_token: str) -> Optional[str]:
         with self.build_kaggle_client() as kaggle:

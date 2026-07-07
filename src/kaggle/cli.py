@@ -71,6 +71,9 @@ def main() -> None:
     if command_args["disable_version_warning"]:
         KaggleApi.already_printed_version_warning = True
     del command_args["disable_version_warning"]
+    if not api._authenticated:
+        api.authenticate()
+
     error = False
     try:
         out = args.func(**command_args)
