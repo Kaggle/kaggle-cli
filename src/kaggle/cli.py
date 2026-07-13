@@ -134,7 +134,9 @@ def _get_shared_topics_parser() -> argparse.ArgumentParser:
 
 def _get_shared_competition_topics_parser() -> argparse.ArgumentParser:
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("-p", "--page", dest="page", type=int, default=1, required=False, help=Help.param_page)
+    shared.add_argument("-p", "--page", dest="page", type=int, default=None, required=False, help=Help.param_page)
+    shared.add_argument("--page-size", dest="page_size", type=int, required=False, help=Help.param_page_size)
+    shared.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
     _add_output_format_args(shared)
     shared.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     return shared
@@ -165,6 +167,7 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_list_optional.add_argument(
         "-p", "--page", dest="page", default=-1, type=int, required=False, help=Help.param_page
     )
+
     parser_competitions_list_optional.add_argument(
         "-s", "--search", dest="search", required=False, help=Help.param_search
     )
@@ -807,7 +810,11 @@ def parse_datasets(subparsers) -> None:
     parser_datasets_list.add_argument("-m", "--mine", dest="mine", action="store_true", help=Help.param_mine)
     parser_datasets_list.add_argument("--user", dest="user", required=False, help=Help.param_dataset_user)
     parser_datasets_list.add_argument(
-        "-p", "--page", dest="page", default=1, type=int, required=False, help=Help.param_page
+        "--page-size", dest="page_size", required=False, type=int, help=Help.param_page_size
+    )
+    parser_datasets_list.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
+    parser_datasets_list.add_argument(
+        "-p", "--page", dest="page", default=None, type=int, required=False, help=Help.param_page
     )
     _add_output_format_args(parser_datasets_list)
     parser_datasets_list.add_argument(
@@ -1038,10 +1045,13 @@ def parse_kernels(subparsers) -> None:
     )
     parser_kernels_list_optional = parser_kernels_list._action_groups.pop()
     parser_kernels_list_optional.add_argument("-m", "--mine", dest="mine", action="store_true", help=Help.param_mine)
-    parser_kernels_list_optional.add_argument("-p", "--page", dest="page", default=1, type=int, help=Help.param_page)
+    parser_kernels_list_optional.add_argument(
+        "--page-token", dest="page_token", required=False, help=Help.param_page_token
+    )
     parser_kernels_list_optional.add_argument(
         "--page-size", dest="page_size", default=20, type=int, help=Help.param_page_size
     )
+    parser_kernels_list_optional.add_argument("-p", "--page", dest="page", default=None, type=int, help=Help.param_page)
     parser_kernels_list_optional.add_argument("-s", "--search", dest="search", help=Help.param_search)
     _add_output_format_args(parser_kernels_list_optional)
     parser_kernels_list_optional.add_argument("--parent", dest="parent", required=False, help=Help.param_kernel_parent)

@@ -132,7 +132,7 @@ class TestTopicsListParsing:
             ("kernels", ["list", "--sort-by", "hot", "-s", "keyword"]),
             ("models", ["--page-size", "50"]),
             ("benchmarks", ["--page-token", "abc"]),
-            ("competitions", ["list", "--page", "5", "--sort-by", "recent"]),
+            ("competitions", ["list", "--page-token", "5", "--sort-by", "recent"]),
         ],
         ids=[
             "datasets_sort_search",

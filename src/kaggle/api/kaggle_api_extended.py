@@ -152,6 +152,7 @@ from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, Crop
 
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
+    ApiListDatasetsResponse,
     ApiListDatasetFilesRequest,
     ApiGetDatasetRequest,
     ApiGetDatasetStatusRequest,
@@ -184,6 +185,7 @@ from kagglesdk.datasets.types.dataset_types import (
 from kagglesdk.kaggle_object import KaggleObject
 from kagglesdk.kernels.types.kernels_api_service import (
     ApiListKernelsRequest,
+    ApiListKernelsResponse,
     ApiListKernelFilesRequest,
     ApiSaveKernelRequest,
     ApiGetKernelRequest,
@@ -1572,7 +1574,7 @@ class KaggleApi:
         group: Optional[str] = None,
         category: Optional[str] = None,
         sort_by: Optional[str] = None,
-        page: Optional[int] = 1,
+        page: Optional[int] = -1,
         search: Optional[str] = None,
         page_size: Optional[int] = 20,
         page_token: Optional[str] = None,
@@ -1623,6 +1625,8 @@ class KaggleApi:
             # -1 is the default in argparse. We don't set it here to indicate we are using new pagination.
             if page != -1:
                 request.page = page
+            elif page_token is None:
+                request.page = 1
             request.category = category_val
             request.search = search or ""
             request.sort_by = sort_by_val
@@ -1635,7 +1639,7 @@ class KaggleApi:
         group: Optional[str] = None,
         category: Optional[str] = None,
         sort_by: Optional[str] = None,
-        page: Optional[int] = 1,
+        page: Optional[int] = -1,
         search: Optional[str] = None,
         csv_display: Optional[bool] = False,
         page_size: Optional[int] = 20,
@@ -1658,6 +1662,9 @@ class KaggleApi:
         Returns:
             None:
         """
+        if page != -1 and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
         response = self.competitions_list(
             group=group,
             category=category,
@@ -2976,10 +2983,19 @@ class KaggleApi:
         if competition is None:
             raise ValueError("No competition specified")
 
-        if not quiet and (page_size is not None or page_token is not None or search is not None):
-            print(
-                "Warning: --page-size, --page-token, and --search are not supported for competition topics and will be ignored."
-            )
+        if not quiet and (page_size is not None or search is not None):
+            print("Warning: --page-size and --search are not supported for competition topics and will be ignored.")
+
+        if page is not None and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
+        if page_token:
+            try:
+                page = int(page_token)
+            except ValueError:
+                raise ValueError("Invalid page token. For this command, page token must be a page number.")
+        elif page is None:
+            page = 1
 
         response = self.competition_list_topics(
             competition=competition,
@@ -2994,6 +3010,9 @@ class KaggleApi:
                 csv_display=csv_display,
                 output_format=output_format,
             )
+            page_size_default = 20
+            if response.total_count and page * page_size_default < response.total_count:
+                print("Next Page Token = {}".format(page + 1))
         else:
             print("No topics found")
 
@@ -3805,6 +3824,37 @@ class KaggleApi:
         Returns:
             Union[listApiDataset, None, None]:
         """
+        response = self.dataset_list_with_response(
+            sort_by=sort_by,
+            size=size,
+            file_type=file_type,
+            license_name=license_name,
+            tag_ids=tag_ids,
+            search=search,
+            user=user,
+            mine=mine,
+            page=page,
+            max_size=max_size,
+            min_size=min_size,
+        )
+        return response.datasets if response else None
+
+    def dataset_list_with_response(
+        self,
+        sort_by: Optional[str] = None,
+        size: Optional[str] = None,
+        file_type: Optional[str] = None,
+        license_name: Optional[str] = None,
+        tag_ids: Optional[str] = None,
+        search: Optional[str] = None,
+        user: Optional[str] = None,
+        mine: Optional[bool] = False,
+        page: Optional[int] = None,
+        max_size: Optional[str] = None,
+        min_size: Optional[str] = None,
+        page_size: Optional[int] = 20,
+        page_token: Optional[str] = None,
+    ) -> ApiListDatasetsResponse:
         sort_by_val = DatasetSortBy.DATASET_SORT_BY_HOTTEST
         if sort_by:
             if sort_by not in self.valid_dataset_sort_bys:
@@ -3862,12 +3912,17 @@ class KaggleApi:
             request.tag_ids = tag_ids or ""
             request.search = search or ""
             request.user = user or ""
-            request.page = int(page) if page else None  # type: ignore[assignment] # https://github.com/python/mypy/issues/17043
+            if page is not None:
+                request.page = int(page)
+            elif page_token is None:
+                request.page = 1
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token is not None:
+                request.page_token = page_token
             request.max_size = int(max_size) if max_size else None  # type: ignore[assignment]
             request.min_size = int(min_size) if min_size else None  # type: ignore[assignment]
-            response = kaggle.datasets.dataset_api_client.list_datasets(request)
-            result: list[ApiDataset | None] | None = response.datasets
-            return result
+            return kaggle.datasets.dataset_api_client.list_datasets(request)
 
     def dataset_list_cli(
         self,
@@ -3879,7 +3934,9 @@ class KaggleApi:
         search=None,
         user=None,
         mine=False,
-        page=1,
+        page=None,
+        page_size=20,
+        page_token=None,
         csv_display=False,
         max_size=None,
         min_size=None,
@@ -3896,15 +3953,34 @@ class KaggleApi:
             search: a search term to use (default is empty string)
             user: username to filter the search to
             mine: boolean if True, group is changed to "my" to return personal
-            page: the page to return (default is 1)
+            page_size: the number of items to show on a page
+            page_token: the page token for pagination
             csv_display: if True, print comma separated values instead of table
             max_size: the maximum size of the dataset to return (bytes)
             min_size: the minimum size of the dataset to return (bytes)
             output_format: the output format to use
         """
-        datasets = self.dataset_list(
-            sort_by, size, file_type, license_name, tag_ids, search, user, mine, page, max_size, min_size
+        if page is not None and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
+        response = self.dataset_list_with_response(
+            sort_by=sort_by,
+            size=size,
+            file_type=file_type,
+            license_name=license_name,
+            tag_ids=tag_ids,
+            search=search,
+            user=user,
+            mine=mine,
+            max_size=max_size,
+            min_size=min_size,
+            page=page,
+            page_size=page_size,
+            page_token=page_token,
         )
+        datasets = response.datasets if response else None
+        if response and response.next_page_token:
+            print("Next Page Token = {}".format(response.next_page_token))
         if datasets:
             self.print_results(
                 datasets,
@@ -5058,7 +5134,39 @@ class KaggleApi:
         Returns:
             Union[List[ApiKernelMetadata, None], None]: A list of ApiKernelMetadata objects.
         """
-        if int(page) <= 0:
+        response = self.kernels_list_with_response(
+            page=page,
+            page_size=page_size,
+            dataset=dataset,
+            competition=competition,
+            parent_kernel=parent_kernel,
+            search=search,
+            mine=mine,
+            user=user,
+            language=language,
+            kernel_type=kernel_type,
+            output_type=output_type,
+            sort_by=sort_by,
+        )
+        return response.kernels if response else None
+
+    def kernels_list_with_response(
+        self,
+        page: Optional[int] = None,
+        page_size: int = 20,
+        dataset: Optional[str] = None,
+        competition: Optional[str] = None,
+        parent_kernel: Optional[str] = None,
+        search: Optional[str] = None,
+        mine: bool = False,
+        user: Optional[str] = None,
+        language: Optional[str] = None,
+        kernel_type: Optional[str] = None,
+        output_type: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        page_token: Optional[str] = None,
+    ) -> ApiListKernelsResponse:
+        if page and int(page) <= 0:
             raise ValueError("Page number must be >= 1")
 
         page_size = int(page_size)
@@ -5095,8 +5203,13 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelsRequest()
-            request.page = page
+            if page is not None:
+                request.page = page
+            elif page_token is None:
+                request.page = 1
             request.page_size = page_size
+            if page_token is not None:
+                request.page_token = page_token
             request.group = group_val
             request.user = user or ""
             request.language = language or "all"
@@ -5107,16 +5220,14 @@ class KaggleApi:
             request.competition = competition or ""
             request.parent_kernel = parent_kernel or ""
             request.search = search or ""
-            result: list[ApiKernelMetadata | None] | None = kaggle.kernels.kernels_api_client.list_kernels(
-                request
-            ).kernels
-            return result
+            return kaggle.kernels.kernels_api_client.list_kernels(request)
 
     def kernels_list_cli(
         self,
         mine=False,
-        page=1,
+        page=None,
         page_size=20,
+        page_token=None,
         search=None,
         csv_display=False,
         parent=None,
@@ -5136,8 +5247,8 @@ class KaggleApi:
 
         Args:
             mine: If True, return personal kernels.
-            page: The page of results to return (default is 1).
             page_size: The number of results per page (default is 20).
+            page_token: The page token for pagination.
             search: A custom search string to pass to the list query.
             csv_display: If True, print comma-separated values instead of a table.
             parent: If defined, filter to those with the specified parent.
@@ -5150,9 +5261,13 @@ class KaggleApi:
             sort_by: How to sort the result, see valid_list_sort_by for options.
             output_format: The output format to use.
         """
-        kernels = self.kernels_list(
+        if page is not None and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
+        response = self.kernels_list_with_response(
             page=page,
             page_size=page_size,
+            page_token=page_token,
             search=search,
             mine=mine,
             dataset=dataset,
@@ -5164,6 +5279,9 @@ class KaggleApi:
             output_type=output_type,
             sort_by=sort_by,
         )
+        kernels = response.kernels if response else None
+        if response and response.next_page_token:
+            print("Next Page Token = {}".format(response.next_page_token))
         fields = ["ref", "title", "author", "lastRunTime", "totalVotes"]
         if kernels:
             self.print_results(
