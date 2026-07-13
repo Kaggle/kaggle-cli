@@ -72,9 +72,16 @@ steps:
 # Run lint (MIN)
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
   id: lint-min
+  entrypoint: 'bash'
   args:
-  - run
-  - lint:all
+  - '-c'
+  - |
+    hatch run lint:all || {
+      echo "Lint MIN failed. Debugging..."
+      ls -la /builder/home/.local/share/hatch/env/virtual/kaggle/*/lint/bin/ || echo "bin dir not found"
+      cat /builder/home/.local/share/hatch/env/virtual/kaggle/*/lint/pyvenv.cfg || echo "pyvenv.cfg not found"
+      exit 1
+    }
   waitFor: ['build-hatch-image-min']
 
 # Run lint (MAX)
