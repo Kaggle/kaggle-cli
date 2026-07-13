@@ -72,10 +72,6 @@ steps:
   args:
   - '-c'
   - |
-    if [ "$BRANCH_NAME" != "main" ]; then
-      echo "Not on main branch ($BRANCH_NAME), skipping integration tests."
-      exit 0
-    fi
     export KAGGLE_USERNAME
     export KAGGLE_KEY
     if [ -f /root/secrets.sh ]; then
