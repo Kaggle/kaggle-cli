@@ -56,6 +56,8 @@ steps:
 # Run unit tests (MIN)
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
   id: tests-min
+  env:
+  - 'HOME=/builder/home/min'
   args:
   - run
   - test:pytest
@@ -64,6 +66,8 @@ steps:
 # Run unit tests (MAX)
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
   id: tests-max
+  env:
+  - 'HOME=/builder/home/max'
   args:
   - run
   - test:pytest
@@ -72,21 +76,18 @@ steps:
 # Run lint (MIN)
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
   id: lint-min
-  entrypoint: 'bash'
+  env:
+  - 'HOME=/builder/home/min'
   args:
-  - '-c'
-  - |
-    hatch run lint:all || {
-      echo "Lint MIN failed. Debugging..."
-      ls -la /builder/home/.local/share/hatch/env/virtual/kaggle/*/lint/bin/ || echo "bin dir not found"
-      cat /builder/home/.local/share/hatch/env/virtual/kaggle/*/lint/pyvenv.cfg || echo "pyvenv.cfg not found"
-      exit 1
-    }
+  - run
+  - lint:all
   waitFor: ['build-hatch-image-min']
 
 # Run lint (MAX)
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
   id: lint-max
+  env:
+  - 'HOME=/builder/home/max'
   args:
   - run
   - lint:all
@@ -113,6 +114,8 @@ steps:
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
   id: integration-tests-min
   entrypoint: 'bash'
+  env:
+  - 'HOME=/builder/home/min'
   args:
   - '-c'
   - |
@@ -138,6 +141,8 @@ steps:
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
   id: integration-tests-max
   entrypoint: 'bash'
+  env:
+  - 'HOME=/builder/home/max'
   args:
   - '-c'
   - |
