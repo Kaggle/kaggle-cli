@@ -1,97 +1,50 @@
 steps:
-# Check substitutions / Pull cache for MIN
+# Check substitutions / Pull cache
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'check_substitutions_min'
+  id: 'check_substitutions'
   entrypoint: 'bash'
   args:
   - '-c'
   - |
-    docker pull us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN} || exit 0
+    docker pull us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION} || exit 0
   waitFor: ['-']
 
-# Check substitutions / Pull cache for MAX
+# Build a modified version of the python image that includes hatch.
 - name: 'gcr.io/cloud-builders/docker'
-  id: 'check_substitutions_max'
-  entrypoint: 'bash'
-  args:
-  - '-c'
-  - |
-    docker pull us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX} || exit 0
-  waitFor: ['-']
-
-# Build a modified version of the python image that includes hatch (MIN).
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'build-hatch-image-min'
-  waitFor: ['check_substitutions_min']
+  id: 'build-hatch-image'
+  waitFor: ['check_substitutions']
   dir: 'tools/cicd'
   args:
   - build
   - -f
   - Dockerfile
   - -t
-  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
+  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
   - --cache-from
-  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
+  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
   - --build-arg
-  - PYTHON_VERSION=${_PYTHON_VERSION_MIN}
+  - PYTHON_VERSION=${_PYTHON_VERSION}
   - .
 
-# Build a modified version of the python image that includes hatch (MAX).
-- name: 'gcr.io/cloud-builders/docker'
-  id: 'build-hatch-image-max'
-  waitFor: ['check_substitutions_max']
-  dir: 'tools/cicd'
-  args:
-  - build
-  - -f
-  - Dockerfile
-  - -t
-  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
-  - --cache-from
-  - us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
-  - --build-arg
-  - PYTHON_VERSION=${_PYTHON_VERSION_MAX}
-  - .
-
-# Run unit tests (MIN)
-- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
-  id: tests-min
+# Run unit tests
+- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+  id: tests
   env:
-  - 'HOME=/builder/home/min'
+  - 'HOME=/builder/home'
   args:
   - run
   - test:pytest
-  waitFor: ['build-hatch-image-min']
+  waitFor: ['build-hatch-image']
 
-# Run unit tests (MAX)
-- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
-  id: tests-max
+# Run lint
+- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+  id: lint
   env:
-  - 'HOME=/builder/home/max'
-  args:
-  - run
-  - test:pytest
-  waitFor: ['build-hatch-image-max']
-
-# Run lint (MIN)
-- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
-  id: lint-min
-  env:
-  - 'HOME=/builder/home/min'
+  - 'HOME=/builder/home'
   args:
   - run
   - lint:all
-  waitFor: ['build-hatch-image-min']
-
-# Run lint (MAX)
-- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
-  id: lint-max
-  env:
-  - 'HOME=/builder/home/max'
-  args:
-  - run
-  - lint:all
-  waitFor: ['build-hatch-image-max']
+  waitFor: ['build-hatch-image']
 
 # Download secrets for integration tests (only on main branch)
 - name: 'gcr.io/cloud-builders/gcloud'
@@ -110,12 +63,12 @@ steps:
     path: /root
   waitFor: ['-']
 
-# Run integration tests (MIN) (only on main branch)
-- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
-  id: integration-tests-min
+# Run integration tests (only on main branch)
+- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
+  id: integration-tests
   entrypoint: 'bash'
   env:
-  - 'HOME=/builder/home/min'
+  - 'HOME=/builder/home'
   args:
   - '-c'
   - |
@@ -135,39 +88,10 @@ steps:
   volumes:
   - name: 'root'
     path: /root
-  waitFor: ['build-hatch-image-min', 'download-secrets']
-
-# Run integration tests (MAX) (only on main branch)
-- name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
-  id: integration-tests-max
-  entrypoint: 'bash'
-  env:
-  - 'HOME=/builder/home/max'
-  args:
-  - '-c'
-  - |
-    if [ "$BRANCH_NAME" != "main" ]; then
-      echo "Not on main branch ($BRANCH_NAME), skipping integration tests."
-      exit 0
-    fi
-    export KAGGLE_USERNAME
-    export KAGGLE_KEY
-    if [ -f /root/secrets.sh ]; then
-      source /root/secrets.sh
-    else
-      echo "Secrets file not found!"
-      exit 1
-    fi
-    hatch run test:integration
-  volumes:
-  - name: 'root'
-    path: /root
-  waitFor: ['build-hatch-image-max', 'download-secrets']
+  waitFor: ['build-hatch-image', 'download-secrets']
 
 images:
-- us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MIN}
-- us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION_MAX}
+- us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
 
 substitutions:
-  _PYTHON_VERSION_MIN: '3.11'
-  _PYTHON_VERSION_MAX: '3.12'
+  _PYTHON_VERSION: '3.11'
