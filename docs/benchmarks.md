@@ -2,11 +2,13 @@
 
 Commands for interacting with Kaggle Benchmarks. Benchmarks let you define evaluation tasks as Python scripts, run them against one or more LLM models via the Kaggle Model Proxy, and download the results.
 
-The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has three sub-groups:
+The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has the following subcommands and groups:
 
 *   **`auth`** — Fetch Model Proxy credentials.
 *   **`init`** — Fetch credentials and default environment variables for local development.
+*   **`leaderboard`** — Get benchmark leaderboard information.
 *   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, log, models, delete, publish).
+*   **`topics`** — Browse discussion topics for a benchmark.
 
 ## `kaggle benchmarks auth`
 
@@ -85,6 +87,55 @@ In addition to the three credential variables written by `auth`, `init` also wri
 *   **`kaggle_benchmarks_reference.md`** — A syntax reference document for the `kaggle-benchmarks` task API.
 
 If either file already exists, it is skipped without overwriting.
+
+---
+
+## `kaggle benchmarks leaderboard`
+
+Get benchmark leaderboard information.
+
+**Usage:**
+
+```bash
+kaggle benchmarks leaderboard <BENCHMARK> [options]
+```
+
+**Arguments:**
+
+*   `<BENCHMARK>`: Benchmark slug (e.g., `owner/benchmark-slug`).
+
+**Options:**
+
+*   `--version <VERSION>`: Benchmark version (optional).
+*   `-s, --show`: Show the leaderboard in the terminal.
+*   `-d, --download`: Download the leaderboard as a CSV file.
+*   `-p, --path <DIRECTORY>`: Folder where the leaderboard will be downloaded (defaults to current working directory).
+*   `-v, --csv`: Print results in CSV format (when used with `--show`).
+*   `--format <FORMAT>`: Print results in a specific format (e.g., `json`).
+
+**Examples:**
+
+1.  Show the leaderboard for a benchmark:
+
+    ```bash
+    kaggle b leaderboard owner/my-benchmark --show
+    ```
+
+2.  Download the leaderboard as CSV:
+
+    ```bash
+    kaggle b leaderboard owner/my-benchmark --download
+    ```
+
+3.  Show a specific version of the leaderboard in JSON format:
+
+    ```bash
+    kaggle b leaderboard owner/my-benchmark --version 2 --show --format json
+    ```
+
+**Purpose:**
+
+Displays or downloads the evaluation results for all models that have run tasks in the specified benchmark. The leaderboard is represented as a table where rows are model versions and columns are benchmark tasks, showing the score achieved by each model on each task.
 
 ---
 

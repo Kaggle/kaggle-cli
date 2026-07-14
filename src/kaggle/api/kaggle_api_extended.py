@@ -21,6 +21,7 @@ import csv
 from datetime import datetime, timezone
 from enum import Enum
 import io
+from contextlib import redirect_stdout
 
 import json  # Needed by mypy.
 import logging
@@ -72,7 +73,11 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiPublishBenchmarkTaskRequest,
 )
 from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
-from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
+from kagglesdk.benchmarks.types.benchmarks_api_service import (
+    ApiListBenchmarkModelsRequest,
+    ApiGetBenchmarkLeaderboardRequest,
+    ApiBenchmarkLeaderboard,
+)
 from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionsRequest,
     ApiCreateCodeSubmissionRequest,
@@ -9725,6 +9730,122 @@ class KaggleApi:
                     print("Backing notebook also published.")
                 else:
                     print("Note: No backing notebook is associated with this task.", file=sys.stderr)
+
+    def benchmark_leaderboard_view(self, benchmark: str, version: Optional[int] = None) -> ApiBenchmarkLeaderboard:
+        """View a leaderboard based on a benchmark name.
+
+        Args:
+            benchmark (str): The benchmark name (owner/slug) to view leaderboard for.
+            version (Optional[int]): The benchmark version (optional).
+
+        Returns:
+            ApiBenchmarkLeaderboard: The leaderboard response.
+        """
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetBenchmarkLeaderboardRequest()
+            request.owner_slug = owner_slug
+            request.benchmark_slug = benchmark_slug
+            if version is not None:
+                request.version_number = version
+            response = self.with_retry(kaggle.benchmarks.benchmarks_api_client.get_benchmark_leaderboard)(request)
+        return response
+
+    def benchmark_leaderboard_cli(
+        self,
+        benchmark,
+        version=None,
+        view=False,
+        download=False,
+        path=None,
+        csv_display=False,
+        output_format=None,
+        quiet=False,
+    ):
+        """A wrapper for benchmark_leaderboard_view that will print the results or download them.
+
+        Args:
+            benchmark (str): The benchmark name (owner/slug) to view leaderboard for.
+            version (Optional[int]): The benchmark version (optional).
+            view (bool): If True, show the results in the terminal.
+            download (bool): If True, download the leaderboard as CSV.
+            path (Optional[str]): Path to download folder.
+            csv_display (bool): If True, print CSV instead of table (legacy).
+            output_format (Optional[str]): The output format to use.
+            quiet (bool): Suppress verbose output.
+        """
+        if not view and not download:
+            raise ValueError("Either --show or --download must be specified")
+
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+
+        response = self.benchmark_leaderboard_view(benchmark, version)
+
+        if not response.rows:
+            if not quiet:
+                print("No results found")
+            return
+
+        # Flatten the response
+        tasks = {}  # slug -> name
+        for row in response.rows:
+            for result in row.task_results:
+                tasks[result.benchmark_task_slug] = result.benchmark_task_name
+
+        sorted_task_slugs = sorted(tasks.keys())
+
+        def slug_to_field(slug):
+            return slug.replace("-", "_")
+
+        fields = ["model"] + [slug_to_field(slug) for slug in sorted_task_slugs]
+        labels = ["Model"] + [tasks[slug] for slug in sorted_task_slugs]
+
+        items = []
+        for row in response.rows:
+            row_view = BenchmarkLeaderboardRowView(row.model_version_name)
+            for slug in sorted_task_slugs:
+                setattr(row_view, slug_to_field(slug), "N/A")
+            for result in row.task_results:
+                field_name = slug_to_field(result.benchmark_task_slug)
+                score = "N/A"
+                if result.result:
+                    if result.result.numeric_result:
+                        score = str(result.result.numeric_result.value)
+                    elif result.result.boolean_result is not None:
+                        score = "Pass" if result.result.boolean_result else "Fail"
+                setattr(row_view, field_name, score)
+            items.append(row_view)
+
+        if download:
+            if path is None:
+                effective_path = self.get_default_download_dir("benchmarks", benchmark_slug)
+            else:
+                effective_path = path
+
+            os.makedirs(effective_path, exist_ok=True)
+            file_name = benchmark_slug + "_leaderboard.csv"
+            outfile = os.path.join(effective_path, file_name)
+
+            with open(outfile, "w", newline="", encoding="utf-8") as f:
+                with redirect_stdout(f):
+                    self.print_csv(items, fields, labels)
+            if not quiet:
+                print(f"Leaderboard downloaded to {outfile}")
+
+        if view:
+            self.print_results(
+                items,
+                fields,
+                labels=labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
+
+
+class BenchmarkLeaderboardRowView(object):
+
+    def __init__(self, model):
+        self.model = model
 
 
 class TqdmBufferedReader(io.BufferedReader):

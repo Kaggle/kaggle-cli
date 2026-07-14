@@ -1784,6 +1784,7 @@ def parse_benchmarks(subparsers) -> None:
     parse_benchmark_tasks(subparsers_benchmarks)
     parse_benchmarks_auth(subparsers_benchmarks)
     parse_benchmarks_init(subparsers_benchmarks)
+    parse_benchmarks_leaderboard(subparsers_benchmarks)
 
     shared_topics = _get_shared_topics_parser()
 
@@ -1870,6 +1871,29 @@ def parse_benchmarks_init(subparsers) -> None:
     )
     parser_init._action_groups.append(parser_init_optional)
     parser_init.set_defaults(func=api.benchmarks_init_cli)
+
+
+def parse_benchmarks_leaderboard(subparsers) -> None:
+    parser_leaderboard = subparsers.add_parser(
+        "leaderboard",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_benchmarks_leaderboard,
+    )
+    parser_leaderboard_optional = parser_leaderboard._action_groups.pop()
+    parser_leaderboard_optional.add_argument("benchmark", help=Help.param_benchmark)
+    parser_leaderboard_optional.add_argument(
+        "--version", dest="version", type=int, help=Help.param_benchmarks_leaderboard_version
+    )
+    parser_leaderboard_optional.add_argument(
+        "-s", "--show", dest="view", action="store_true", help=Help.param_benchmarks_leaderboard_view
+    )
+    parser_leaderboard_optional.add_argument(
+        "-d", "--download", dest="download", action="store_true", help=Help.param_benchmarks_leaderboard_download
+    )
+    parser_leaderboard_optional.add_argument("-p", "--path", dest="path", help=Help.param_downfolder)
+    _add_output_format_args(parser_leaderboard_optional)
+    parser_leaderboard._action_groups.append(parser_leaderboard_optional)
+    parser_leaderboard.set_defaults(func=api.benchmark_leaderboard_cli)
 
 
 def parse_benchmark_tasks(subparsers) -> None:
@@ -2344,7 +2368,7 @@ class Help(object):
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
-    benchmarks_choices = ["tasks", "t", "auth", "init", "topics"]
+    benchmarks_choices = ["tasks", "t", "auth", "init", "topics", "leaderboard"]
     benchmarks_tasks_choices = [
         "push",
         "run",
@@ -2493,6 +2517,7 @@ class Help(object):
     # Benchmarks commands
     command_benchmarks_auth = "Fetch and persist Model Proxy credential information"
     command_benchmarks_topics = "List discussion topics for a benchmark"
+    command_benchmarks_leaderboard = "Get benchmark leaderboard information"
     command_benchmarks_init = (
         "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
     )
@@ -2769,6 +2794,9 @@ class Help(object):
         "Omitting this on a re-push detaches previously-attached datasets."
     )
     param_benchmarks_no_publish_backing_notebook = "Do not publish the backing notebook (it is published by default)."
+    param_benchmarks_leaderboard_view = "Show the leaderboard"
+    param_benchmarks_leaderboard_download = "Download leaderboard"
+    param_benchmarks_leaderboard_version = "Benchmark version"
 
     # Files params
     param_files_upload_inbox_path = "Virtual path on the server where the uploaded files will be stored"
