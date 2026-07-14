@@ -32,12 +32,12 @@ class TestDatasetCreate(unittest.TestCase):
         with open(meta_file_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f)
 
-    def test_dataset_create_new_invalid_folder(self):
+    def test_dataset_create_new_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.dataset_create_new("/non/existent/folder")
         self.assertIn("Invalid folder", str(context.exception))
 
-    def test_dataset_create_new_default_slug(self):
+    def test_dataset_create_new_default_slug_fails(self):
         metadata = self._get_valid_metadata()
         metadata["id"] = "testuser/INSERT_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -46,7 +46,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("Default slug detected", str(context.exception))
 
-    def test_dataset_create_new_default_title(self):
+    def test_dataset_create_new_default_title_fails(self):
         metadata = self._get_valid_metadata()
         metadata["title"] = "INSERT_TITLE_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -55,7 +55,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("Default title detected", str(context.exception))
 
-    def test_dataset_create_new_multiple_licenses(self):
+    def test_dataset_create_new_multiple_licenses_fails(self):
         metadata = self._get_valid_metadata()
         metadata["licenses"] = [{"name": "CC0-1.0"}, {"name": "CC-BY-4.0"}]
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -64,7 +64,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("Please specify exactly one license", str(context.exception))
 
-    def test_dataset_create_new_no_licenses(self):
+    def test_dataset_create_new_no_licenses_fails(self):
         metadata = self._get_valid_metadata()
         metadata["licenses"] = []
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -73,7 +73,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("Please specify exactly one license", str(context.exception))
 
-    def test_dataset_create_new_short_slug(self):
+    def test_dataset_create_new_short_slug_fails(self):
         metadata = self._get_valid_metadata()
         metadata["id"] = "testuser/abc"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -82,7 +82,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("The dataset slug must be between 6 and 50 characters", str(context.exception))
 
-    def test_dataset_create_new_long_slug(self):
+    def test_dataset_create_new_long_slug_fails(self):
         metadata = self._get_valid_metadata()
         metadata["id"] = "testuser/" + ("a" * 51)
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -91,7 +91,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("The dataset slug must be between 6 and 50 characters", str(context.exception))
 
-    def test_dataset_create_new_short_title(self):
+    def test_dataset_create_new_short_title_fails(self):
         metadata = self._get_valid_metadata()
         metadata["title"] = "abc"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -100,7 +100,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("The dataset title must be between 6 and 50 characters", str(context.exception))
 
-    def test_dataset_create_new_long_title(self):
+    def test_dataset_create_new_long_title_fails(self):
         metadata = self._get_valid_metadata()
         metadata["title"] = "a" * 51
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -109,7 +109,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("The dataset title must be between 6 and 50 characters", str(context.exception))
 
-    def test_dataset_create_new_short_subtitle(self):
+    def test_dataset_create_new_short_subtitle_fails(self):
         metadata = self._get_valid_metadata()
         metadata["subtitle"] = "too short"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -118,7 +118,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("Subtitle length must be between 20 and 80 characters", str(context.exception))
 
-    def test_dataset_create_new_long_subtitle(self):
+    def test_dataset_create_new_long_subtitle_fails(self):
         metadata = self._get_valid_metadata()
         metadata["subtitle"] = "a" * 81
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -128,7 +128,7 @@ class TestDatasetCreate(unittest.TestCase):
             self.assertIn("Subtitle length must be between 20 and 80 characters", str(context.exception))
 
     @patch.object(KaggleApi, "dataset_status")
-    def test_dataset_create_new_duplicate_title(self, mock_status):
+    def test_dataset_create_new_duplicate_title_fails(self, mock_status):
         mock_status.return_value = MagicMock()
         metadata = self._get_valid_metadata()
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -141,7 +141,7 @@ class TestDatasetCreate(unittest.TestCase):
     @patch.object(KaggleApi, "dataset_status")
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_create_new_success(self, mock_client, mock_upload, mock_status):
+    def test_dataset_create_new_valid_metadata_succeeds(self, mock_client, mock_upload, mock_status):
         mock_status.side_effect = HTTPError()
 
         mock_kaggle = MagicMock()
@@ -177,7 +177,7 @@ class TestDatasetCreate(unittest.TestCase):
     @patch.object(KaggleApi, "dataset_status")
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_create_new_with_valid_resources(self, mock_client, mock_upload, mock_status):
+    def test_dataset_create_new_with_valid_resources_succeeds(self, mock_client, mock_upload, mock_status):
         mock_status.side_effect = HTTPError()
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
@@ -199,7 +199,7 @@ class TestDatasetCreate(unittest.TestCase):
             self.assertEqual(response, mock_response)
             mock_upload.assert_called_once()
 
-    def test_dataset_create_new_with_missing_resources(self):
+    def test_dataset_create_new_with_missing_resources_fails(self):
         metadata = self._get_valid_metadata()
         metadata["resources"] = [{"path": "file1.csv"}]
 
@@ -209,7 +209,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("file1.csv does not exist", str(context.exception))
 
-    def test_dataset_create_new_with_duplicate_resources(self):
+    def test_dataset_create_new_with_duplicate_resources_fails(self):
         metadata = self._get_valid_metadata()
         metadata["resources"] = [{"path": "file1.csv"}, {"path": "file1.csv"}]
 
@@ -221,12 +221,12 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("path was specified more than once", str(context.exception))
 
-    def test_dataset_create_version_invalid_folder(self):
+    def test_dataset_create_version_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.dataset_create_version("/non/existent/folder", "notes")
         self.assertIn("Invalid folder", str(context.exception))
 
-    def test_dataset_create_version_missing_id(self):
+    def test_dataset_create_version_missing_id_fails(self):
         metadata = self._get_valid_metadata()
         del metadata["id"]
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -235,7 +235,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_version(tmpdir, "notes")
             self.assertIn("ID or slug must be specified", str(context.exception))
 
-    def test_dataset_create_version_default_slug(self):
+    def test_dataset_create_version_default_slug_fails(self):
         metadata = self._get_valid_metadata()
         metadata["id"] = "testuser/INSERT_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -244,7 +244,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_version(tmpdir, "notes")
             self.assertIn("Default slug detected", str(context.exception))
 
-    def test_dataset_create_version_invalid_subtitle(self):
+    def test_dataset_create_version_invalid_subtitle_fails(self):
         metadata = self._get_valid_metadata()
         metadata["subtitle"] = "too short"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -253,7 +253,7 @@ class TestDatasetCreate(unittest.TestCase):
                 self.api.dataset_create_version(tmpdir, "notes")
             self.assertIn("Subtitle length must be between 20 and 80 characters", str(context.exception))
 
-    def test_dataset_create_version_invalid_dataset_slug(self):
+    def test_dataset_create_version_invalid_dataset_slug_fails(self):
         metadata = self._get_valid_metadata()
         metadata["id"] = "invalid_slug_no_slash"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -264,7 +264,7 @@ class TestDatasetCreate(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_create_version_success_slug(self, mock_client, mock_upload):
+    def test_dataset_create_version_with_slug_succeeds(self, mock_client, mock_upload):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.datasets.dataset_api_client.create_dataset_version.return_value = mock_response
@@ -297,7 +297,7 @@ class TestDatasetCreate(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_create_version_success_id(self, mock_client, mock_upload):
+    def test_dataset_create_version_with_id_succeeds(self, mock_client, mock_upload):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.datasets.dataset_api_client.create_dataset_version_by_id.return_value = mock_response

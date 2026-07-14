@@ -31,7 +31,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_metadata_update_with_data(self, mock_build):
+    def test_metadata_update_with_data_succeeds(self, mock_build):
         # Prepare metadata file with 'data'
         metadata = {
             "title": "New Title",
@@ -69,7 +69,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertEqual(call_args.settings.data[0].columns[0].description, "col1 desc")
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_metadata_update_with_resources(self, mock_build):
+    def test_metadata_update_with_resources_succeeds(self, mock_build):
         # Prepare metadata file with 'resources'
         metadata = {
             "title": "New Title",
@@ -113,24 +113,24 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertEqual(call_args.settings.data[0].columns[1].name, "col2")
         self.assertEqual(call_args.settings.data[0].columns[1].description, "col2 desc")  # title mapped to description
 
-    def test_process_column_description(self):
+    def test_process_column_has_description_uses_description(self):
         col_dict = {"name": "col", "description": "desc", "type": "string"}
         processed = self.api.process_column(col_dict)
         self.assertEqual(processed.description, "desc")
 
-    def test_process_column_title_fallback(self):
+    def test_process_column_has_title_only_falls_back_to_title(self):
         col_dict = {"name": "col", "title": "desc", "type": "string"}
         processed = self.api.process_column(col_dict)
         self.assertEqual(processed.description, "desc")
 
-    def test_process_column_both_prefer_description(self):
+    def test_process_column_has_both_prefers_description(self):
         col_dict = {"name": "col", "description": "desc", "title": "ignored", "type": "string"}
         processed = self.api.process_column(col_dict)
         self.assertEqual(processed.description, "desc")
 
     @patch.object(KaggleApi, "_upload_file")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_metadata_update_with_image(self, mock_build, mock_upload_file):
+    def test_metadata_update_with_image_succeeds(self, mock_build, mock_upload_file):
         metadata = {"title": "New Title", "image": "cover.png"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
@@ -166,7 +166,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertEqual(call_args.settings.image.crop_rectangles[0].title, "cover image")
         self.assertEqual(call_args.settings.image.crop_rectangles[1].title, "thumbnail")
 
-    def test_metadata_update_with_image_file_not_found(self):
+    def test_metadata_update_with_image_file_not_found_fails(self):
         metadata = {"image": "non-existent.png"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
@@ -176,7 +176,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
             self.api.dataset_metadata_update("owner/dataset", self.temp_dir)
         self.assertIn("Image file was not found", str(context.exception))
 
-    def test_metadata_update_with_image_invalid_extension(self):
+    def test_metadata_update_with_image_invalid_extension_fails(self):
         metadata = {"image": "cover.txt"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
@@ -191,7 +191,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
 
     @patch.object(KaggleApi, "_upload_file", return_value=None)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_metadata_update_with_image_upload_failure(self, mock_build, mock_upload_file):
+    def test_metadata_update_with_image_upload_failure_fails(self, mock_build, mock_upload_file):
         metadata = {"image": "cover.png"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
