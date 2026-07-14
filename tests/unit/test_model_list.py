@@ -46,14 +46,11 @@ class TestModelList(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             result = self.api.model_list(
-                sort_by="voteCount",
-                search="query",
-                owner="owner",
-                page_size=10,
-                page_token="token-123"
+                sort_by="voteCount", search="query", owner="owner", page_size=10, page_token="token-123"
             )
 
         self.assertEqual(result, [mock_model])
@@ -83,25 +80,22 @@ class TestModelList(unittest.TestCase):
         mock_kaggle = MagicMock()
         mock_response = MagicMock(spec=ApiListModelInstanceVersionFilesResponse)
         mock_response.next_page_token = "next-file-token"
-        
+
         mock_file = MagicMock()
         mock_file.name = "model.h5"
         mock_file.size = 1024
         mock_response.files = [mock_file]
-        
+
         mock_kaggle.models.model_api_client.list_model_instance_version_files.return_value = mock_response
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
-            result = self.api.model_instance_files(
-                "owner/model/keras/instance",
-                page_token="token-456",
-                page_size=50
-            )
+            result = self.api.model_instance_files("owner/model/keras/instance", page_token="token-456", page_size=50)
 
         self.assertIsInstance(result, FileList)
         self.assertIn("Next Page Token = next-file-token", f.getvalue())
@@ -137,12 +131,11 @@ class TestModelList(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             result = self.api.model_instance_version_files(
-                "owner/model/keras/instance/3",
-                page_token="token-789",
-                page_size=5
+                "owner/model/keras/instance/3", page_token="token-789", page_size=5
             )
 
         self.assertEqual(result, mock_response)
@@ -167,6 +160,7 @@ class TestModelList(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             result = self.api.model_instance_files("owner/model/keras/instance")
@@ -183,6 +177,7 @@ class TestModelList(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             result = self.api.model_instance_version_files("owner/model/keras/instance/3")

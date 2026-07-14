@@ -142,7 +142,7 @@ class TestModelCreate(unittest.TestCase):
             request = mock_kaggle.models.model_api_client.create_model_instance.call_args[0][0]
             self.assertEqual(request.owner_slug, "testuser")
             self.assertEqual(request.model_slug, "test-model")
-            
+
             body = request.body
             self.assertEqual(body.framework, ModelFramework.MODEL_FRAMEWORK_KERAS)
             self.assertEqual(body.instance_slug, "test-instance")
@@ -240,7 +240,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertEqual(response, mock_response)
             mock_kaggle.models.model_api_client.update_model_instance.assert_called_once()
             request = mock_kaggle.models.model_api_client.update_model_instance.call_args[0][0]
-            
+
             self.assertEqual(request.owner_slug, "testuser")
             self.assertEqual(request.model_slug, "test-model")
             self.assertEqual(request.framework, ModelFramework.MODEL_FRAMEWORK_KERAS)
@@ -253,7 +253,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertEqual(request.model_instance_type, ModelInstanceType.MODEL_INSTANCE_TYPE_KAGGLE_VARIANT)
             self.assertEqual(request.base_model_instance, "new-base")
             self.assertEqual(request.external_base_model_url, "http://new-example.com")
-            
+
             # Verify update_mask (expected to be None due to bug, see Task 5.2)
             self.assertIsNone(request.update_mask)
 
@@ -274,12 +274,12 @@ class TestModelCreate(unittest.TestCase):
             self.api.model_instance_update(tmpdir)
 
             request = mock_kaggle.models.model_api_client.update_model_instance.call_args[0][0]
-            
+
             self.assertEqual(request.overview, "Updated overview")
             self.assertEqual(request.usage, "Updated usage")
             self.assertFalse(request.fine_tunable)
-            self.assertEqual(request.license_name, "Apache 2.0") 
-            
+            self.assertEqual(request.license_name, "Apache 2.0")
+
             # Verify update_mask (expected to be None due to bug, see Task 5.2)
             self.assertIsNone(request.update_mask)
 
@@ -434,7 +434,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertEqual(response, mock_response)
             mock_kaggle.models.model_api_client.update_model.assert_called_once()
             request = mock_kaggle.models.model_api_client.update_model.call_args[0][0]
-            
+
             self.assertEqual(request.owner_slug, "testuser")
             self.assertEqual(request.model_slug, "test-model")
             self.assertEqual(request.title, "Updated Model Title")
@@ -442,8 +442,8 @@ class TestModelCreate(unittest.TestCase):
             self.assertFalse(request.is_private)
             self.assertEqual(request.description, "Updated description")
             self.assertIsNone(request.publish_time)
-            self.assertEqual(request.provenance_sources, '')
-            
+            self.assertEqual(request.provenance_sources, "")
+
             # Verify update_mask (expected to be None due to bug, see Task 5.2)
             self.assertIsNone(request.update_mask)
 
@@ -465,12 +465,12 @@ class TestModelCreate(unittest.TestCase):
             self.api.model_update(tmpdir)
 
             request = mock_kaggle.models.model_api_client.update_model.call_args[0][0]
-            
+
             self.assertEqual(request.title, "Updated Title")
-            self.assertEqual(request.subtitle, '')
+            self.assertEqual(request.subtitle, "")
             self.assertTrue(request.is_private)
-            self.assertEqual(request.description, '')
-            
+            self.assertEqual(request.description, "")
+
             self.assertIsNone(request.update_mask)
 
 

@@ -62,7 +62,7 @@ class TestModelDownload(unittest.TestCase):
 
         expected_outfile = os.path.join(self.temp_dir, "model.tar.gz")
         self.assertEqual(outfile, expected_outfile)
-        
+
         mock_kaggle.models.model_api_client.download_model_instance_version.assert_called_once()
         request = mock_kaggle.models.model_api_client.download_model_instance_version.call_args[0][0]
         self.assertEqual(request.owner_slug, "owner")
@@ -134,7 +134,7 @@ class TestModelDownload(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         version_str = "owner/model/keras/instance/2"
-        
+
         with patch.object(KaggleApi, "download_file", side_effect=side_effect_download):
             outfile = self.api.model_instance_version_download(version_str, path=self.temp_dir, untar=True)
 
@@ -159,11 +159,11 @@ class TestModelDownload(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         version_str = "owner/model/keras/instance/2"
-        
+
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_download(version_str, path=self.temp_dir, untar=True)
         self.assertIn("Error extracting the tar.gz file", str(context.exception))
-        
+
         expected_outfile = os.path.join(self.temp_dir, "model.tar.gz")
         self.assertTrue(os.path.exists(expected_outfile))
 
