@@ -43,8 +43,8 @@ See the [User documentation](docs/README.md) for more examples & tutorials.
 End-to-end host commands — scaffold a new competition, author its pages,
 tune its settings, and launch it — are documented in
 [docs/competition_creation.md](docs/competition_creation.md). Covers
-`kaggle competitions init`, `create`, `pages create`, `settings get`,
-`settings update`, and `launch`.
+`kaggle competitions init`, `create`, `pages create`, `hosts`,
+`settings get`, `settings update`, and `launch`.
 
 ## Development
 
