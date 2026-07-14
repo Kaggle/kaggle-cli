@@ -102,6 +102,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiDeleteCompetitionPageRequest,
     ApiUpdateCompetitionPageRequest,
     ApiGetCompetitionSettingsRequest,
+    ApiUpdateCompetitionSettingsRequest,
     ApiCreateCompetitionDataRequest,
     ApiCreateCompetitionDataResponse,
     ApiCompetitionDataFile,
@@ -147,7 +148,7 @@ from kagglesdk.competitions.types.competition_enums import (
     SubmissionSortBy,
 )
 
-from kagglesdk.competitions.types.competition import Reward, RewardTypeId
+from kagglesdk.competitions.types.competition import PubliclyCloneable, Reward, RewardTypeId
 from kagglesdk.competitions.types.host_service import CompetitionSettings
 
 from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
@@ -234,7 +235,7 @@ import kagglesdk.kaggle_client
 from enum import EnumMeta
 from requests.exceptions import HTTPError
 from requests.models import Response
-from typing import Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
+from typing import Any, Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
 
 T = TypeVar("T")
 
@@ -2776,6 +2777,179 @@ class KaggleApi:
                 return None
             return name
         return str(value)
+
+    def competition_update_settings(
+        self,
+        competition_name: str,
+        updates: Dict[str, Any],
+    ) -> CompetitionSettings:
+        """Update selected fields on a competition's unified settings.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            updates (Dict[str, Any]): Field name → new value. Keys may be
+                snake_case (matches SDK) or camelCase (matches JSON). Only
+                the fields present here are sent; the server's FieldMask is
+                derived from the keys.
+
+        Returns:
+            CompetitionSettings: the settings blob returned by the server.
+        """
+        if not updates:
+            raise ValueError("No settings to update — the input file has no fields.")
+
+        field_map = self._competition_settings_field_map()
+        settings = CompetitionSettings()
+        paths: List[str] = []
+        for raw_key, raw_value in updates.items():
+            key = self._normalize_setting_key(raw_key, field_map)
+            if key is None:
+                raise ValueError(f"Unknown competition setting: {raw_key!r}")
+            _, field_type = field_map[key]
+            coerced = self._coerce_setting_value(key, field_type, raw_value)
+            setattr(settings, key, coerced)
+            paths.append(key)
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiUpdateCompetitionSettingsRequest()
+            request.competition_name = competition_name
+            request.settings = settings
+            request.update_mask = field_mask_pb2.FieldMask(paths=paths)
+            return kaggle.competitions.competition_api_client.update_competition_settings(request)
+
+    def competition_update_settings_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        file_path=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_update_settings."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not file_path:
+            raise ValueError("--from-file is required")
+
+        updates = self._load_settings_file(file_path)
+        settings = self.competition_update_settings(competition_name, updates)
+        if not quiet:
+            print(f'Settings updated on competition "{competition_name}" ({len(updates)} field(s)).')
+        if json_output:
+            self.print_obj(settings)
+        else:
+            self._print_competition_settings(settings)
+
+    @staticmethod
+    def _load_settings_file(file_path: str) -> Dict[str, Any]:
+        """Load a settings update payload from a JSON or YAML file."""
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Settings file not found: {file_path}")
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        lower = file_path.lower()
+        try:
+            if lower.endswith((".yaml", ".yml")):
+                import yaml  # transitive via jupytext
+
+                data = yaml.safe_load(raw)
+            else:
+                data = json.loads(raw)
+        except Exception as e:
+            raise ValueError(f"Failed to parse settings file {file_path}: {e}") from e
+        if data is None:
+            raise ValueError(f"Settings file {file_path} is empty.")
+        if not isinstance(data, dict):
+            raise ValueError(f"Settings file {file_path} must contain a mapping at the top level.")
+        return data
+
+    @classmethod
+    def _competition_settings_field_map(cls) -> Dict[str, Any]:
+        """Return {snake_case_name: (json_name, python_type)} for CompetitionSettings."""
+        cached = getattr(cls, "_settings_field_map_cache", None)
+        if cached is not None:
+            return cached
+        result: Dict[str, Any] = {}
+        for meta in CompetitionSettings._fields:
+            result[meta.field_name] = (meta.json_name, meta.field_type)
+        cls._settings_field_map_cache = result
+        return result
+
+    @staticmethod
+    def _normalize_setting_key(key: str, field_map: Dict[str, Any]) -> Optional[str]:
+        """Resolve a user-supplied key (snake or camel) to the snake_case field name."""
+        if not isinstance(key, str):
+            return None
+        if key in field_map:
+            return key
+        for snake, (json_name, _) in field_map.items():
+            if key == json_name:
+                return snake
+        return None
+
+    @staticmethod
+    def _coerce_setting_value(field_name: str, field_type: type, value: Any) -> Any:
+        """Convert a raw JSON/YAML value into the type CompetitionSettings expects."""
+        if value is None:
+            return None
+        if field_type is bool:
+            if isinstance(value, bool):
+                return value
+            raise ValueError(f"Field {field_name!r} expects a bool, got {type(value).__name__}")
+        if field_type is int:
+            if isinstance(value, bool):
+                raise ValueError(f"Field {field_name!r} expects an int, got bool")
+            if isinstance(value, int):
+                return value
+            raise ValueError(f"Field {field_name!r} expects an int, got {type(value).__name__}")
+        if field_type is float:
+            if isinstance(value, bool):
+                raise ValueError(f"Field {field_name!r} expects a float, got bool")
+            if isinstance(value, (int, float)):
+                return float(value)
+            raise ValueError(f"Field {field_name!r} expects a number, got {type(value).__name__}")
+        if field_type is str:
+            if isinstance(value, str):
+                return value
+            raise ValueError(f"Field {field_name!r} expects a string, got {type(value).__name__}")
+        if field_type is datetime:
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                iso = value.replace("Z", "+00:00")
+                try:
+                    return datetime.fromisoformat(iso)
+                except ValueError as e:
+                    raise ValueError(f"Field {field_name!r} expects an ISO-8601 datetime, got {value!r}") from e
+            raise ValueError(f"Field {field_name!r} expects a datetime string, got {type(value).__name__}")
+        # Enum types (HostSegment, PubliclyCloneable, etc.)
+        if isinstance(field_type, EnumMeta):
+            if isinstance(value, field_type):
+                return value
+            if not isinstance(value, str):
+                raise ValueError(
+                    f"Field {field_name!r} expects a {field_type.__name__} name, got {type(value).__name__}"
+                )
+            try:
+                return field_type[value]
+            except KeyError:
+                pass
+            snake = re.sub(r"(?<!^)(?=[A-Z])", "_", field_type.__name__).upper()
+            candidate = f"{snake}_{value.upper()}"
+            try:
+                return field_type[candidate]
+            except KeyError as e:
+                allowed = [n for n in field_type.__members__ if not n.endswith("_UNSPECIFIED")]
+                raise ValueError(
+                    f"Field {field_name!r} value {value!r} is not a valid {field_type.__name__}. "
+                    f"Allowed: {', '.join(allowed)}"
+                ) from e
+        raise ValueError(f"Field {field_name!r} has unsupported type {field_type!r}")
 
     def competition_data_update(
         self,

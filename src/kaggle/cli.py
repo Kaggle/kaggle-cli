@@ -659,6 +659,42 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_settings_get._action_groups.append(parser_competitions_settings_get_optional)
     parser_competitions_settings_get.set_defaults(func=api.competition_get_settings_cli)
 
+    # Competitions settings update
+    parser_competitions_settings_update = subparsers_competitions_settings.add_parser(
+        "update",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_settings_update,
+    )
+    parser_competitions_settings_update_optional = parser_competitions_settings_update._action_groups.pop()
+    parser_competitions_settings_update_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_settings_update_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_settings_update_optional.add_argument(
+        "-f",
+        "--from-file",
+        dest="file_path",
+        required=True,
+        help=(
+            "Path to a JSON or YAML file with the fields to update (extension "
+            "picks the parser: .yaml/.yml → YAML, anything else → JSON). "
+            "Only fields present in the file are sent."
+        ),
+    )
+    parser_competitions_settings_update_optional.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="After updating, print the returned settings as JSON instead of the grouped text view.",
+    )
+    parser_competitions_settings_update_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_settings_update._action_groups.append(parser_competitions_settings_update_optional)
+    parser_competitions_settings_update.set_defaults(func=api.competition_update_settings_cli)
+
     # Competitions launch (publish now, or schedule for a future UTC time)
     parser_competitions_launch = subparsers_competitions.add_parser(
         "launch", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_launch
@@ -2293,7 +2329,7 @@ class Help(object):
     entity_topics_choices = ["list", "show"]
     entity_pages_choices = ["list", "create", "update", "delete"]
     entity_data_choices = ["update"]
-    entity_settings_choices = ["get"]
+    entity_settings_choices = ["get", "update"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2373,6 +2409,7 @@ class Help(object):
     command_competitions_data_update = "Update (version) the data files for a competition you host"
     command_competitions_settings = "Manage settings for a competition you host"
     command_competitions_settings_get = "Show the current settings for a competition you host"
+    command_competitions_settings_update = "Update settings for a competition you host from a JSON or YAML file"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_init = "Initialize folder with a competition-metadata.json template"
     command_competitions_create = "Create a new competition from competition-metadata.json"
