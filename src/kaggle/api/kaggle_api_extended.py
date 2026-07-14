@@ -2868,17 +2868,10 @@ class KaggleApi:
             raise ValueError(f"Settings file {file_path} must contain a mapping at the top level.")
         return data
 
-    @classmethod
-    def _competition_settings_field_map(cls) -> Dict[str, Any]:
+    @staticmethod
+    def _competition_settings_field_map() -> Dict[str, Any]:
         """Return {snake_case_name: (json_name, python_type)} for CompetitionSettings."""
-        cached = getattr(cls, "_settings_field_map_cache", None)
-        if cached is not None:
-            return cached
-        result: Dict[str, Any] = {}
-        for meta in CompetitionSettings._fields:
-            result[meta.field_name] = (meta.json_name, meta.field_type)
-        cls._settings_field_map_cache = result
-        return result
+        return {meta.field_name: (meta.json_name, meta.field_type) for meta in CompetitionSettings._fields}
 
     @staticmethod
     def _normalize_setting_key(key: str, field_map: Dict[str, Any]) -> Optional[str]:
