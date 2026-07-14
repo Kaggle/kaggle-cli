@@ -30,7 +30,7 @@ steps:
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
   id: tests
   env:
-  - 'HOME=/builder/home'
+  - 'HOME=/builder/home/tests'
   args:
   - run
   - test:pytest
@@ -40,7 +40,7 @@ steps:
 - name: us-docker.pkg.dev/$PROJECT_ID/tools/cli-builder:${_PYTHON_VERSION}
   id: lint
   env:
-  - 'HOME=/builder/home'
+  - 'HOME=/builder/home/lint'
   args:
   - run
   - lint:all
@@ -64,7 +64,7 @@ steps:
   id: integration-tests
   entrypoint: 'bash'
   env:
-  - 'HOME=/builder/home'
+  - 'HOME=/builder/home/integration'
   args:
   - '-c'
   - |
