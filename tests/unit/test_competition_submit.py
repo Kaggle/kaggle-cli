@@ -32,19 +32,19 @@ class TestCompetitionSubmit(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     # competition_submit tests
-    def test_submit_missing_competition(self):
+    def test_submit_missing_competition_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competition_submit("file.csv", "message", None)
         self.assertIn("No competition specified", str(context.exception))
 
-    def test_submit_missing_file(self):
+    def test_submit_missing_file_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competition_submit(None, "message", "comp-name")
         self.assertIn("No file specified", str(context.exception))
 
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_success(self, mock_client, mock_upload_complete):
+    def test_submit_valid_file_succeeds(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
 
         mock_upload_response = MagicMock()
@@ -84,7 +84,7 @@ class TestCompetitionSubmit(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.FAILED)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_upload_failure(self, mock_client, mock_upload_complete):
+    def test_submit_upload_failure_fails(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
         mock_upload_response = MagicMock()
         mock_upload_response.create_url = "http://upload-url"
@@ -103,7 +103,7 @@ class TestCompetitionSubmit(unittest.TestCase):
     @patch.object(KaggleApi, "get_config_value")
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_fallback_config(self, mock_client, mock_upload_complete, mock_get_config):
+    def test_submit_fallback_config_succeeds(self, mock_client, mock_upload_complete, mock_get_config):
         mock_get_config.return_value = "config-comp"
         mock_kaggle = MagicMock()
         mock_upload_response = MagicMock()
@@ -123,23 +123,23 @@ class TestCompetitionSubmit(unittest.TestCase):
         self.assertEqual(upload_request.competition_name, "config-comp")
 
     # competition_submit_code tests
-    def test_submit_code_missing_competition(self):
+    def test_submit_code_missing_competition_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competition_submit_code("file.csv", "message", None, "owner/notebook")
         self.assertIn("No competition specified", str(context.exception))
 
-    def test_submit_code_missing_kernel(self):
+    def test_submit_code_missing_kernel_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competition_submit_code("file.csv", "message", "comp", None)
         self.assertIn("No kernel specified", str(context.exception))
 
-    def test_submit_code_invalid_kernel_format(self):
+    def test_submit_code_invalid_kernel_format_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competition_submit_code("file.csv", "message", "comp", "notebook-only")
         self.assertIn("The kernel must be specified as <owner>/<notebook>", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_code_success(self, mock_client):
+    def test_submit_code_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = ApiCreateCodeSubmissionResponse()
         mock_kaggle.competitions.competition_api_client.create_code_submission.return_value = mock_response
@@ -163,7 +163,7 @@ class TestCompetitionSubmit(unittest.TestCase):
     @patch.dict(os.environ, {"KAGGLE_COMPETITION_SUBMISSION_MODEL_VERSION_ID": "456"})
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_admin_model(self, mock_client, mock_upload_complete):
+    def test_submit_admin_model_succeeds(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
         mock_upload_response = MagicMock()
         mock_upload_response.create_url = "http://upload-url"
@@ -184,7 +184,7 @@ class TestCompetitionSubmit(unittest.TestCase):
     @patch.object(KaggleApi, "get_config_value", return_value="config-comp")
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_fallback_config_verbose(self, mock_client, mock_upload_complete, mock_get_config):
+    def test_submit_fallback_config_verbose_succeeds(self, mock_client, mock_upload_complete, mock_get_config):
         mock_kaggle = MagicMock()
         mock_upload_response = MagicMock()
         mock_upload_response.token = "token-config"
@@ -207,7 +207,7 @@ class TestCompetitionSubmit(unittest.TestCase):
 
     @patch.object(KaggleApi, "get_config_value", return_value="config-comp")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_submit_code_fallback_config_verbose(self, mock_client, mock_get_config):
+    def test_submit_code_fallback_config_verbose_succeeds(self, mock_client, mock_get_config):
         mock_kaggle = MagicMock()
         mock_kaggle.competitions.competition_api_client.create_code_submission.return_value = MagicMock()
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
