@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from kaggle.api.kaggle_api_extended import KaggleApi
 
+
 @pytest.fixture
 def api():
     a = KaggleApi()
@@ -11,11 +12,13 @@ def api():
     a.build_kaggle_client = MagicMock()
     return a
 
+
 @pytest.fixture
 def parser(monkeypatch, api):
     import kaggle
+
     monkeypatch.setattr(kaggle, "api", api)
-    
+
     from kaggle.cli import (
         parse_quota,
         parse_config,
@@ -24,6 +27,7 @@ def parser(monkeypatch, api):
         Help,
     )
     import kaggle.cli
+
     monkeypatch.setattr(kaggle.cli, "api", api)
 
     root = argparse.ArgumentParser()
@@ -37,6 +41,7 @@ def parser(monkeypatch, api):
     parse_files(subparsers)
     return root
 
+
 def _dispatch(parser, argv):
     args = parser.parse_args(argv)
     command_args = dict(vars(args))
@@ -44,13 +49,14 @@ def _dispatch(parser, argv):
     del command_args["command"]
     return args.func, command_args
 
+
 # Task 1.1: Quota
 def test_quota_parser(parser):
     func, kwargs = _dispatch(parser, ["quota"])
     assert func.__name__ == "quota_view_cli"
     assert kwargs.get("csv_display") is False
     assert kwargs.get("output_format") is None
-    
+
     func, kwargs = _dispatch(parser, ["quota", "--csv"])
     assert func.__name__ == "quota_view_cli"
     assert kwargs["csv_display"] is True
@@ -61,11 +67,13 @@ def test_quota_parser(parser):
     assert kwargs["csv_display"] is False
     assert kwargs["output_format"] == "json"
 
+
 # Task 1.2: Config
 def test_config_view_parser(parser):
     func, kwargs = _dispatch(parser, ["config", "view"])
     assert func.__name__ == "print_config_values"
     assert kwargs == {}
+
 
 def test_config_set_parser(parser):
     func, kwargs = _dispatch(parser, ["config", "set", "-n", "proxy", "-v", "http://proxy"])
@@ -73,10 +81,12 @@ def test_config_set_parser(parser):
     assert kwargs["name"] == "proxy"
     assert kwargs["value"] == "http://proxy"
 
+
 def test_config_unset_parser(parser):
     func, kwargs = _dispatch(parser, ["config", "unset", "-n", "proxy"])
     assert func.__name__ == "unset_config_value"
     assert kwargs["name"] == "proxy"
+
 
 # Task 1.3: Auth
 def test_auth_login_parser(parser):
@@ -90,6 +100,7 @@ def test_auth_login_parser(parser):
     assert kwargs["no_launch_browser"] is True
     assert kwargs["force"] is True
 
+
 def test_auth_print_token_parser(parser):
     func, kwargs = _dispatch(parser, ["auth", "print-access-token"])
     assert func.__name__ == "auth_print_access_token"
@@ -99,6 +110,7 @@ def test_auth_print_token_parser(parser):
     assert func.__name__ == "auth_print_access_token"
     assert kwargs["expiration_duration"] == "6h"
 
+
 def test_auth_revoke_parser(parser):
     func, kwargs = _dispatch(parser, ["auth", "revoke"])
     assert func.__name__ == "auth_revoke_token"
@@ -107,6 +119,7 @@ def test_auth_revoke_parser(parser):
     func, kwargs = _dispatch(parser, ["auth", "revoke", "--reason", "compromised"])
     assert func.__name__ == "auth_revoke_token"
     assert kwargs["reason"] == "compromised"
+
 
 # Task 1.4: Files
 def test_files_upload_parser(parser):
