@@ -624,6 +624,41 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_data_update._action_groups.append(parser_competitions_data_update_optional)
     parser_competitions_data_update.set_defaults(func=api.competition_data_update_cli)
 
+    # Competitions settings (group: get)
+    parser_competitions_settings = subparsers_competitions.add_parser(
+        "settings",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_settings,
+    )
+    subparsers_competitions_settings = parser_competitions_settings.add_subparsers(title="commands", dest="command")
+    subparsers_competitions_settings.required = True
+    subparsers_competitions_settings.choices = Help.entity_settings_choices
+
+    # Competitions settings get
+    parser_competitions_settings_get = subparsers_competitions_settings.add_parser(
+        "get",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_settings_get,
+    )
+    parser_competitions_settings_get_optional = parser_competitions_settings_get._action_groups.pop()
+    parser_competitions_settings_get_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_settings_get_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_settings_get_optional.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit settings as JSON instead of the grouped text view.",
+    )
+    parser_competitions_settings_get_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_settings_get._action_groups.append(parser_competitions_settings_get_optional)
+    parser_competitions_settings_get.set_defaults(func=api.competition_get_settings_cli)
+
     # Competitions launch (publish now, or schedule for a future UTC time)
     parser_competitions_launch = subparsers_competitions.add_parser(
         "launch", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_launch
@@ -2191,6 +2226,7 @@ class Help(object):
         "logs",
         "pages",
         "data",
+        "settings",
         "launch",
         "init",
         "create",
@@ -2257,6 +2293,7 @@ class Help(object):
     entity_topics_choices = ["list", "show"]
     entity_pages_choices = ["list", "create", "update", "delete"]
     entity_data_choices = ["update"]
+    entity_settings_choices = ["get"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2334,6 +2371,8 @@ class Help(object):
     command_competitions_pages_delete = "Delete a page from a competition you host"
     command_competitions_data = "Manage a competition's data files"
     command_competitions_data_update = "Update (version) the data files for a competition you host"
+    command_competitions_settings = "Manage settings for a competition you host"
+    command_competitions_settings_get = "Show the current settings for a competition you host"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_init = "Initialize folder with a competition-metadata.json template"
     command_competitions_create = "Create a new competition from competition-metadata.json"

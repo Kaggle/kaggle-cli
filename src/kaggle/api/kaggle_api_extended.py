@@ -101,6 +101,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiCreateCompetitionPageRequest,
     ApiDeleteCompetitionPageRequest,
     ApiUpdateCompetitionPageRequest,
+    ApiGetCompetitionSettingsRequest,
     ApiCreateCompetitionDataRequest,
     ApiCreateCompetitionDataResponse,
     ApiCompetitionDataFile,
@@ -147,6 +148,7 @@ from kagglesdk.competitions.types.competition_enums import (
 )
 
 from kagglesdk.competitions.types.competition import Reward, RewardTypeId
+from kagglesdk.competitions.types.host_service import CompetitionSettings
 
 from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
 
@@ -2630,6 +2632,150 @@ class KaggleApi:
 
         if self.competition_delete_page(competition_name, page_name, no_confirm=no_confirm):
             print(f'Page "{page_name}" deleted from competition "{competition_name}".')
+
+    _COMPETITION_SETTINGS_GROUPS = [
+        (
+            "General",
+            [
+                "title",
+                "brief_description",
+                "competition_name",
+                "host_segment",
+                "organization_id",
+                "rules_required",
+                "publicly_cloneable",
+                "has_scripts",
+            ],
+        ),
+        (
+            "Access & Teams",
+            [
+                "requires_identity_verification",
+                "enable_team_files",
+                "team_file_deadline",
+            ],
+        ),
+        (
+            "Key Dates",
+            [
+                "team_merger_explicit_deadline",
+                "prohibit_new_entrants_explicit_deadline",
+                "kernels_publishing_disabled_deadline",
+                "disable_submissions",
+                "public_leaderboard_disclaimer_message",
+            ],
+        ),
+        (
+            "Submissions & Leaderboard",
+            [
+                "has_leaderboard",
+                "disable_leaderboard_prize_indicator",
+                "withold_final_leaderboard_until_it_has_been_verified",
+                "final_leaderboard_has_been_verified",
+                "final_leaderboard_disclaimer_message",
+            ],
+        ),
+        (
+            "Code Competition",
+            [
+                "only_allow_kernel_submissions",
+                "uses_synchronous_reruns",
+                "max_cpu_runtime_minutes",
+                "max_gpu_runtime_minutes",
+                "rerun_override_kernel_id",
+                "gateway_kernel_id",
+                "rerun_max_stagger_minutes",
+            ],
+        ),
+        (
+            "Hosts",
+            [
+                "directly_responsible_user_id",
+            ],
+        ),
+    ]
+
+    def competition_get_settings(self, competition_name: str) -> CompetitionSettings:
+        """Fetch the unified settings blob for a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+
+        Returns:
+            CompetitionSettings: the current settings.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetCompetitionSettingsRequest()
+            request.competition_name = competition_name
+            return kaggle.competitions.competition_api_client.get_competition_settings(request)
+
+    def competition_get_settings_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_get_settings."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        settings = self.competition_get_settings(competition_name)
+        if json_output:
+            self.print_obj(settings)
+        else:
+            self._print_competition_settings(settings)
+
+    def _print_competition_settings(self, settings: CompetitionSettings) -> None:
+        """Print settings grouped by UI section, skipping fields left at their default."""
+        printed_any = False
+        for group_title, field_names in self._COMPETITION_SETTINGS_GROUPS:
+            rows = []
+            for name in field_names:
+                value = getattr(settings, name, None)
+                formatted = self._format_setting_value(value)
+                if formatted is None:
+                    continue
+                rows.append((name, formatted))
+            if not rows:
+                continue
+            if printed_any:
+                print("")
+            printed_any = True
+            print(f"[{group_title}]")
+            for name, formatted in rows:
+                print(f"  {name}: {formatted}")
+        if not printed_any:
+            print("(no settings set)")
+
+    @staticmethod
+    def _format_setting_value(value) -> Optional[str]:
+        """Return a display string for a settings value, or None to skip it."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return "true" if value else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if value == 0:
+                return None
+            return str(value)
+        if isinstance(value, str):
+            if value == "":
+                return None
+            return value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        name = getattr(value, "name", None)
+        if name is not None:
+            if name.endswith("_UNSPECIFIED"):
+                return None
+            return name
+        return str(value)
 
     def competition_data_update(
         self,
