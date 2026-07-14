@@ -40,12 +40,12 @@ class TestModelCreate(unittest.TestCase):
         with open(meta_file_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f)
 
-    def test_model_instance_create_invalid_folder(self):
+    def test_model_instance_create_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_create("/non/existent/folder")
         self.assertIn("Invalid folder", str(context.exception))
 
-    def test_model_instance_create_default_owner(self):
+    def test_model_instance_create_default_owner_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["ownerSlug"] = "INSERT_OWNER_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -54,7 +54,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_create(tmpdir)
             self.assertIn("Default ownerSlug detected", str(context.exception))
 
-    def test_model_instance_create_default_model_slug(self):
+    def test_model_instance_create_default_model_slug_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["modelSlug"] = "INSERT_EXISTING_MODEL_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -63,7 +63,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_create(tmpdir)
             self.assertIn("Default modelSlug detected", str(context.exception))
 
-    def test_model_instance_create_default_instance_slug(self):
+    def test_model_instance_create_default_instance_slug_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["instanceSlug"] = "INSERT_INSTANCE_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -72,7 +72,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_create(tmpdir)
             self.assertIn("Default instanceSlug detected", str(context.exception))
 
-    def test_model_instance_create_default_framework(self):
+    def test_model_instance_create_default_framework_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["framework"] = "INSERT_FRAMEWORK_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -81,7 +81,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_create(tmpdir)
             self.assertIn("Default framework detected", str(context.exception))
 
-    def test_model_instance_create_missing_license(self):
+    def test_model_instance_create_missing_license_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["licenseName"] = ""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -90,7 +90,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_create(tmpdir)
             self.assertIn("Please specify a license", str(context.exception))
 
-    def test_model_instance_create_invalid_fine_tunable(self):
+    def test_model_instance_create_invalid_fine_tunable_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["fineTunable"] = "not-a-bool"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -99,7 +99,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_create(tmpdir)
             self.assertIn("modelInstance.fineTunable must be a boolean", str(context.exception))
 
-    def test_model_instance_create_invalid_training_data(self):
+    def test_model_instance_create_invalid_training_data_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["trainingData"] = "not-a-list"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -110,7 +110,7 @@ class TestModelCreate(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_create_success(self, mock_client, mock_upload):
+    def test_model_instance_create_valid_metadata_succeeds(self, mock_client, mock_upload):
         mock_kaggle = MagicMock()
         mock_response = ApiCreateModelResponse()
         mock_kaggle.models.model_api_client.create_model_instance.return_value = mock_response
@@ -156,12 +156,12 @@ class TestModelCreate(unittest.TestCase):
             self.assertEqual(body.base_model_instance, "base-instance")
             self.assertEqual(body.external_base_model_url, "http://example.com")
 
-    def test_model_instance_update_invalid_folder(self):
+    def test_model_instance_update_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_update("/non/existent/folder")
         self.assertIn("Invalid folder", str(context.exception))
 
-    def test_model_instance_update_default_owner(self):
+    def test_model_instance_update_default_owner_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["ownerSlug"] = "INSERT_OWNER_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -170,7 +170,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_update(tmpdir)
             self.assertIn("Default ownerSlug detected", str(context.exception))
 
-    def test_model_instance_update_default_model_slug(self):
+    def test_model_instance_update_default_model_slug_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["modelSlug"] = "INSERT_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -179,7 +179,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_update(tmpdir)
             self.assertIn("Default model slug detected", str(context.exception))
 
-    def test_model_instance_update_default_instance_slug(self):
+    def test_model_instance_update_default_instance_slug_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["instanceSlug"] = "INSERT_INSTANCE_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -188,7 +188,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_update(tmpdir)
             self.assertIn("Default instance slug detected", str(context.exception))
 
-    def test_model_instance_update_default_framework(self):
+    def test_model_instance_update_default_framework_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["framework"] = "INSERT_FRAMEWORK_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -197,7 +197,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_update(tmpdir)
             self.assertIn("Default framework detected", str(context.exception))
 
-    def test_model_instance_update_invalid_fine_tunable(self):
+    def test_model_instance_update_invalid_fine_tunable_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["fineTunable"] = "not-a-bool"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -206,7 +206,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_instance_update(tmpdir)
             self.assertIn("modelInstance.fineTunable must be a boolean", str(context.exception))
 
-    def test_model_instance_update_invalid_training_data(self):
+    def test_model_instance_update_invalid_training_data_fails(self):
         metadata = self._get_valid_instance_metadata()
         metadata["trainingData"] = "not-a-list"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -216,7 +216,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertIn("modelInstance.trainingData must be a list", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_update_success_all_fields(self, mock_client):
+    def test_model_instance_update_all_fields_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.models.model_api_client.update_model_instance.return_value = mock_response
@@ -258,7 +258,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertIsNone(request.update_mask)
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_update_success_partial(self, mock_client):
+    def test_model_instance_update_partial_fields_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.models.model_api_client.update_model_instance.return_value = MagicMock()
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
@@ -292,12 +292,12 @@ class TestModelCreate(unittest.TestCase):
             "description": "Test model description",
         }
 
-    def test_model_create_new_invalid_folder(self):
+    def test_model_create_new_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_create_new("/non/existent/folder")
         self.assertIn("Invalid folder", str(context.exception))
 
-    def test_model_create_new_default_owner(self):
+    def test_model_create_new_default_owner_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["ownerSlug"] = "INSERT_OWNER_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -306,7 +306,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_create_new(tmpdir)
             self.assertIn("Default ownerSlug detected", str(context.exception))
 
-    def test_model_create_new_default_title(self):
+    def test_model_create_new_default_title_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["title"] = "INSERT_TITLE_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -315,7 +315,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_create_new(tmpdir)
             self.assertIn("Default title detected", str(context.exception))
 
-    def test_model_create_new_default_slug(self):
+    def test_model_create_new_default_slug_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["slug"] = "INSERT_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -324,7 +324,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_create_new(tmpdir)
             self.assertIn("Default slug detected", str(context.exception))
 
-    def test_model_create_new_invalid_is_private(self):
+    def test_model_create_new_invalid_is_private_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["isPrivate"] = "not-a-bool"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -333,7 +333,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_create_new(tmpdir)
             self.assertIn("model.isPrivate must be a boolean", str(context.exception))
 
-    def test_model_create_new_invalid_publish_time(self):
+    def test_model_create_new_invalid_publish_time_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["publishTime"] = "invalid-date"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -343,7 +343,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertIn("does not match format", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_create_new_success(self, mock_client):
+    def test_model_create_new_valid_metadata_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = ApiCreateModelResponse()
         mock_kaggle.models.model_api_client.create_model.return_value = mock_response
@@ -371,12 +371,12 @@ class TestModelCreate(unittest.TestCase):
             self.assertIsNone(request.publish_time)
             self.assertEqual(request.provenance_sources, "source1")
 
-    def test_model_update_invalid_folder(self):
+    def test_model_update_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_update("/non/existent/folder")
         self.assertIn("Invalid folder", str(context.exception))
 
-    def test_model_update_default_owner(self):
+    def test_model_update_default_owner_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["ownerSlug"] = "INSERT_OWNER_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -385,7 +385,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_update(tmpdir)
             self.assertIn("Default ownerSlug detected", str(context.exception))
 
-    def test_model_update_default_slug(self):
+    def test_model_update_default_slug_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["slug"] = "INSERT_SLUG_HERE"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -394,7 +394,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_update(tmpdir)
             self.assertIn("Default slug detected", str(context.exception))
 
-    def test_model_update_invalid_is_private(self):
+    def test_model_update_invalid_is_private_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["isPrivate"] = "not-a-bool"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -403,7 +403,7 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_update(tmpdir)
             self.assertIn("model.isPrivate must be a boolean", str(context.exception))
 
-    def test_model_update_invalid_publish_time(self):
+    def test_model_update_invalid_publish_time_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["publishTime"] = "invalid-date"
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -413,7 +413,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertIn("does not match format", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_update_success_all_fields(self, mock_client):
+    def test_model_update_all_fields_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.models.model_api_client.update_model.return_value = mock_response
@@ -448,7 +448,7 @@ class TestModelCreate(unittest.TestCase):
             self.assertIsNone(request.update_mask)
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_update_success_partial(self, mock_client):
+    def test_model_update_partial_fields_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.models.model_api_client.update_model.return_value = MagicMock()
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)

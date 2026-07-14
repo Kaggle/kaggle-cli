@@ -23,18 +23,18 @@ class TestModelList(unittest.TestCase):
         self.api.already_printed_version_warning = True
 
     # model_list tests
-    def test_model_list_invalid_sort(self):
+    def test_model_list_invalid_sort_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_list(sort_by="invalid-sort")
         self.assertIn("Invalid sort by specified", str(context.exception))
 
-    def test_model_list_invalid_page_size(self):
+    def test_model_list_invalid_page_size_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_list(page_size=0)
         self.assertIn("Page size must be >= 1", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_list_success(self, mock_client):
+    def test_model_list_defaults_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_model = MagicMock()
@@ -65,18 +65,18 @@ class TestModelList(unittest.TestCase):
         self.assertEqual(request.page_token, "token-123")
 
     # model_instance_files tests
-    def test_model_instance_files_missing_instance(self):
+    def test_model_instance_files_missing_instance_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_files(None)
         self.assertIn("A model_instance must be specified", str(context.exception))
 
-    def test_model_instance_files_invalid_format(self):
+    def test_model_instance_files_invalid_format_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_files("owner/model/keras")
         self.assertIn("Model instance must be specified in the form of", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_files_success(self, mock_client):
+    def test_model_instance_files_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = MagicMock(spec=ApiListModelInstanceVersionFilesResponse)
         mock_response.next_page_token = "next-file-token"
@@ -110,18 +110,18 @@ class TestModelList(unittest.TestCase):
         self.assertEqual(request.page_token, "token-456")
 
     # model_instance_version_files tests
-    def test_model_instance_version_files_missing_version(self):
+    def test_model_instance_version_files_missing_version_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_files(None)
         self.assertIn("A model_instance_version must be specified", str(context.exception))
 
-    def test_model_instance_version_files_invalid_format(self):
+    def test_model_instance_version_files_invalid_format_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_files("owner/model/keras/instance")
         self.assertIn("Model instance version must be specified in the form of", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_version_files_success(self, mock_client):
+    def test_model_instance_version_files_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = ApiListModelInstanceVersionFilesResponse()
         mock_response.next_page_token = "next-ver-file-token"
@@ -152,7 +152,7 @@ class TestModelList(unittest.TestCase):
         self.assertEqual(request.page_token, "token-789")
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_files_empty(self, mock_client):
+    def test_model_instance_files_empty_returns_empty_list(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.models.model_api_client.list_model_instance_version_files.return_value = None
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
@@ -169,7 +169,7 @@ class TestModelList(unittest.TestCase):
         self.assertIn("No files found", f.getvalue())
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_version_files_empty(self, mock_client):
+    def test_model_instance_version_files_empty_returns_none(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.models.model_api_client.list_model_instance_version_files.return_value = None
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)

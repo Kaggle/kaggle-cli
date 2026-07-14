@@ -27,30 +27,30 @@ class TestModelDownload(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    def test_download_missing_version(self):
+    def test_download_missing_version_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_download(None)
         self.assertIn("A model_instance_version must be specified", str(context.exception))
 
-    def test_download_invalid_format(self):
+    def test_download_invalid_format_fails(self):
         # Too few slashes
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_download("owner/model/keras/instance")
         self.assertIn("Model instance version must be specified in the form", str(context.exception))
 
-    def test_download_empty_parts(self):
+    def test_download_empty_parts_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_download("owner/model/keras//1")
         self.assertIn("Invalid model instance version specification", str(context.exception))
 
-    def test_download_non_int_version(self):
+    def test_download_non_int_version_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_version_download("owner/model/keras/instance/abc")
         self.assertIn("version-number must be an integer", str(context.exception))
 
     @patch.object(KaggleApi, "download_needed", return_value=False)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_download_cached(self, mock_client, mock_download_needed):
+    def test_download_cached_skips_download(self, mock_client, mock_download_needed):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.models.model_api_client.download_model_instance_version.return_value = mock_response
@@ -76,7 +76,7 @@ class TestModelDownload(unittest.TestCase):
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "download_needed", return_value=True)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_download_needed(self, mock_client, mock_download_needed, mock_download_file):
+    def test_download_needed_downloads(self, mock_client, mock_download_needed, mock_download_file):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.models.model_api_client.download_model_instance_version.return_value = mock_response
@@ -96,7 +96,7 @@ class TestModelDownload(unittest.TestCase):
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "download_needed")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_download_force(self, mock_client, mock_download_needed, mock_download_file):
+    def test_download_force_downloads(self, mock_client, mock_download_needed, mock_download_file):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_kaggle.models.model_api_client.download_model_instance_version.return_value = mock_response
@@ -115,7 +115,7 @@ class TestModelDownload(unittest.TestCase):
 
     @patch.object(KaggleApi, "download_needed", return_value=True)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_download_untar_success(self, mock_client, mock_download_needed):
+    def test_download_untar_succeeds(self, mock_client, mock_download_needed):
         tar_buffer = io.BytesIO()
         with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
             file_data = b"dummy content"
@@ -147,7 +147,7 @@ class TestModelDownload(unittest.TestCase):
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "download_needed", return_value=True)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_download_untar_failure(self, mock_client, mock_download_needed, mock_download_file):
+    def test_download_untar_failure_fails(self, mock_client, mock_download_needed, mock_download_file):
         def side_effect_download(response, outfile, http_client, quiet, show_progress):
             open(outfile, "w").close()
 
@@ -170,7 +170,7 @@ class TestModelDownload(unittest.TestCase):
     @patch.object(KaggleApi, "get_default_download_dir")
     @patch.object(KaggleApi, "download_needed", return_value=False)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_download_default_path(self, mock_client, mock_download_needed, mock_get_dir):
+    def test_download_default_path_succeeds(self, mock_client, mock_download_needed, mock_get_dir):
         mock_get_dir.return_value = self.temp_dir
         mock_kaggle = MagicMock()
         mock_kaggle.models.model_api_client.download_model_instance_version.return_value = MagicMock()
