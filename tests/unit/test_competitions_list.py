@@ -41,11 +41,11 @@ class TestCompetitionsList(unittest.TestCase):
     def setUp(self):
         self.api = _make_api()
 
-    def test_competition_fields_includes_user_rank(self):
+    def test_competition_fields_has_user_rank(self):
         self.assertIn("userRank", KaggleApi.competition_fields)
 
     @patch.object(KaggleApi, "competitions_list")
-    def test_competitions_list_cli_csv_includes_user_rank(self, mock_list):
+    def test_competitions_list_cli_csv_includes_user_rank_succeeds(self, mock_list):
         response = ApiListCompetitionsResponse()
         response.competitions = [_make_competition(user_rank=784)]
         mock_list.return_value = response
@@ -58,7 +58,7 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertIn("784", output)
 
     @patch.object(KaggleApi, "competitions_list")
-    def test_competitions_list_cli_csv_shows_zero_rank(self, mock_list):
+    def test_competitions_list_cli_csv_shows_zero_rank_succeeds(self, mock_list):
         response = ApiListCompetitionsResponse()
         response.competitions = [_make_competition(user_rank=0, user_has_entered=True)]
         mock_list.return_value = response
@@ -72,7 +72,7 @@ class TestCompetitionsList(unittest.TestCase):
 
     @patch.object(KaggleApi, "print_results")
     @patch.object(KaggleApi, "competitions_list")
-    def test_competitions_list_cli_passes_user_rank_to_print_results(self, mock_list, mock_print_results):
+    def test_competitions_list_cli_passes_user_rank_to_print_results_succeeds(self, mock_list, mock_print_results):
         response = ApiListCompetitionsResponse()
         response.competitions = [_make_competition()]
         mock_list.return_value = response
@@ -85,7 +85,7 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertIn("userRank", fields)
 
     @patch.object(KaggleApi, "competitions_list")
-    def test_competitions_list_cli_no_results(self, mock_list):
+    def test_competitions_list_cli_no_results_prints_message(self, mock_list):
         response = ApiListCompetitionsResponse()
         response.competitions = []
         mock_list.return_value = response
@@ -95,23 +95,23 @@ class TestCompetitionsList(unittest.TestCase):
 
         mock_print.assert_called_once_with("No competitions found")
 
-    def test_competitions_list_invalid_group(self):
+    def test_competitions_list_invalid_group_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competitions_list(group="invalid-group")
         self.assertIn("Invalid group specified", str(context.exception))
 
-    def test_competitions_list_invalid_category(self):
+    def test_competitions_list_invalid_category_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competitions_list(category="invalid-cat")
         self.assertIn("Invalid category specified", str(context.exception))
 
-    def test_competitions_list_invalid_sort_by(self):
+    def test_competitions_list_invalid_sort_by_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.competitions_list(sort_by="invalid-sort")
         self.assertIn("Invalid sort_by specified", str(context.exception))
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_competitions_list_success_defaults(self, mock_client):
+    def test_competitions_list_defaults_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_response = ApiListCompetitionsResponse()
         mock_kaggle.competitions.competition_api_client.list_competitions.return_value = mock_response
@@ -133,7 +133,7 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertEqual(request.page_token, "")
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_competitions_list_success_custom(self, mock_client):
+    def test_competitions_list_custom_filters_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
@@ -171,7 +171,7 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertEqual(request.group, CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING)
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_competitions_list_category_all(self, mock_client):
+    def test_competitions_list_category_all_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
@@ -183,7 +183,7 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertEqual(request.category, HostSegment.HOST_SEGMENT_UNSPECIFIED)
 
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_competitions_list_page_token_no_page(self, mock_client):
+    def test_competitions_list_page_token_precludes_page_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
