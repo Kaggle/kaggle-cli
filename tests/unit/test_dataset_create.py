@@ -216,7 +216,7 @@ class TestDatasetCreate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             self._write_metadata(tmpdir, metadata)
             open(os.path.join(tmpdir, "file1.csv"), "w").close()
-            
+
             with self.assertRaises(ValueError) as context:
                 self.api.dataset_create_new(tmpdir)
             self.assertIn("path was specified more than once", str(context.exception))
@@ -285,14 +285,14 @@ class TestDatasetCreate(unittest.TestCase):
             request = mock_kaggle.datasets.dataset_api_client.create_dataset_version.call_args[0][0]
             self.assertEqual(request.owner_slug, "testuser")
             self.assertEqual(request.dataset_slug, "test-dataset")
-            
+
             body = request.body
             self.assertEqual(body.version_notes, "version notes here")
             self.assertEqual(body.subtitle, "This is a valid subtitle with enough length")
             self.assertEqual(body.description, "Some description")
             self.assertEqual(body.category_ids, ["key1", "key2"])
             self.assertTrue(body.delete_old_versions)
-            
+
             self.assertEqual(response, mock_response)
 
     @patch.object(KaggleApi, "upload_files")
@@ -317,14 +317,13 @@ class TestDatasetCreate(unittest.TestCase):
             mock_kaggle.datasets.dataset_api_client.create_dataset_version_by_id.assert_called_once()
             request = mock_kaggle.datasets.dataset_api_client.create_dataset_version_by_id.call_args[0][0]
             self.assertEqual(request.id, 12345)
-            
+
             body = request.body
             self.assertEqual(body.version_notes, "version notes here")
             self.assertEqual(body.subtitle, "This is a valid subtitle with enough length")
-            
+
             self.assertEqual(response, mock_response)
 
 
 if __name__ == "__main__":
     unittest.main()
-

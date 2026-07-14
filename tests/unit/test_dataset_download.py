@@ -153,7 +153,9 @@ class TestDatasetDownload(unittest.TestCase):
     @patch.object(KaggleApi, "download_needed", return_value=True)
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_download_file_default_path(self, mock_client, mock_download_file, mock_download_needed, mock_get_default_dir):
+    def test_dataset_download_file_default_path(
+        self, mock_client, mock_download_file, mock_download_needed, mock_get_default_dir
+    ):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"

@@ -131,10 +131,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
     @patch.object(KaggleApi, "_upload_file")
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_metadata_update_with_image(self, mock_build, mock_upload_file):
-        metadata = {
-            "title": "New Title",
-            "image": "cover.png"
-        }
+        metadata = {"title": "New Title", "image": "cover.png"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
             json.dump(metadata, f)
@@ -170,9 +167,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertEqual(call_args.settings.image.crop_rectangles[1].title, "thumbnail")
 
     def test_metadata_update_with_image_file_not_found(self):
-        metadata = {
-            "image": "non-existent.png"
-        }
+        metadata = {"image": "non-existent.png"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
             json.dump(metadata, f)
@@ -182,9 +177,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertIn("Image file was not found", str(context.exception))
 
     def test_metadata_update_with_image_invalid_extension(self):
-        metadata = {
-            "image": "cover.txt"
-        }
+        metadata = {"image": "cover.txt"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
             json.dump(metadata, f)
@@ -199,9 +192,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
     @patch.object(KaggleApi, "_upload_file", return_value=None)
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_metadata_update_with_image_upload_failure(self, mock_build, mock_upload_file):
-        metadata = {
-            "image": "cover.png"
-        }
+        metadata = {"image": "cover.png"}
         meta_file = os.path.join(self.temp_dir, "dataset-metadata.json")
         with open(meta_file, "w") as f:
             json.dump(metadata, f)

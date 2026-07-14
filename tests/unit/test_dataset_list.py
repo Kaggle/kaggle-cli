@@ -83,7 +83,7 @@ class TestDatasetList(unittest.TestCase):
 
         mock_kaggle.datasets.dataset_api_client.list_datasets.assert_called_once()
         request = mock_kaggle.datasets.dataset_api_client.list_datasets.call_args[0][0]
-        
+
         self.assertEqual(request.group, DatasetSelectionGroup.DATASET_SELECTION_GROUP_PUBLIC)
         self.assertEqual(request.sort_by, DatasetSortBy.DATASET_SORT_BY_HOTTEST)
         self.assertEqual(request.file_type, DatasetFileTypeGroup.DATASET_FILE_TYPE_GROUP_ALL)
@@ -119,7 +119,7 @@ class TestDatasetList(unittest.TestCase):
 
         mock_kaggle.datasets.dataset_api_client.list_datasets.assert_called_once()
         request = mock_kaggle.datasets.dataset_api_client.list_datasets.call_args[0][0]
-        
+
         self.assertEqual(request.group, DatasetSelectionGroup.DATASET_SELECTION_GROUP_PUBLIC)
         self.assertEqual(request.sort_by, DatasetSortBy.DATASET_SORT_BY_VOTES)
         self.assertEqual(request.file_type, DatasetFileTypeGroup.DATASET_FILE_TYPE_GROUP_CSV)
