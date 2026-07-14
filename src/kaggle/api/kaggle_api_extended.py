@@ -558,6 +558,7 @@ class ResumableFileUpload(object):
         except Exception as e:
             print("Error while trying to load upload info:", e)
             return False
+
     def _is_previous_valid(self, previous):
         prev_req = previous.start_blob_upload_request.to_dict() if previous.start_blob_upload_request else None
         curr_req = self.start_blob_upload_request.to_dict() if self.start_blob_upload_request else None
@@ -653,7 +654,6 @@ class ResumableFileUpload(object):
             new.start_blob_upload_response = None
         new.upload_complete = other.get("upload_complete") or False
         return new
-
 
     def to_str(self):
         """Converts the ResumableFileUpload object to a string.

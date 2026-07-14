@@ -46,7 +46,7 @@ class TestCompetitionSubmit(unittest.TestCase):
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_submit_success(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
-        
+
         mock_upload_response = MagicMock()
         mock_upload_response.create_url = "http://upload-url"
         mock_upload_response.token = "token-123"
@@ -66,7 +66,7 @@ class TestCompetitionSubmit(unittest.TestCase):
         response = self.api.competition_submit(dummy_file, "my message", "comp-name", quiet=True, sandbox=True)
 
         self.assertEqual(response, mock_submit_response)
-        
+
         mock_kaggle.competitions.competition_api_client.start_submission_upload.assert_called_once()
         upload_request = mock_kaggle.competitions.competition_api_client.start_submission_upload.call_args[0][0]
         self.assertEqual(upload_request.competition_name, "comp-name")
@@ -147,11 +147,7 @@ class TestCompetitionSubmit(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         response = self.api.competition_submit_code(
-            "output.csv",
-            "code message",
-            "comp-name",
-            "owner/notebook",
-            kernel_version=5
+            "output.csv", "code message", "comp-name", "owner/notebook", kernel_version=5
         )
 
         self.assertEqual(response, mock_response)
@@ -202,6 +198,7 @@ class TestCompetitionSubmit(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api.competition_submit(dummy_file, "message", None, quiet=False)
@@ -218,6 +215,7 @@ class TestCompetitionSubmit(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api.competition_submit_code("output.csv", "message", None, "owner/notebook", quiet=False)
