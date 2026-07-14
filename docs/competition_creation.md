@@ -6,6 +6,7 @@ public competition-creation API endpoints (kagglesdk 0.1.31+):
 - [`kaggle competitions init`](#kaggle-competitions-init)
 - [`kaggle competitions create`](#kaggle-competitions-create)
 - [`kaggle competitions pages create`](#kaggle-competitions-pages-create)
+- [`kaggle competitions hosts`](#kaggle-competitions-hosts)
 - [`kaggle competitions launch`](#kaggle-competitions-launch)
 - [`kaggle competitions data update`](#kaggle-competitions-data-update)
 
@@ -307,6 +308,41 @@ deleted; attempting to delete one returns an error from the server.
 
 Deletion is not recoverable — there is no "undelete". List pages first with
 `kaggle competitions pages list <competition>` if you're unsure of the name.
+
+---
+
+## `kaggle competitions hosts`
+
+Lists the hosts (users with host access) for a competition. Useful for
+confirming who can edit settings, upload data, or launch — especially after
+adding or removing collaborators via the web UI.
+
+Also invocable as `kaggle competitions hosts list`.
+
+**Usage:**
+
+```bash
+kaggle competitions hosts <competition> [-v | --format json]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Examples:**
+
+```bash
+# Table output.
+kaggle competitions hosts my-comp
+
+# CSV — useful for piping into other tools.
+kaggle competitions hosts my-comp -v
+
+# JSON.
+kaggle competitions hosts my-comp --format json
+```
+
+Output columns: `userName`, `displayName`, `id`, `profileUrl`.
 
 ---
 

@@ -102,6 +102,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiDeleteCompetitionPageRequest,
     ApiUpdateCompetitionPageRequest,
     ApiGetCompetitionSettingsRequest,
+    ApiListCompetitionHostsRequest,
     ApiCreateCompetitionDataRequest,
     ApiCreateCompetitionDataResponse,
     ApiCompetitionDataFile,
@@ -883,6 +884,7 @@ class KaggleApi:
     episode_fields = ["id", "createTime", "endTime", "state", "type"]
     episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
     competition_page_fields = ["name"]
+    competition_host_fields = ["userName", "displayName", "id", "profileUrl"]
     competition_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
     competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
     valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
@@ -2394,6 +2396,49 @@ class KaggleApi:
             )
         else:
             print("No pages found")
+
+    def competition_list_hosts(self, competition: str):
+        """List hosts (users with host access) for a competition.
+
+        Args:
+            competition (str): The competition name (slug).
+
+        Returns:
+            list: A list of ApiCompetitionHost objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListCompetitionHostsRequest()
+            request.competition_name = competition
+            response = kaggle.competitions.competition_api_client.list_competition_hosts(request)
+            return response.hosts
+
+    def competition_list_hosts_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        csv_display=False,
+        quiet=False,
+        output_format=None,
+    ):
+        """CLI wrapper for competition_list_hosts."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+        if competition is None:
+            raise ValueError("No competition specified")
+
+        hosts = self.competition_list_hosts(competition)
+        if hosts:
+            self.print_results(
+                hosts,
+                self.competition_host_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
+        else:
+            print("No hosts found")
 
     def competition_create_page(
         self,

@@ -564,6 +564,38 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_delete._action_groups.append(parser_competitions_pages_delete_optional)
     parser_competitions_pages_delete.set_defaults(func=api.competition_delete_page_cli)
 
+    # Competitions hosts (group: list)
+    shared_competition_hosts_list = argparse.ArgumentParser(add_help=False)
+    shared_competition_hosts_list.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
+    shared_competition_hosts_list.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    _add_output_format_args(shared_competition_hosts_list)
+    shared_competition_hosts_list.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+
+    parser_competitions_hosts = subparsers_competitions.add_parser(
+        "hosts",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_hosts,
+        parents=[shared_competition_hosts_list],
+    )
+    subparsers_competitions_hosts = parser_competitions_hosts.add_subparsers(title="commands", dest="command")
+    subparsers_competitions_hosts.choices = Help.entity_hosts_choices
+
+    # Default action when no subcommand is given: list
+    parser_competitions_hosts.set_defaults(func=api.competition_list_hosts_cli)
+
+    # Competitions hosts list (explicit)
+    parser_competitions_hosts_list = subparsers_competitions_hosts.add_parser(
+        "list",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_hosts,
+        parents=[shared_competition_hosts_list],
+    )
+    parser_competitions_hosts_list.set_defaults(func=api.competition_list_hosts_cli)
+
     # Competitions data (group: update)
     parser_competitions_data = subparsers_competitions.add_parser(
         "data",
@@ -2225,6 +2257,7 @@ class Help(object):
         "replay",
         "logs",
         "pages",
+        "hosts",
         "data",
         "settings",
         "launch",
@@ -2292,6 +2325,7 @@ class Help(object):
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
     entity_pages_choices = ["list", "create", "update", "delete"]
+    entity_hosts_choices = ["list"]
     entity_data_choices = ["update"]
     entity_settings_choices = ["get"]
     config_choices = ["view", "set", "unset"]
@@ -2369,6 +2403,7 @@ class Help(object):
     command_competitions_pages_create = "Create a new page on a competition you host"
     command_competitions_pages_update = "Update fields on an existing competition page"
     command_competitions_pages_delete = "Delete a page from a competition you host"
+    command_competitions_hosts = "List hosts (users with host access) for a competition"
     command_competitions_data = "Manage a competition's data files"
     command_competitions_data_update = "Update (version) the data files for a competition you host"
     command_competitions_settings = "Manage settings for a competition you host"
