@@ -23,7 +23,7 @@ def mock_api(monkeypatch):
     return mock_api
 
 
-def test_main_success(monkeypatch, mock_api):
+def test_main_valid_command_succeeds(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
     mock_api.quota_view_cli.return_value = "mocked quota output"
 
@@ -39,7 +39,7 @@ def test_main_success(monkeypatch, mock_api):
     mock_api.authenticate.assert_not_called()
 
 
-def test_main_trigger_authenticate(monkeypatch, mock_api):
+def test_main_unauthenticated_calls_authenticate(monkeypatch, mock_api):
     mock_api._authenticated = False
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
     mock_api.quota_view_cli.return_value = "output"
@@ -52,7 +52,7 @@ def test_main_trigger_authenticate(monkeypatch, mock_api):
     mock_api.authenticate.assert_called_once()
 
 
-def test_main_version_warning_disable(monkeypatch, mock_api):
+def test_main_with_warning_disable_flag_succeeds(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "-W", "quota"])
     mock_api.quota_view_cli.return_value = "output"
 
@@ -67,7 +67,7 @@ def test_main_version_warning_disable(monkeypatch, mock_api):
     assert KaggleApi.already_printed_version_warning is True
 
 
-def test_main_http_error_401(monkeypatch, mock_api):
+def test_main_http_error_401_exits_with_error(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
 
     response = MagicMock()
@@ -89,7 +89,7 @@ def test_main_http_error_401(monkeypatch, mock_api):
     assert "Authentication required" in captured_out.getvalue()
 
 
-def test_main_http_error_generic(monkeypatch, mock_api):
+def test_main_http_error_generic_exits_with_error(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
 
     response = MagicMock()
@@ -109,7 +109,7 @@ def test_main_http_error_generic(monkeypatch, mock_api):
     assert "Internal Server Error" in captured_err.getvalue()
 
 
-def test_main_value_error(monkeypatch, mock_api):
+def test_main_value_error_exits_with_error(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
     mock_api.quota_view_cli.side_effect = ValueError("Invalid argument")
 
@@ -125,7 +125,7 @@ def test_main_value_error(monkeypatch, mock_api):
     assert "Invalid argument" in captured_err.getvalue()
 
 
-def test_main_keyboard_interrupt(monkeypatch, mock_api):
+def test_main_keyboard_interrupt_prints_cancelled_message(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
     mock_api.quota_view_cli.side_effect = KeyboardInterrupt()
 
@@ -139,7 +139,7 @@ def test_main_keyboard_interrupt(monkeypatch, mock_api):
     assert "User cancelled operation" in captured_out.getvalue()
 
 
-def test_main_api_exception(monkeypatch, mock_api):
+def test_main_api_exception_exits_with_error(monkeypatch, mock_api):
     monkeypatch.setattr(sys, "argv", ["kaggle", "quota"])
     mock_api.quota_view_cli.side_effect = IOError("API Error")
 
@@ -155,8 +155,13 @@ def test_main_api_exception(monkeypatch, mock_api):
     assert "API Error" in captured_err.getvalue()
 
 
-def test_parse_body():
+def test_parse_body_valid_json_returns_dict():
     from kaggle.cli import __parse_body
 
     assert __parse_body('{"a": 1}') == {"a": 1}
+
+
+def test_parse_body_invalid_json_returns_empty_dict():
+    from kaggle.cli import __parse_body
+
     assert __parse_body("invalid json") == {}
