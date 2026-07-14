@@ -217,12 +217,9 @@ class TestKernelsPush(unittest.TestCase):
                 {
                     "cell_type": "code",
                     "source": ["print('hello')\n", "print('world')"],
-                    "outputs": [{"output_type": "stream", "text": "hello\nworld"}]
+                    "outputs": [{"output_type": "stream", "text": "hello\nworld"}],
                 },
-                {
-                    "cell_type": "markdown",
-                    "source": ["# Heading"]
-                }
+                {"cell_type": "markdown", "source": ["# Heading"]},
             ]
         }
 
@@ -248,7 +245,7 @@ class TestKernelsPush(unittest.TestCase):
 
             # Verify pushed text is cleaned JSON
             pushed_json = json.loads(request.text)
-            
+
             # Verify outputs are cleared for code cell
             self.assertEqual(pushed_json["cells"][0]["outputs"], [])
             # Verify source is joined for code cell
@@ -358,6 +355,3 @@ class TestKernelsPush(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-

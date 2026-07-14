@@ -1771,24 +1771,29 @@ class TestDownloadFile:
     def test_download_file_retry_on_error(self, api, tmp_path):
         """Test that download_file retries on network error and resumes correctly."""
         import requests
+
         content1 = b"123"
         content2 = b"4567890"
         total_size = len(content1) + len(content2)
 
-        resp = self._make_response(content=content1, headers={
-            "Content-Length": str(total_size),
-            "Accept-Ranges": "bytes"
-        })
+        resp = self._make_response(
+            content=content1, headers={"Content-Length": str(total_size), "Accept-Ranges": "bytes"}
+        )
+
         def iter_with_error(chunk_size):
             yield content1
             raise requests.exceptions.ConnectionError("Simulated network failure")
+
         resp.iter_content = MagicMock(side_effect=iter_with_error)
         resp.request.headers = {"Authorization": "Bearer initial_token"}
 
-        retry_resp = self._make_response(content=content2, headers={
-            "Content-Length": str(len(content2)),
-            "Content-Range": f"bytes={len(content1)}-{total_size-1}/{total_size}"
-        })
+        retry_resp = self._make_response(
+            content=content2,
+            headers={
+                "Content-Length": str(len(content2)),
+                "Content-Range": f"bytes={len(content1)}-{total_size-1}/{total_size}",
+            },
+        )
 
         outfile = str(tmp_path / "retry_out.bin")
 
@@ -1810,6 +1815,7 @@ class TestDownloadFile:
     def test_download_file_resume_existing(self, api, tmp_path):
         """Test that download_file resumes correctly from an existing partial file."""
         import requests
+
         content_existing = b"already_here"
         content_remaining = b"_and_more"
         total_size = len(content_existing) + len(content_remaining)
@@ -1819,16 +1825,16 @@ class TestDownloadFile:
         with open(outfile, "wb") as f:
             f.write(content_existing)
 
-        resp = self._make_response(headers={
-            "Content-Length": str(total_size),
-            "Accept-Ranges": "bytes"
-        })
+        resp = self._make_response(headers={"Content-Length": str(total_size), "Accept-Ranges": "bytes"})
         resp.request.headers = {"Authorization": "Bearer token"}
 
-        resume_resp = self._make_response(content=content_remaining, headers={
-            "Content-Length": str(len(content_remaining)),
-            "Content-Range": f"bytes={len(content_existing)}-{total_size-1}/{total_size}"
-        })
+        resume_resp = self._make_response(
+            content=content_remaining,
+            headers={
+                "Content-Length": str(len(content_remaining)),
+                "Content-Range": f"bytes={len(content_existing)}-{total_size-1}/{total_size}",
+            },
+        )
 
         with patch("requests.request", return_value=resume_resp) as mock_request:
             api.download_file(resp, outfile, MagicMock(), resume=True, quiet=True)
@@ -1842,7 +1848,6 @@ class TestDownloadFile:
         assert os.path.isfile(outfile)
         with open(outfile, "rb") as f:
             assert f.read() == content_existing + content_remaining
-
 
 
 # ============================================================

@@ -218,9 +218,7 @@ class TestKernelsPull(unittest.TestCase):
     @patch("os.path.isfile")
     @patch("builtins.open")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_kernels_pull_no_kernel_metadata_exists(
-        self, mock_client, mock_open_file, mock_isfile, mock_exists
-    ):
+    def test_kernels_pull_no_kernel_metadata_exists(self, mock_client, mock_open_file, mock_isfile, mock_exists):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_blob = MagicMock()
@@ -232,12 +230,14 @@ class TestKernelsPull(unittest.TestCase):
         mock_kaggle.kernels.kernels_api_client.get_kernel.return_value = mock_response
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
-        
+
         metadata_path = os.path.normpath("/tmp/dummy/kernel-metadata.json")
         effective_path = os.path.normpath("/tmp/dummy")
+
         def exists_side_effect(p):
             p_norm = os.path.normpath(p)
             return p_norm == metadata_path or p_norm == effective_path
+
         mock_exists.side_effect = exists_side_effect
         mock_isfile.return_value = False
 
@@ -248,7 +248,7 @@ class TestKernelsPull(unittest.TestCase):
         self.api.kernels_pull(None, path="/tmp/dummy")
 
         mock_open_file.assert_any_call(metadata_path)
-        
+
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
@@ -290,9 +290,11 @@ class TestKernelsPull(unittest.TestCase):
 
         metadata_path = os.path.normpath("/tmp/cwd/kernel-metadata.json")
         effective_path = os.path.normpath("/tmp/cwd")
+
         def exists_side_effect(p):
             p_norm = os.path.normpath(p)
             return p_norm == metadata_path or p_norm == effective_path
+
         mock_exists.side_effect = exists_side_effect
         mock_isfile.return_value = False
 
@@ -302,7 +304,7 @@ class TestKernelsPull(unittest.TestCase):
         self.api.kernels_pull(None, None)
 
         mock_open_file.assert_any_call(metadata_path)
-        
+
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
@@ -316,9 +318,7 @@ class TestKernelsPull(unittest.TestCase):
     @patch("builtins.open", new_callable=mock_open)
     @patch.object(KaggleApi, "get_default_download_dir", return_value="/tmp/default_dir")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_kernels_pull_no_path(
-        self, mock_client, mock_get_dir, mock_open_file, mock_isfile, mock_exists
-    ):
+    def test_kernels_pull_no_path(self, mock_client, mock_get_dir, mock_open_file, mock_isfile, mock_exists):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_blob = MagicMock()
@@ -334,12 +334,10 @@ class TestKernelsPull(unittest.TestCase):
         self.api.kernels_pull("owner/my-slug", None)
 
         mock_get_dir.assert_called_once_with("kernels", "owner", "my-slug")
-        
+
         expected_path = os.path.normpath("/tmp/default_dir/my-slug.py")
         mock_open_file.assert_called_once_with(expected_path, "w", encoding="utf-8")
 
 
 if __name__ == "__main__":
     unittest.main()
-
-
