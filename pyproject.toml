@@ -51,13 +51,15 @@ packages = ["src/kaggle"]
 
 [tool.hatch.envs.test]
 dependencies = [
-    "pytest"
+    "pytest",
+    "pytest-cov"
 ]
 
 [tool.hatch.envs.test.scripts]
 local = "source tools/use-localhost.sh; cd tests/backend; python backend_tests.py --failfast"
 prod = "source tools/use-prod.sh; cd tests/backend; python backend_tests.py --failfast"
 integration = "pytest tests/integration"
+cov = "pytest --cov=src/kaggle --cov-report=xml --cov-report=html --cov-report=term-missing tests/unit"
 
 [tool.hatch.envs.lint]
 detached = true
