@@ -51,17 +51,21 @@ def _dispatch(parser, argv):
 
 
 # Task 1.1: Quota
-def test_quota_parser_succeeds(parser):
+def test_quota_parser_default_succeeds(parser):
     func, kwargs = _dispatch(parser, ["quota"])
     assert func.__name__ == "quota_view_cli"
     assert kwargs.get("csv_display") is False
     assert kwargs.get("output_format") is None
 
+
+def test_quota_parser_csv_succeeds(parser):
     func, kwargs = _dispatch(parser, ["quota", "--csv"])
     assert func.__name__ == "quota_view_cli"
     assert kwargs["csv_display"] is True
     assert kwargs.get("output_format") is None
 
+
+def test_quota_parser_format_json_succeeds(parser):
     func, kwargs = _dispatch(parser, ["quota", "--format", "json"])
     assert func.__name__ == "quota_view_cli"
     assert kwargs["csv_display"] is False
@@ -89,40 +93,46 @@ def test_config_unset_parser_succeeds(parser):
 
 
 # Task 1.3: Auth
-def test_auth_login_parser_succeeds(parser):
+def test_auth_login_parser_default_succeeds(parser):
     func, kwargs = _dispatch(parser, ["auth", "login"])
     assert func.__name__ == "auth_login_cli"
     assert kwargs["no_launch_browser"] is False
     assert kwargs["force"] is False
 
+
+def test_auth_login_parser_with_flags_succeeds(parser):
     func, kwargs = _dispatch(parser, ["auth", "login", "--no-launch-browser", "--force"])
     assert func.__name__ == "auth_login_cli"
     assert kwargs["no_launch_browser"] is True
     assert kwargs["force"] is True
 
 
-def test_auth_print_token_parser_succeeds(parser):
+def test_auth_print_access_token_parser_default_succeeds(parser):
     func, kwargs = _dispatch(parser, ["auth", "print-access-token"])
     assert func.__name__ == "auth_print_access_token"
     assert kwargs["expiration_duration"] is None
 
+
+def test_auth_print_access_token_parser_with_expiration_succeeds(parser):
     func, kwargs = _dispatch(parser, ["auth", "print-access-token", "--expiration", "6h"])
     assert func.__name__ == "auth_print_access_token"
     assert kwargs["expiration_duration"] == "6h"
 
 
-def test_auth_revoke_parser_succeeds(parser):
+def test_auth_revoke_token_parser_default_succeeds(parser):
     func, kwargs = _dispatch(parser, ["auth", "revoke"])
     assert func.__name__ == "auth_revoke_token"
     assert kwargs["reason"] is None
 
+
+def test_auth_revoke_token_parser_with_reason_succeeds(parser):
     func, kwargs = _dispatch(parser, ["auth", "revoke", "--reason", "compromised"])
     assert func.__name__ == "auth_revoke_token"
     assert kwargs["reason"] == "compromised"
 
 
 # Task 1.4: Files
-def test_files_upload_parser_succeeds(parser):
+def test_files_upload_parser_default_succeeds(parser):
     func, kwargs = _dispatch(parser, ["files", "upload", "file1.zip", "file2.txt"])
     assert func.__name__ == "files_upload_cli"
     assert kwargs["local_paths"] == ["file1.zip", "file2.txt"]
@@ -130,6 +140,8 @@ def test_files_upload_parser_succeeds(parser):
     assert kwargs["no_resume"] is False
     assert kwargs["no_compress"] is False
 
+
+def test_files_upload_parser_with_flags_succeeds(parser):
     func, kwargs = _dispatch(parser, ["files", "upload", "file1.zip", "-i", "my_inbox", "--no-resume", "--no-compress"])
     assert func.__name__ == "files_upload_cli"
     assert kwargs["local_paths"] == ["file1.zip"]
