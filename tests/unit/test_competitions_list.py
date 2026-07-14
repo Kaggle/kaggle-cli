@@ -7,7 +7,8 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, "../..")
 
-from kagglesdk.competitions.types.competition_api_service import ApiCompetition, ApiListCompetitionsResponse
+from kagglesdk.competitions.types.competition_api_service import ApiCompetition, ApiListCompetitionsResponse, ApiListCompetitionsRequest
+from kagglesdk.competitions.types.competition_enums import CompetitionListTab, HostSegment, CompetitionSortBy
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
@@ -89,6 +90,94 @@ class TestCompetitionsList(unittest.TestCase):
             self.api.competitions_list_cli(group="entered")
 
         mock_print.assert_called_once_with("No competitions found")
+
+    def test_competitions_list_invalid_group(self):
+        with self.assertRaises(ValueError) as context:
+            self.api.competitions_list(group="invalid-group")
+        self.assertIn("Invalid group specified", str(context.exception))
+
+    def test_competitions_list_invalid_category(self):
+        with self.assertRaises(ValueError) as context:
+            self.api.competitions_list(category="invalid-cat")
+        self.assertIn("Invalid category specified", str(context.exception))
+
+    def test_competitions_list_invalid_sort_by(self):
+        with self.assertRaises(ValueError) as context:
+            self.api.competitions_list(sort_by="invalid-sort")
+        self.assertIn("Invalid sort_by specified", str(context.exception))
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_competitions_list_success_defaults(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_response = ApiListCompetitionsResponse()
+        mock_kaggle.competitions.competition_api_client.list_competitions.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        response = self.api.competitions_list()
+
+        self.assertEqual(response, mock_response)
+        mock_kaggle.competitions.competition_api_client.list_competitions.assert_called_once()
+        request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
+        
+        self.assertEqual(request.group, CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING)
+        self.assertEqual(request.category, HostSegment.HOST_SEGMENT_UNSPECIFIED)
+        self.assertEqual(request.sort_by, CompetitionSortBy.COMPETITION_SORT_BY_BEST)
+        self.assertEqual(request.page, 1)
+        self.assertEqual(request.search, "")
+        self.assertEqual(request.page_size, 20)
+        self.assertEqual(request.page_token, '')
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_competitions_list_success_custom(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.competitions_list(
+            group="entered",
+            category="featured",
+            sort_by="prize",
+            page=3,
+            search="terms",
+            page_size=50,
+            page_token="token-abc"
+        )
+
+        request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
+        self.assertEqual(request.group, CompetitionListTab.COMPETITION_LIST_TAB_ENTERED)
+        self.assertEqual(request.category, HostSegment.HOST_SEGMENT_FEATURED)
+        self.assertEqual(request.sort_by, CompetitionSortBy.COMPETITION_SORT_BY_PRIZE)
+        self.assertEqual(request.page, 3)
+        self.assertEqual(request.search, "terms")
+        self.assertEqual(request.page_size, 50)
+        self.assertEqual(request.page_token, "token-abc")
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_competitions_list_category_all(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.competitions_list(category="all")
+
+        request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
+        self.assertEqual(request.category, HostSegment.HOST_SEGMENT_UNSPECIFIED)
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_competitions_list_page_token_no_page(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.competitions_list(page_token="token-xyz")
+
+        request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
+        self.assertEqual(request.page, 0)
+        self.assertEqual(request.page_token, "token-xyz")
 
 
 if __name__ == "__main__":
