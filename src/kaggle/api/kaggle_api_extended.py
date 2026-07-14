@@ -558,11 +558,12 @@ class ResumableFileUpload(object):
         except Exception as e:
             print("Error while trying to load upload info:", e)
             return False
-
     def _is_previous_valid(self, previous):
+        prev_req = previous.start_blob_upload_request.to_dict() if previous.start_blob_upload_request else None
+        curr_req = self.start_blob_upload_request.to_dict() if self.start_blob_upload_request else None
         return (
             previous.path == self.path
-            and previous.start_blob_upload_request == self.start_blob_upload_request
+            and prev_req == curr_req
             and previous.timestamp > time.time() - ResumableFileUpload.RESUMABLE_UPLOAD_EXPIRY_SECONDS
         )
 
@@ -581,6 +582,7 @@ class ResumableFileUpload(object):
             return
 
         self.start_blob_upload_response = start_blob_upload_response
+        self.can_resume = True
         with io.open(self._upload_info_file_path, "w") as f:
             json.dump(self.to_dict(), f, indent=True)
 
@@ -641,17 +643,17 @@ class ResumableFileUpload(object):
         Returns:
             A new ResumableFileUpload object.
         """
-        req = ApiStartBlobUploadRequest()
-        req.from_dict(other["start_blob_upload_request"])
+        req = ApiStartBlobUploadRequest.from_dict(other["start_blob_upload_request"])
         new = ResumableFileUpload(other["path"], req, context)
         new.timestamp = other.get("timestamp")
         start_blob_upload_response = other.get("start_blob_upload_response")
         if start_blob_upload_response is not None:
-            rsp = ApiStartBlobUploadResponse()
-            rsp.from_dict(**start_blob_upload_response)
-            new.start_blob_upload_response = rsp
-            new.upload_complete = other.get("upload_complete") or False
+            new.start_blob_upload_response = ApiStartBlobUploadResponse.from_dict(start_blob_upload_response)
+        else:
+            new.start_blob_upload_response = None
+        new.upload_complete = other.get("upload_complete") or False
         return new
+
 
     def to_str(self):
         """Converts the ResumableFileUpload object to a string.
@@ -1600,10 +1602,10 @@ class KaggleApi:
         """
         group_val = CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING
         if group:
-            if group not in self.valid_competition_groups:
-                raise ValueError("Invalid group specified. Valid options are " + str(self.valid_competition_groups))
             if group == "all":
                 group_val = CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING
+            elif group not in self.valid_competition_groups:
+                raise ValueError("Invalid group specified. Valid options are " + str(self.valid_competition_groups))
             else:
                 group_val = self.lookup_enum(CompetitionListTab, group_val, group)
 
@@ -4242,7 +4244,7 @@ class KaggleApi:
             else:
                 license_name_val = self.lookup_enum(DatasetLicenseGroup, license_name_val, license_name)
 
-        if page and int(page) <= 0:
+        if page is not None and int(page) <= 0:
             raise ValueError("Page number must be >= 1")
 
         if max_size and min_size:
@@ -4894,17 +4896,20 @@ class KaggleApi:
         file_upload = upload_context.new_resumable_file_upload(path, start_blob_upload_request)
         for i in range(0, self.MAX_UPLOAD_RESUME_ATTEMPTS):
             if file_upload.upload_complete:
-                return file_upload
+                return file_upload.get_token()
 
+            just_initiated = False
             if not file_upload.can_resume:
                 # Initiate upload on Kaggle backend to get the url and token.
                 with self.build_kaggle_client() as kaggle:
                     method = kaggle.blobs.blob_api_client.start_blob_upload
                     start_blob_upload_response = self.with_retry(method)(file_upload.start_blob_upload_request)
                     file_upload.upload_initiated(cast(ApiStartBlobUploadResponse, start_blob_upload_response))
+                    just_initiated = True
 
             upload_response = cast(ApiStartBlobUploadResponse, file_upload.start_blob_upload_response)
-            upload_result = self.upload_complete(path, upload_response.create_url, quiet, resume=file_upload.can_resume)
+            resume_attempt = file_upload.can_resume and not just_initiated
+            upload_result = self.upload_complete(path, upload_response.create_url, quiet, resume=resume_attempt)
             if upload_result == ResumableUploadResult.INCOMPLETE:
                 continue  # Continue (i.e., retry/resume) only if the upload is incomplete.
 
@@ -6709,8 +6714,10 @@ class KaggleApi:
             raise ValueError("Default slug detected, please change values before uploading")
         if not isinstance(is_private, bool):
             raise ValueError("model.isPrivate must be a boolean")
+
         if publish_time:
             self.validate_date(publish_time)
+            publish_time = datetime.strptime(publish_time, "%Y-%m-%d")
         else:
             publish_time = None
 
@@ -6821,16 +6828,19 @@ class KaggleApi:
         if subtitle != None:
             update_mask["paths"].append("subtitle")
         if is_private != None:
-            update_mask["paths"].append("isPrivate")  # is_private
+            update_mask["paths"].append("is_private")
         else:
             is_private = True  # default value, not updated
         if description != None:
             description = self.sanitize_markdown(description)
             update_mask["paths"].append("description")
+
         if publish_time != None and len(publish_time) > 0:
             update_mask["paths"].append("publish_time")
+            publish_time = datetime.strptime(publish_time, "%Y-%m-%d")
         else:
             publish_time = None
+
         if provenance_sources != None and len(provenance_sources) > 0:
             update_mask["paths"].append("provenance_sources")
         else:
@@ -6838,7 +6848,6 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             fm = field_mask_pb2.FieldMask(paths=update_mask["paths"])
-            fm = fm.FromJsonString(json.dumps(update_mask))
             request = ApiUpdateModelRequest()
             request.owner_slug = owner_slug
             request.model_slug = slug
@@ -7278,23 +7287,22 @@ class KaggleApi:
             usage = self.sanitize_markdown(usage)
             update_mask["paths"].append("usage")
         if license_name != None:
-            update_mask["paths"].append("licenseName")
+            update_mask["paths"].append("license_name")
         else:
             license_name = "Apache 2.0"  # default value even if not updated
         if fine_tunable != None:
-            update_mask["paths"].append("fineTunable")
+            update_mask["paths"].append("fine_tunable")
         if training_data != None:
-            update_mask["paths"].append("trainingData")
+            update_mask["paths"].append("training_data")
         if model_instance_type != None:
-            update_mask["paths"].append("modelInstanceType")
+            update_mask["paths"].append("model_instance_type")
         if base_model_instance != None:
-            update_mask["paths"].append("baseModelInstance")
+            update_mask["paths"].append("base_model_instance")
         if external_base_model_url != None:
-            update_mask["paths"].append("externalBaseModelUrl")
+            update_mask["paths"].append("external_base_model_url")
 
         with self.build_kaggle_client() as kaggle:
             fm = field_mask_pb2.FieldMask(paths=update_mask["paths"])
-            fm = fm.FromJsonString(json.dumps(update_mask))
             request = ApiUpdateModelInstanceRequest()
             request.owner_slug = owner_slug
             request.model_slug = model_slug
