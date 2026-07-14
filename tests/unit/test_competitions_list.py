@@ -7,7 +7,11 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, "../..")
 
-from kagglesdk.competitions.types.competition_api_service import ApiCompetition, ApiListCompetitionsResponse, ApiListCompetitionsRequest
+from kagglesdk.competitions.types.competition_api_service import (
+    ApiCompetition,
+    ApiListCompetitionsResponse,
+    ApiListCompetitionsRequest,
+)
 from kagglesdk.competitions.types.competition_enums import CompetitionListTab, HostSegment, CompetitionSortBy
 
 from kaggle.api.kaggle_api_extended import KaggleApi
@@ -119,14 +123,14 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertEqual(response, mock_response)
         mock_kaggle.competitions.competition_api_client.list_competitions.assert_called_once()
         request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
-        
+
         self.assertEqual(request.group, CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING)
         self.assertEqual(request.category, HostSegment.HOST_SEGMENT_UNSPECIFIED)
         self.assertEqual(request.sort_by, CompetitionSortBy.COMPETITION_SORT_BY_BEST)
         self.assertEqual(request.page, 1)
         self.assertEqual(request.search, "")
         self.assertEqual(request.page_size, 20)
-        self.assertEqual(request.page_token, '')
+        self.assertEqual(request.page_token, "")
 
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_competitions_list_success_custom(self, mock_client):
@@ -142,7 +146,7 @@ class TestCompetitionsList(unittest.TestCase):
             page=3,
             search="terms",
             page_size=50,
-            page_token="token-abc"
+            page_token="token-abc",
         )
 
         request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
