@@ -53,10 +53,6 @@ steps:
   args:
   - '-c'
   - |
-    if [ "$BRANCH_NAME" != "main" ]; then
-      echo "Not on main branch ($BRANCH_NAME), skipping secrets download."
-      exit 0
-    fi
     gcloud secrets versions access latest --secret=integration-tests --project=464139560241 > /root/secrets.sh
   volumes:
   - name: 'root'
