@@ -182,7 +182,13 @@ class TestKernelsPull(unittest.TestCase):
     def test_kernels_pull_extensions(self, mock_client, mock_open_file, mock_isfile, mock_exists):
         scenarios = [
             ("python", "script", ".py"),
+            ("r", "script", ".R"),
+            ("rmarkdown", "script", ".Rmd"),
+            ("sqlite", "script", ".sql"),
+            ("julia", "script", ".jl"),
             ("python", "notebook", ".ipynb"),
+            ("r", "notebook", ".irnb"),
+            ("julia", "notebook", ".ijlnb"),
         ]
         for lang, kt, expected_ext in scenarios:
             # Setup mocks
