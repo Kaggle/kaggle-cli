@@ -80,10 +80,7 @@ class TestUploadHelpers(unittest.TestCase):
 
         res = self.api._resume_upload("path", "url", 1000, quiet=True)
         self.assertEqual(res.result, ResumableUploadResult.COMPLETE)
-        mock_session.headers.update.assert_called_once_with({
-            "Content-Length": "0",
-            "Content-Range": "bytes */1000"
-        })
+        mock_session.headers.update.assert_called_once_with({"Content-Length": "0", "Content-Range": "bytes */1000"})
 
     @patch("requests.Session")
     def test_resume_upload_success_201(self, mock_session_cls):
@@ -196,6 +193,7 @@ class TestUploadHelpers(unittest.TestCase):
         path = self._create_dummy_file(100)
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             res = self.api.upload_complete(path, "http://url", quiet=True)
@@ -207,7 +205,7 @@ class TestUploadHelpers(unittest.TestCase):
     @patch("kaggle.api.kaggle_api_extended.tqdm")
     def test_upload_complete_resume_complete(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Complete()
-        
+
         path = self._create_dummy_file(100)
         res = self.api.upload_complete(path, "http://url", quiet=True, resume=True)
         self.assertEqual(res, ResumableUploadResult.COMPLETE)
@@ -219,7 +217,7 @@ class TestUploadHelpers(unittest.TestCase):
     @patch("kaggle.api.kaggle_api_extended.tqdm")
     def test_upload_complete_resume_failed(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Failed()
-        
+
         path = self._create_dummy_file(100)
         res = self.api.upload_complete(path, "http://url", quiet=True, resume=True)
         self.assertEqual(res, ResumableUploadResult.FAILED)
@@ -231,7 +229,7 @@ class TestUploadHelpers(unittest.TestCase):
     @patch("kaggle.api.kaggle_api_extended.tqdm")
     def test_upload_complete_resume_incomplete(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Incomplete(40)
-        
+
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -242,11 +240,8 @@ class TestUploadHelpers(unittest.TestCase):
         res = self.api.upload_complete(path, "http://url", quiet=True, resume=True)
         self.assertEqual(res, ResumableUploadResult.COMPLETE)
         mock_resume.assert_called_once()
-        
-        mock_session.headers.update.assert_any_call({
-            "Content-Length": "59",
-            "Content-Range": "bytes 41-99/100"
-        })
+
+        mock_session.headers.update.assert_any_call({"Content-Length": "59", "Content-Range": "bytes 41-99/100"})
 
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
@@ -260,9 +255,9 @@ class TestUploadHelpers(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         path = self._create_dummy_file(100)
-        
+
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
-        
+
         with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=self.temp_dir):
             context = ResumableUploadContext(no_resume=False)
             with context:
@@ -284,25 +279,26 @@ class TestUploadHelpers(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         path = self._create_dummy_file(100)
-        
+
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
-        
+
         context = ResumableUploadContext(no_resume=True)
-        
+
         with self.assertRaises(AttributeError) as cm:
             self.api._upload_blob(path, quiet=True, blob_type=ApiBlobType.INBOX, upload_context=context)
-            
+
         self.assertIn("'NoneType' object has no attribute", str(cm.exception))
 
     # _upload_file tests
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
     def test_upload_file_success_no_resources(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
-        
+
         result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=None)
-        
+
         self.assertIsNotNone(result)
         self.assertEqual(result.token, "token-123")
         self.assertIsNone(result.description)
@@ -311,19 +307,21 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_upload_blob", return_value=None)
     def test_upload_file_failure(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
-        
+
         result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=None)
-        
+
         self.assertIsNone(result)
 
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
     def test_upload_file_success_with_resources(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
-        
+
         resources = [
             {
                 "path": "dummy.bin",
@@ -334,14 +332,14 @@ class TestUploadHelpers(unittest.TestCase):
                         {"name": "col2", "type": "numeric"},
                         {"name": "col3", "type": "boolean"},
                         {"name": "col4", "type": "datetime"},
-                        {"name": "col5", "type": "unknown-type"}
+                        {"name": "col5", "type": "unknown-type"},
                     ]
-                }
+                },
             }
         ]
-        
+
         result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=resources)
-        
+
         self.assertIsNotNone(result)
         self.assertEqual(result.token, "token-123")
         self.assertEqual(result.description, "my description")
@@ -366,15 +364,17 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
     def test_upload_file_verbose(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
-        
+
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=False, resources=None)
-            
+
         self.assertIsNotNone(result)
         self.assertIn("Starting upload for file dummy.bin", f.getvalue())
         self.assertIn("Upload successful: dummy.bin", f.getvalue())
@@ -382,15 +382,17 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_upload_blob", return_value=None)
     def test_upload_file_failure_verbose(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
-        
+
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=False, resources=None)
-            
+
         self.assertIsNone(result)
         self.assertIn("Upload unsuccessful: dummy.bin", f.getvalue())
 
@@ -398,15 +400,16 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_upload_blob_already_complete(self, mock_client):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
         context = MagicMock(spec=ResumableUploadContext)
         mock_file_upload = MagicMock()
         mock_file_upload.upload_complete = True
         mock_file_upload.get_token.return_value = "token-already-done"
         context.new_resumable_file_upload.return_value = mock_file_upload
-        
+
         path = self._create_dummy_file(100)
         result = self.api._upload_blob(path, quiet=True, blob_type=ApiBlobType.INBOX, upload_context=context)
-        
+
         self.assertEqual(result, mock_file_upload)
         mock_client.assert_not_called()
 
@@ -424,9 +427,9 @@ class TestUploadHelpers(unittest.TestCase):
         mock_upload_complete.side_effect = [ResumableUploadResult.INCOMPLETE, ResumableUploadResult.COMPLETE]
 
         path = self._create_dummy_file(100)
-        
+
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
-        
+
         with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=self.temp_dir):
             context = ResumableUploadContext(no_resume=False)
             with context:
@@ -447,6 +450,7 @@ class TestUploadHelpers(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api._resume_upload("path/to/file", "url", 1000, quiet=False)
@@ -463,6 +467,7 @@ class TestUploadHelpers(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api._resume_upload("path", "url", 1000, quiet=False)
@@ -478,6 +483,7 @@ class TestUploadHelpers(unittest.TestCase):
 
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api._resume_upload("path", "url", 1000, quiet=False)
@@ -488,6 +494,7 @@ class TestUploadHelpers(unittest.TestCase):
         response.headers = {"Range": "invalid"}
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api._get_bytes_already_uploaded(response, quiet=False)
@@ -498,6 +505,7 @@ class TestUploadHelpers(unittest.TestCase):
         response.headers = {"Range": "bytes=0-abc"}
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             self.api._get_bytes_already_uploaded(response, quiet=False)
@@ -510,6 +518,7 @@ class TestResumableFileUpload(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
         from kagglesdk.blobs.types.blob_api_service import ApiStartBlobUploadRequest
+
         self.req = ApiStartBlobUploadRequest()
         self.req.name = "test.bin"
         self.req.type = ApiBlobType.INBOX
@@ -519,6 +528,7 @@ class TestResumableFileUpload(unittest.TestCase):
 
     def test_get_token_not_complete(self):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=True)
         file_upload = ResumableFileUpload("path", self.req, context)
         self.assertIsNone(file_upload.get_token())
@@ -527,26 +537,29 @@ class TestResumableFileUpload(unittest.TestCase):
     def test_load_previous_invalid_json(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=False)
         with context:
             file_upload = ResumableFileUpload("path/to/file.bin", self.req, context)
-            
+
             info_path = context.get_upload_info_file_path("path/to/file.bin")
             os.makedirs(os.path.dirname(info_path), exist_ok=True)
             with open(info_path, "w") as f:
                 f.write("{invalid json")
-                
+
             import io
             from contextlib import redirect_stdout
+
             f_err = io.StringIO()
             with redirect_stdout(f_err):
                 file_upload.load()
-            
+
             self.assertFalse(file_upload.can_resume)
             self.assertIn("Error while trying to load upload info", f_err.getvalue())
 
     def test_upload_completed_no_resume(self):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=True)
         file_upload = ResumableFileUpload("path", self.req, context)
         file_upload.upload_completed()
@@ -554,6 +567,7 @@ class TestResumableFileUpload(unittest.TestCase):
 
     def test_cleanup_no_resume(self):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=True)
         file_upload = ResumableFileUpload("path", self.req, context)
         file_upload.cleanup()
@@ -562,6 +576,7 @@ class TestResumableFileUpload(unittest.TestCase):
     def test_cleanup_file_not_found(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=False)
         with context:
             file_upload = ResumableFileUpload("path", self.req, context)
@@ -571,22 +586,23 @@ class TestResumableFileUpload(unittest.TestCase):
     def test_load_previous_expired(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=False)
         with context:
             file_upload = ResumableFileUpload("path.bin", self.req, context)
             expired_time = time.time() - (8 * 24 * 3600)
-            
+
             previous = ResumableFileUpload("path.bin", self.req, context)
             previous.timestamp = expired_time
             previous.start_blob_upload_response = ApiStartBlobUploadResponse()
             previous.start_blob_upload_response.token = "old-token"
             previous.start_blob_upload_response.create_url = "http://old-url"
-            
+
             info_path = context.get_upload_info_file_path("path.bin")
             os.makedirs(os.path.dirname(info_path), exist_ok=True)
             with open(info_path, "w") as f:
                 json.dump(previous.to_dict(), f)
-                
+
             file_upload.load()
             self.assertFalse(file_upload.can_resume)
 
@@ -594,28 +610,30 @@ class TestResumableFileUpload(unittest.TestCase):
     def test_load_previous_valid(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
         context = ResumableUploadContext(no_resume=False)
         with context:
             file_upload = ResumableFileUpload("path.bin", self.req, context)
             fresh_time = time.time() - 100
-            
+
             previous = ResumableFileUpload("path.bin", self.req, context)
             previous.timestamp = fresh_time
             previous.start_blob_upload_response = ApiStartBlobUploadResponse()
             previous.start_blob_upload_response.token = "valid-token"
             previous.start_blob_upload_response.create_url = "http://valid-url"
-            
+
             info_path = context.get_upload_info_file_path("path.bin")
             os.makedirs(os.path.dirname(info_path), exist_ok=True)
             with open(info_path, "w") as f:
                 json.dump(previous.to_dict(), f)
-                
+
             import io
             from contextlib import redirect_stdout
+
             f_err = io.StringIO()
             with redirect_stdout(f_err):
                 file_upload.load()
-            
+
             # Due to bug (Task 5.8), it fails to load and prints error
             self.assertFalse(file_upload.can_resume)
             self.assertIn("got an unexpected keyword argument 'token'", f_err.getvalue())
