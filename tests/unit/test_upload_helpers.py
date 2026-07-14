@@ -39,31 +39,31 @@ class TestUploadHelpers(unittest.TestCase):
         return path
 
     # _get_bytes_already_uploaded tests
-    def test_get_bytes_no_header(self):
+    def test_get_bytes_no_header_returns_zero(self):
         response = MagicMock()
         response.headers = {}
         bytes_uploaded = self.api._get_bytes_already_uploaded(response, quiet=True)
         self.assertEqual(bytes_uploaded, 0)
 
-    def test_get_bytes_valid_header(self):
+    def test_get_bytes_valid_header_returns_bytes(self):
         response = MagicMock()
         response.headers = {"Range": "bytes=0-1000"}
         bytes_uploaded = self.api._get_bytes_already_uploaded(response, quiet=True)
         self.assertEqual(bytes_uploaded, 1000)
 
-    def test_get_bytes_valid_header_no_bytes_prefix(self):
+    def test_get_bytes_valid_header_no_bytes_prefix_returns_bytes(self):
         response = MagicMock()
         response.headers = {"Range": "0-2000"}
         bytes_uploaded = self.api._get_bytes_already_uploaded(response, quiet=True)
         self.assertEqual(bytes_uploaded, 2000)
 
-    def test_get_bytes_invalid_header_format(self):
+    def test_get_bytes_invalid_header_format_returns_zero(self):
         response = MagicMock()
         response.headers = {"Range": "invalid"}
         bytes_uploaded = self.api._get_bytes_already_uploaded(response, quiet=True)
         self.assertIsNone(bytes_uploaded)
 
-    def test_get_bytes_invalid_int(self):
+    def test_get_bytes_invalid_int_returns_zero(self):
         response = MagicMock()
         response.headers = {"Range": "bytes=0-abc"}
         bytes_uploaded = self.api._get_bytes_already_uploaded(response, quiet=True)
@@ -71,7 +71,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     # _resume_upload tests
     @patch("requests.Session")
-    def test_resume_upload_success_200(self, mock_session_cls):
+    def test_resume_upload_success_200_returns_complete(self, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -83,7 +83,7 @@ class TestUploadHelpers(unittest.TestCase):
         mock_session.headers.update.assert_called_once_with({"Content-Length": "0", "Content-Range": "bytes */1000"})
 
     @patch("requests.Session")
-    def test_resume_upload_success_201(self, mock_session_cls):
+    def test_resume_upload_success_201_returns_complete(self, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -94,7 +94,7 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertEqual(res.result, ResumableUploadResult.COMPLETE)
 
     @patch("requests.Session")
-    def test_resume_upload_expired_404(self, mock_session_cls):
+    def test_resume_upload_expired_404_returns_expired(self, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -106,7 +106,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "_get_bytes_already_uploaded", return_value=500)
     @patch("requests.Session")
-    def test_resume_upload_incomplete_308(self, mock_session_cls, mock_get_bytes):
+    def test_resume_upload_incomplete_308_returns_incomplete(self, mock_session_cls, mock_get_bytes):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 308
@@ -121,7 +121,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "_get_bytes_already_uploaded", return_value=None)
     @patch("requests.Session")
-    def test_resume_upload_incomplete_308_error(self, mock_session_cls, mock_get_bytes):
+    def test_resume_upload_incomplete_308_error_returns_failed(self, mock_session_cls, mock_get_bytes):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 308
@@ -132,7 +132,7 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertEqual(res.result, ResumableUploadResult.FAILED)
 
     @patch("requests.Session")
-    def test_resume_upload_other_error(self, mock_session_cls):
+    def test_resume_upload_other_error_returns_failed(self, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -145,7 +145,7 @@ class TestUploadHelpers(unittest.TestCase):
     # upload_complete tests
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_success(self, mock_tqdm, mock_session_cls):
+    def test_upload_complete_success_returns_complete(self, mock_tqdm, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -159,7 +159,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_503_incomplete(self, mock_tqdm, mock_session_cls):
+    def test_upload_complete_503_returns_incomplete(self, mock_tqdm, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 503
@@ -172,7 +172,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_500_failed(self, mock_tqdm, mock_session_cls):
+    def test_upload_complete_500_returns_failed(self, mock_tqdm, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -185,7 +185,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_exception(self, mock_tqdm, mock_session_cls):
+    def test_upload_complete_exception_returns_failed(self, mock_tqdm, mock_session_cls):
         mock_session = MagicMock()
         mock_session.put.side_effect = Exception("network error")
         mock_session_cls.return_value = mock_session
@@ -203,7 +203,7 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_resume_upload")
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_resume_complete(self, mock_tqdm, mock_session_cls, mock_resume):
+    def test_upload_complete_resume_complete_returns_complete(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Complete()
 
         path = self._create_dummy_file(100)
@@ -215,7 +215,7 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_resume_upload")
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_resume_failed(self, mock_tqdm, mock_session_cls, mock_resume):
+    def test_upload_complete_resume_failed_returns_failed(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Failed()
 
         path = self._create_dummy_file(100)
@@ -227,7 +227,7 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_resume_upload")
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
-    def test_upload_complete_resume_incomplete(self, mock_tqdm, mock_session_cls, mock_resume):
+    def test_upload_complete_resume_incomplete_resumes_and_succeeds(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Incomplete(40)
 
         mock_session = MagicMock()
@@ -245,7 +245,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_upload_blob_success(self, mock_client, mock_upload_complete):
+    def test_upload_blob_valid_file_succeeds(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
         mock_response = ApiStartBlobUploadResponse()
         mock_response.create_url = "http://upload-url"
@@ -269,7 +269,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_upload_blob_no_resume_crash_bug(self, mock_client, mock_upload_complete):
+    def test_upload_blob_no_resume_raises_attribute_error(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
         mock_response = MagicMock()
         mock_response.create_url = "http://upload-url"
@@ -291,7 +291,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     # _upload_file tests
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
-    def test_upload_file_success_no_resources(self, mock_upload_blob):
+    def test_upload_file_no_resources_succeeds(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
 
         context = ResumableUploadContext(no_resume=True)
@@ -305,7 +305,7 @@ class TestUploadHelpers(unittest.TestCase):
         mock_upload_blob.assert_called_once_with(path, True, ApiBlobType.INBOX, context, None)
 
     @patch.object(KaggleApi, "_upload_blob", return_value=None)
-    def test_upload_file_failure(self, mock_upload_blob):
+    def test_upload_file_fails(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
 
         context = ResumableUploadContext(no_resume=True)
@@ -316,7 +316,7 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
-    def test_upload_file_success_with_resources(self, mock_upload_blob):
+    def test_upload_file_with_resources_succeeds(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
 
         context = ResumableUploadContext(no_resume=True)
@@ -362,7 +362,7 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertEqual(result.columns[4].order, 4)
 
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
-    def test_upload_file_verbose(self, mock_upload_blob):
+    def test_upload_file_verbose_succeeds(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
 
         context = ResumableUploadContext(no_resume=True)
@@ -380,7 +380,7 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertIn("Upload successful: dummy.bin", f.getvalue())
 
     @patch.object(KaggleApi, "_upload_blob", return_value=None)
-    def test_upload_file_failure_verbose(self, mock_upload_blob):
+    def test_upload_file_failure_verbose_fails(self, mock_upload_blob):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
 
         context = ResumableUploadContext(no_resume=True)
@@ -398,7 +398,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     # _upload_blob additional tests
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_upload_blob_already_complete(self, mock_client):
+    def test_upload_blob_already_complete_returns_token(self, mock_client):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext
 
         context = MagicMock(spec=ResumableUploadContext)
@@ -415,7 +415,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_complete")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_upload_blob_retry_loop(self, mock_client, mock_upload_complete):
+    def test_upload_blob_retry_loop_calls_start_upload_twice_due_to_bug(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
         mock_response = ApiStartBlobUploadResponse()
         mock_response.create_url = "http://upload-url"
@@ -441,7 +441,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     # Verbose/print tests
     @patch("requests.Session")
-    def test_resume_upload_expired_verbose(self, mock_session_cls):
+    def test_resume_upload_expired_verbose_returns_expired(self, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -458,7 +458,7 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "_get_bytes_already_uploaded", return_value=500)
     @patch("requests.Session")
-    def test_resume_upload_incomplete_verbose(self, mock_session_cls, mock_get_bytes):
+    def test_resume_upload_incomplete_verbose_returns_incomplete(self, mock_session_cls, mock_get_bytes):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 308
@@ -474,7 +474,7 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertIn("Already uploaded 500 bytes. Will resume upload at 501", f.getvalue())
 
     @patch("requests.Session")
-    def test_resume_upload_other_error_verbose(self, mock_session_cls):
+    def test_resume_upload_other_error_verbose_returns_failed(self, mock_session_cls):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -489,7 +489,7 @@ class TestUploadHelpers(unittest.TestCase):
             self.api._resume_upload("path", "url", 1000, quiet=False)
         self.assertIn("Server returned 500", f.getvalue())
 
-    def test_get_bytes_invalid_header_format_verbose(self):
+    def test_get_bytes_invalid_header_format_verbose_returns_zero(self):
         response = MagicMock()
         response.headers = {"Range": "invalid"}
         import io
@@ -500,7 +500,7 @@ class TestUploadHelpers(unittest.TestCase):
             self.api._get_bytes_already_uploaded(response, quiet=False)
         self.assertIn("Invalid Range header format", f.getvalue())
 
-    def test_get_bytes_invalid_int_verbose(self):
+    def test_get_bytes_invalid_int_verbose_returns_zero(self):
         response = MagicMock()
         response.headers = {"Range": "bytes=0-abc"}
         import io
@@ -526,7 +526,7 @@ class TestResumableFileUpload(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    def test_get_token_not_complete(self):
+    def test_get_token_not_complete_returns_none(self):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
         context = ResumableUploadContext(no_resume=True)
@@ -534,7 +534,7 @@ class TestResumableFileUpload(unittest.TestCase):
         self.assertIsNone(file_upload.get_token())
 
     @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
-    def test_load_previous_invalid_json(self, mock_tempdir):
+    def test_load_previous_invalid_json_returns_false(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
@@ -557,7 +557,7 @@ class TestResumableFileUpload(unittest.TestCase):
             self.assertFalse(file_upload.can_resume)
             self.assertIn("Error while trying to load upload info", f_err.getvalue())
 
-    def test_upload_completed_no_resume(self):
+    def test_upload_completed_no_resume_returns_early(self):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
         context = ResumableUploadContext(no_resume=True)
@@ -565,7 +565,7 @@ class TestResumableFileUpload(unittest.TestCase):
         file_upload.upload_completed()
         self.assertFalse(file_upload.upload_complete)
 
-    def test_cleanup_no_resume(self):
+    def test_cleanup_no_resume_returns_early(self):
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
         context = ResumableUploadContext(no_resume=True)
@@ -573,7 +573,7 @@ class TestResumableFileUpload(unittest.TestCase):
         file_upload.cleanup()
 
     @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
-    def test_cleanup_file_not_found(self, mock_tempdir):
+    def test_cleanup_file_not_found_ignores_error(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
@@ -583,7 +583,7 @@ class TestResumableFileUpload(unittest.TestCase):
             file_upload.cleanup()
 
     @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
-    def test_load_previous_expired(self, mock_tempdir):
+    def test_load_previous_expired_returns_false(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
@@ -607,7 +607,7 @@ class TestResumableFileUpload(unittest.TestCase):
             self.assertFalse(file_upload.can_resume)
 
     @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
-    def test_load_previous_valid(self, mock_tempdir):
+    def test_load_previous_valid_fails_due_to_bug(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
