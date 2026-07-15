@@ -167,6 +167,42 @@ class TestBenchmarksLeaderboard:
         with pytest.raises(ValueError, match="Either --show or --download must be specified"):
             api.benchmark_leaderboard_cli("owner/benchmark-slug")
 
+    def test_benchmark_leaderboard_cli_no_results_quiet(self, api, capsys):
+        # Arrange
+        mock_response = _make_leaderboard_response([])
+        api._mock_benchmarks.get_benchmark_leaderboard.return_value = mock_response
+
+        # Act
+        api.benchmark_leaderboard_cli("owner/benchmark-slug", view=True, quiet=True)
+
+        # Assert
+        captured = capsys.readouterr()
+        assert "No results found" not in captured.out
+
+    def test_benchmark_leaderboard_cli_download_quiet(self, api, tmp_path, capsys):
+        # Arrange
+        rows_data = [
+            {
+                "model_name": "Model A",
+                "model_slug": "model-a",
+                "results": [
+                    {"task_name": "Task 1", "task_slug": "task-1", "score": 0.85},
+                ],
+            }
+        ]
+        mock_response = _make_leaderboard_response(rows_data)
+        api._mock_benchmarks.get_benchmark_leaderboard.return_value = mock_response
+
+        # Act
+        api.benchmark_leaderboard_cli("owner/benchmark-slug", download=True, path=str(tmp_path), quiet=True)
+
+        # Assert
+        captured = capsys.readouterr()
+        assert "Leaderboard downloaded to" not in captured.out
+
+        expected_file = tmp_path / "benchmark-slug_leaderboard.csv"
+        assert expected_file.exists()
+
 
 class TestCliArgParsing:
 
@@ -214,6 +250,30 @@ class TestCliArgParsing:
                     "view": True,
                     "download": True,
                     "version": 3,
+                },
+            ),
+            (
+                "benchmarks leaderboard owner/benchmark-slug -s -q",
+                {
+                    "command": "leaderboard",
+                    "benchmark": "owner/benchmark-slug",
+                    "view": True,
+                    "download": False,
+                    "version": None,
+                    "path": None,
+                    "quiet": True,
+                },
+            ),
+            (
+                "benchmarks leaderboard owner/benchmark-slug -s --quiet",
+                {
+                    "command": "leaderboard",
+                    "benchmark": "owner/benchmark-slug",
+                    "view": True,
+                    "download": False,
+                    "version": None,
+                    "path": None,
+                    "quiet": True,
                 },
             ),
         ],

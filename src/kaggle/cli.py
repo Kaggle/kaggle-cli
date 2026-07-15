@@ -1891,6 +1891,7 @@ def parse_benchmarks_leaderboard(subparsers) -> None:
         "-d", "--download", dest="download", action="store_true", help=Help.param_benchmarks_leaderboard_download
     )
     parser_leaderboard_optional.add_argument("-p", "--path", dest="path", help=Help.param_downfolder)
+    parser_leaderboard_optional.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet)
     _add_output_format_args(parser_leaderboard_optional)
     parser_leaderboard._action_groups.append(parser_leaderboard_optional)
     parser_leaderboard.set_defaults(func=api.benchmark_leaderboard_cli)
