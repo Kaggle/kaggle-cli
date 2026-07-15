@@ -254,8 +254,20 @@ class TestModelCreate(unittest.TestCase):
             self.assertEqual(request.base_model_instance, "new-base")
             self.assertEqual(request.external_base_model_url, "http://new-example.com")
 
-            # Verify update_mask (expected to be None due to bug, see Task 5.2)
-            self.assertIsNone(request.update_mask)
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(
+                list(request.update_mask.paths),
+                [
+                    "overview",
+                    "usage",
+                    "license_name",
+                    "fine_tunable",
+                    "training_data",
+                    "model_instance_type",
+                    "base_model_instance",
+                    "external_base_model_url",
+                ],
+            )
 
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_model_instance_update_partial_fields_succeeds(self, mock_client):
@@ -280,8 +292,8 @@ class TestModelCreate(unittest.TestCase):
             self.assertFalse(request.fine_tunable)
             self.assertEqual(request.license_name, "Apache 2.0")
 
-            # Verify update_mask (expected to be None due to bug, see Task 5.2)
-            self.assertIsNone(request.update_mask)
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(list(request.update_mask.paths), ["overview", "usage"])
 
     def _get_valid_model_metadata(self):
         return {
@@ -444,8 +456,11 @@ class TestModelCreate(unittest.TestCase):
             self.assertIsNone(request.publish_time)
             self.assertEqual(request.provenance_sources, "")
 
-            # Verify update_mask (expected to be None due to bug, see Task 5.2)
-            self.assertIsNone(request.update_mask)
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(
+                list(request.update_mask.paths),
+                ["title", "subtitle", "is_private", "description"],
+            )
 
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_model_update_partial_fields_succeeds(self, mock_client):
@@ -471,7 +486,8 @@ class TestModelCreate(unittest.TestCase):
             self.assertTrue(request.is_private)
             self.assertEqual(request.description, "")
 
-            self.assertIsNone(request.update_mask)
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(list(request.update_mask.paths), ["title"])
 
 
 if __name__ == "__main__":

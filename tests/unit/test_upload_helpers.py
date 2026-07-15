@@ -410,12 +410,12 @@ class TestUploadHelpers(unittest.TestCase):
         path = self._create_dummy_file(100)
         result = self.api._upload_blob(path, quiet=True, blob_type=ApiBlobType.INBOX, upload_context=context)
 
-        self.assertEqual(result, mock_file_upload)
+        self.assertEqual(result, "token-already-done")
         mock_client.assert_not_called()
 
     @patch.object(KaggleApi, "upload_complete")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_upload_blob_retry_loop_calls_start_upload_twice_due_to_bug(self, mock_client, mock_upload_complete):
+    def test_upload_blob_retry_loop_calls_start_upload_once_succeeds(self, mock_client, mock_upload_complete):
         mock_kaggle = MagicMock()
         mock_response = ApiStartBlobUploadResponse()
         mock_response.create_url = "http://upload-url"
@@ -436,8 +436,8 @@ class TestUploadHelpers(unittest.TestCase):
                 token = self.api._upload_blob(path, quiet=True, blob_type=ApiBlobType.INBOX, upload_context=context)
 
         self.assertEqual(token, "token-123")
-        # Due to bug (Task 5.6), it is called twice because can_resume remains False in loop
-        self.assertEqual(mock_kaggle.blobs.blob_api_client.start_blob_upload.call_count, 2)
+        # Bug fixed: start_blob_upload should only be called once
+        self.assertEqual(mock_kaggle.blobs.blob_api_client.start_blob_upload.call_count, 1)
 
     # Verbose/print tests
     @patch("requests.Session")
@@ -607,7 +607,7 @@ class TestResumableFileUpload(unittest.TestCase):
             self.assertFalse(file_upload.can_resume)
 
     @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
-    def test_load_previous_valid_fails_due_to_bug(self, mock_tempdir):
+    def test_load_previous_valid_succeeds(self, mock_tempdir):
         mock_tempdir.return_value = self.temp_dir
         from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
 
@@ -627,16 +627,9 @@ class TestResumableFileUpload(unittest.TestCase):
             with open(info_path, "w") as f:
                 json.dump(previous.to_dict(), f)
 
-            import io
-            from contextlib import redirect_stdout
+            file_upload.load()
 
-            f_err = io.StringIO()
-            with redirect_stdout(f_err):
-                file_upload.load()
-
-            # Due to bug (Task 5.8), it fails to load and prints error
-            self.assertFalse(file_upload.can_resume)
-            self.assertIn("got an unexpected keyword argument 'token'", f_err.getvalue())
+            self.assertTrue(file_upload.can_resume)
 
 
 if __name__ == "__main__":
