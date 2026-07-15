@@ -4647,17 +4647,10 @@ class KaggleApi:
             # a plain string instead of JSON.
             selected_fields = ["status"]
         else:
-            format_name, fields = _parse_format(format)
+            format_name, _ = _parse_format(format)
             if format_name != "json":
                 raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
-            if fields:
-                unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
-                if unknown:
-                    raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
-                selected_fields = list(fields)
-            else:
-                # No projection: include all fields.
-                selected_fields = list(self._DATASET_STATUS_FIELDS)
+            selected_fields, _ = self._resolve_projection(format, list(self._DATASET_STATUS_FIELDS))
 
         if "/" in dataset:
             self.validate_dataset_string(dataset)
