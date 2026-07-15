@@ -3928,11 +3928,11 @@ class KaggleApi:
         """Recursively print comments with indentation to show tree structure."""
         indent = "  " * depth
         for comment in comments or []:
-            author = getattr(comment, "author_name", "Unknown")
+            author = getattr(comment, "author_name", None) or "[deleted]"
             date = getattr(comment, "post_date", "")
             votes = getattr(comment, "votes", 0)
-            content = getattr(comment, "content", "")
-            if content:
+            content = getattr(comment, "content", None) or "[deleted]"
+            if content and content != "[deleted]":
                 content = bleach.clean(content, tags=[], strip=True).strip()
                 # Truncate long content for display
                 if len(content) > 200:
