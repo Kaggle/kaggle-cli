@@ -2308,7 +2308,7 @@ class TestBenchmarksInit:
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
         assert "LLM_DEFAULT_EVAL=google/gemini-3-flash-preview\n" in content
         assert (
-            "LLMS_AVAILABLE=anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5\n"
+            "LLMS_AVAILABLE=anthropic/claude-sonnet-5@default,deepseek-ai/deepseek-r1-0528,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,ibm/granite-4.0-h-small,openai/gpt-5.4-nano-2026-03-17,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct\n"
             in content
         )
         out = capsys.readouterr().out
