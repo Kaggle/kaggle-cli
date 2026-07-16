@@ -653,6 +653,13 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_data_update_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
+    parser_competitions_data_update_optional.add_argument(
+        "--ignore-patterns",
+        dest="ignore_patterns",
+        action="append",
+        required=False,
+        help="Patterns to ignore when uploading files/dirs",
+    )
     parser_competitions_data_update._action_groups.append(parser_competitions_data_update_optional)
     parser_competitions_data_update.set_defaults(func=api.competition_data_update_cli)
 
