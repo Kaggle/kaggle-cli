@@ -429,9 +429,7 @@ def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
     import fnmatch
 
     rel_path = rel_path.replace(os.path.sep, "/")
-    match_path = (
-        rel_path + "/" if is_dir and not rel_path.endswith("/") else rel_path
-    )
+    match_path = rel_path + "/" if is_dir and not rel_path.endswith("/") else rel_path
 
     for pattern in patterns:
         pattern = pattern.replace(os.path.sep, "/")
@@ -467,9 +465,7 @@ class DirectoryArchive(object):
         if self._ignore_patterns:
             self.path = self._create_archive_with_filters(archive_base_path)
         else:
-            self.path = shutil.make_archive(
-                archive_base_path, self._format, self._fullpath
-            )
+            self.path = shutil.make_archive(archive_base_path, self._format, self._fullpath)
 
         _, self.name = os.path.split(self.path)
         return self
@@ -480,17 +476,13 @@ class DirectoryArchive(object):
     def _create_archive_with_filters(self, base_name):
         if self._format == "zip":
             archive_path = base_name + ".zip"
-            with zipfile.ZipFile(
-                archive_path, "w", zipfile.ZIP_DEFLATED
-            ) as zipf:
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                 for root, dirs, files in os.walk(self._fullpath):
                     dirs[:] = [
                         d
                         for d in dirs
                         if not should_ignore(
-                            os.path.relpath(
-                                os.path.join(root, d), self._fullpath
-                            ),
+                            os.path.relpath(os.path.join(root, d), self._fullpath),
                             True,
                             self._ignore_patterns,
                         )
@@ -498,9 +490,7 @@ class DirectoryArchive(object):
                     for file in files:
                         file_path = os.path.join(root, file)
                         rel_path = os.path.relpath(file_path, self._fullpath)
-                        if not should_ignore(
-                            rel_path, False, self._ignore_patterns
-                        ):
+                        if not should_ignore(rel_path, False, self._ignore_patterns):
                             zipf.write(file_path, rel_path)
             return archive_path
         elif self._format == "tar":
@@ -511,9 +501,7 @@ class DirectoryArchive(object):
                         d
                         for d in dirs
                         if not should_ignore(
-                            os.path.relpath(
-                                os.path.join(root, d), self._fullpath
-                            ),
+                            os.path.relpath(os.path.join(root, d), self._fullpath),
                             True,
                             self._ignore_patterns,
                         )
@@ -521,9 +509,7 @@ class DirectoryArchive(object):
                     for file in files:
                         file_path = os.path.join(root, file)
                         rel_path = os.path.relpath(file_path, self._fullpath)
-                        if not should_ignore(
-                            rel_path, False, self._ignore_patterns
-                        ):
+                        if not should_ignore(rel_path, False, self._ignore_patterns):
                             tarf.add(file_path, rel_path)
             return archive_path
         else:

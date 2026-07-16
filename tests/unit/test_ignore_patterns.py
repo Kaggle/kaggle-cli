@@ -23,36 +23,24 @@ class TestIgnorePatterns(unittest.TestCase):
 
         # .git/ in sub dir should be ignored (due to */.git/)
         self.assertTrue(should_ignore("sub/.git", True, DEFAULT_IGNORE_PATTERNS))
-        self.assertTrue(
-            should_ignore("sub/.git/", True, DEFAULT_IGNORE_PATTERNS)
-        )
-        self.assertTrue(
-            should_ignore("sub/dir/.git", True, DEFAULT_IGNORE_PATTERNS)
-        )
+        self.assertTrue(should_ignore("sub/.git/", True, DEFAULT_IGNORE_PATTERNS))
+        self.assertTrue(should_ignore("sub/dir/.git", True, DEFAULT_IGNORE_PATTERNS))
 
         # .git file (not dir) should NOT be ignored
         self.assertFalse(should_ignore(".git", False, DEFAULT_IGNORE_PATTERNS))
-        self.assertFalse(
-            should_ignore("sub/.git", False, DEFAULT_IGNORE_PATTERNS)
-        )
+        self.assertFalse(should_ignore("sub/.git", False, DEFAULT_IGNORE_PATTERNS))
 
         # .cache/ at root should be ignored
         self.assertTrue(should_ignore(".cache", True, DEFAULT_IGNORE_PATTERNS))
 
         # .cache/ in sub dir should NOT be ignored (no */.cache/ in defaults)
-        self.assertFalse(
-            should_ignore("sub/.cache", True, DEFAULT_IGNORE_PATTERNS)
-        )
+        self.assertFalse(should_ignore("sub/.cache", True, DEFAULT_IGNORE_PATTERNS))
 
         # .huggingface/ at root should be ignored
-        self.assertTrue(
-            should_ignore(".huggingface", True, DEFAULT_IGNORE_PATTERNS)
-        )
+        self.assertTrue(should_ignore(".huggingface", True, DEFAULT_IGNORE_PATTERNS))
 
         # .huggingface/ in sub dir should NOT be ignored
-        self.assertFalse(
-            should_ignore("sub/.huggingface", True, DEFAULT_IGNORE_PATTERNS)
-        )
+        self.assertFalse(should_ignore("sub/.huggingface", True, DEFAULT_IGNORE_PATTERNS))
 
     def test_should_ignore_custom_patterns(self):
         patterns = ["*.tmp", "ignore_dir/", "*/nested_ignore_dir/", "exact_file.txt"]
@@ -70,9 +58,7 @@ class TestIgnorePatterns(unittest.TestCase):
 
         # Directory pattern (nested)
         self.assertTrue(should_ignore("sub/nested_ignore_dir", True, patterns))
-        self.assertTrue(
-            should_ignore("sub/dir/nested_ignore_dir", True, patterns)
-        )
+        self.assertTrue(should_ignore("sub/dir/nested_ignore_dir", True, patterns))
         self.assertFalse(should_ignore("nested_ignore_dir", True, patterns))
 
         # Exact file pattern
@@ -113,21 +99,13 @@ class TestIgnorePatterns(unittest.TestCase):
 
             # Check files
             self.assertTrue(os.path.exists(os.path.join(extract_dir, "keep.txt")))
-            self.assertTrue(
-                os.path.exists(os.path.join(extract_dir, "sub", "keep2.txt"))
-            )
+            self.assertTrue(os.path.exists(os.path.join(extract_dir, "sub", "keep2.txt")))
 
             # Checked ignored
             self.assertFalse(os.path.exists(os.path.join(extract_dir, ".git")))
-            self.assertFalse(
-                os.path.exists(os.path.join(extract_dir, "sub", ".git"))
-            )
-            self.assertFalse(
-                os.path.exists(os.path.join(extract_dir, "sub", "temp.tmp"))
-            )
-            self.assertFalse(
-                os.path.exists(os.path.join(extract_dir, "ignore_dir"))
-            )
+            self.assertFalse(os.path.exists(os.path.join(extract_dir, "sub", ".git")))
+            self.assertFalse(os.path.exists(os.path.join(extract_dir, "sub", "temp.tmp")))
+            self.assertFalse(os.path.exists(os.path.join(extract_dir, "ignore_dir")))
 
     def test_directory_archive_tar_filtering(self):
         # Create dummy directory structure
@@ -161,21 +139,13 @@ class TestIgnorePatterns(unittest.TestCase):
 
             # Check files
             self.assertTrue(os.path.exists(os.path.join(extract_dir, "keep.txt")))
-            self.assertTrue(
-                os.path.exists(os.path.join(extract_dir, "sub", "keep2.txt"))
-            )
+            self.assertTrue(os.path.exists(os.path.join(extract_dir, "sub", "keep2.txt")))
 
             # Checked ignored
             self.assertFalse(os.path.exists(os.path.join(extract_dir, ".git")))
-            self.assertFalse(
-                os.path.exists(os.path.join(extract_dir, "sub", ".git"))
-            )
-            self.assertFalse(
-                os.path.exists(os.path.join(extract_dir, "sub", "temp.tmp"))
-            )
-            self.assertFalse(
-                os.path.exists(os.path.join(extract_dir, "ignore_dir"))
-            )
+            self.assertFalse(os.path.exists(os.path.join(extract_dir, "sub", ".git")))
+            self.assertFalse(os.path.exists(os.path.join(extract_dir, "sub", "temp.tmp")))
+            self.assertFalse(os.path.exists(os.path.join(extract_dir, "ignore_dir")))
 
     def _create_file(self, path):
         with open(path, "w") as f:
