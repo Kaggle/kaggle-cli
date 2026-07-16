@@ -22,6 +22,8 @@ kaggle models variations versions create <MODEL_VARIATION> -p <FOLDER_PATH> [opt
 *   `-n, --version-notes <NOTES>`: Notes describing this version.
 *   `-q, --quiet`: Suppress verbose output.
 *   `-r, --dir-mode <MODE>`: How to handle directories within the upload: `skip` (ignore), `zip` (compressed upload), `tar` (uncompressed upload) (default: `skip`).
+*   `--ignore-patterns <PATTERNS>`: Patterns of files/dirs to ignore. Can be specified multiple times.
+
 
 **Example:**
 
