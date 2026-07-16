@@ -3147,11 +3147,7 @@ class KaggleApi:
         if os.path.isfile(path):
             uploads.append((os.path.basename(path), path))
         else:
-            patterns = (
-                ignore_patterns or []
-            ) if include_hidden else DEFAULT_IGNORE_PATTERNS + (
-                ignore_patterns or []
-            )
+            patterns = (ignore_patterns or []) if include_hidden else DEFAULT_IGNORE_PATTERNS + (ignore_patterns or [])
 
             for dirpath, dirnames, filenames in os.walk(path):
                 if not include_hidden:
@@ -3164,9 +3160,7 @@ class KaggleApi:
                 for d in dirnames:
                     full_dir_path = os.path.join(dirpath, d)
                     rel_dir_path = os.path.relpath(full_dir_path, path)
-                    if not should_ignore(
-                        rel_dir_path, is_dir=True, patterns=patterns
-                    ):
+                    if not should_ignore(rel_dir_path, is_dir=True, patterns=patterns):
                         pruned_dirnames.append(d)
                 dirnames[:] = pruned_dirnames
 
@@ -3174,9 +3168,7 @@ class KaggleApi:
                 for f in filenames:
                     full_file_path = os.path.join(dirpath, f)
                     rel_file_path = os.path.relpath(full_file_path, path)
-                    if not should_ignore(
-                        rel_file_path, is_dir=False, patterns=patterns
-                    ):
+                    if not should_ignore(rel_file_path, is_dir=False, patterns=patterns):
                         pruned_filenames.append(f)
                 filenames = pruned_filenames
 
@@ -3218,12 +3210,8 @@ class KaggleApi:
             request.version_notes = version_notes
             request.files = files
             if rerun:
-                request.competition_databundle_type = (
-                    CompetitionDatabundleType.COMPETITION_DATABUNDLE_TYPE_RERUN
-                )
-            return kaggle.competitions.competition_api_client.create_competition_data(
-                request
-            )
+                request.competition_databundle_type = CompetitionDatabundleType.COMPETITION_DATABUNDLE_TYPE_RERUN
+            return kaggle.competitions.competition_api_client.create_competition_data(request)
 
     def competition_data_update_cli(
         self,
@@ -3239,9 +3227,7 @@ class KaggleApi:
         """CLI wrapper for competition_data_update."""
         competition_name = competition or competition_opt
         if competition_name is None:
-            competition_name = self.get_config_value(
-                self.CONFIG_NAME_COMPETITION
-            )
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
             if competition_name is not None and not quiet:
                 print("Using competition: " + competition_name)
         if competition_name is None:
@@ -3260,9 +3246,7 @@ class KaggleApi:
             include_hidden=include_hidden,
             ignore_patterns=ignore_patterns,
         )
-        print(
-            f'New data version created for "{competition_name}": {response.url}'
-        )
+        print(f'New data version created for "{competition_name}": {response.url}')
 
     def competition_launch(self, competition_name: str, future_time: Optional[datetime] = None) -> None:
         """Launch a competition you host, optionally at a future UTC time.
