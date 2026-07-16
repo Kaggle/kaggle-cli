@@ -5399,9 +5399,7 @@ class KaggleApi:
             ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
-        result = self.dataset_create_new(
-            folder, public, quiet, convert_to_csv, dir_mode, ignore_patterns
-        )
+        result = self.dataset_create_new(folder, public, quiet, convert_to_csv, dir_mode, ignore_patterns)
         if result.invalidTags:
             print(
                 "The following are not valid tags and could not be added to " "the dataset: " + str(result.invalidTags)
