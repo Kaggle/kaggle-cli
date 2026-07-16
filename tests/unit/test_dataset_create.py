@@ -10,6 +10,8 @@ from requests.exceptions import HTTPError
 sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
+from kagglesdk.blobs.types.blob_api_service import ApiBlobType
+
 
 
 class TestDatasetCreate(unittest.TestCase):
@@ -177,6 +179,36 @@ class TestDatasetCreate(unittest.TestCase):
     @patch.object(KaggleApi, "dataset_status")
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_create_new_with_ignore_patterns_succeeds(
+        self, mock_client, mock_upload, mock_status
+    ):
+        mock_status.side_effect = HTTPError()
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.error = ""
+        mock_kaggle.datasets.dataset_api_client.create_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_metadata()
+        ignore_patterns = ["*.tmp", "temp/"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            response = self.api.dataset_create_new(
+                tmpdir, ignore_patterns=ignore_patterns
+            )
+
+            self.assertEqual(response, mock_response)
+            mock_upload.assert_called_once()
+            call_args = mock_upload.call_args[0]
+            self.assertEqual(call_args[2], tmpdir)
+            self.assertEqual(call_args[3], ApiBlobType.DATASET)
+            self.assertEqual(call_args[7], ignore_patterns)
+
+    @patch.object(KaggleApi, "dataset_status")
+    @patch.object(KaggleApi, "upload_files")
+    @patch.object(KaggleApi, "build_kaggle_client")
     def test_dataset_create_new_with_valid_resources_succeeds(self, mock_client, mock_upload, mock_status):
         mock_status.side_effect = HTTPError()
         mock_kaggle = MagicMock()
@@ -323,6 +355,37 @@ class TestDatasetCreate(unittest.TestCase):
             self.assertEqual(body.subtitle, "This is a valid subtitle with enough length")
 
             self.assertEqual(response, mock_response)
+
+    @patch.object(KaggleApi, "upload_files")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_create_version_with_ignore_patterns_succeeds(
+        self, mock_client, mock_upload
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_kaggle.datasets.dataset_api_client.create_dataset_version.return_value = (
+            mock_response
+        )
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_metadata()
+        ignore_patterns = ["*.tmp", "temp/"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            response = self.api.dataset_create_version(
+                tmpdir,
+                "version notes here",
+                ignore_patterns=ignore_patterns,
+            )
+
+            self.assertEqual(response, mock_response)
+            mock_upload.assert_called_once()
+            call_args = mock_upload.call_args[0]
+            self.assertEqual(call_args[2], tmpdir)
+            self.assertEqual(call_args[3], ApiBlobType.DATASET)
+            self.assertEqual(call_args[7], ignore_patterns)
 
 
 if __name__ == "__main__":

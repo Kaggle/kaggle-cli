@@ -189,6 +189,22 @@ def test_datasets_create_parser_with_flags_succeeds(parser):
     assert kwargs["quiet"] is True
     assert kwargs["convert_to_csv"] is False
     assert kwargs["dir_mode"] == "zip"
+    assert kwargs.get("ignore_patterns") is None
+
+
+def test_datasets_create_parser_with_ignore_patterns_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        [
+            "datasets",
+            "create",
+            "--ignore-patterns",
+            "*.tmp",
+            "--ignore-patterns",
+            "temp/",
+        ]
+    )
+    assert func.__name__ == "dataset_create_new_cli"
+    assert kwargs["ignore_patterns"] == ["*.tmp", "temp/"]
 
 
 def test_datasets_version_parser_missing_message_fails(parser):
@@ -219,6 +235,25 @@ def test_datasets_version_parser_succeeds(parser):
     assert kwargs["convert_to_csv"] is False
     assert kwargs["dir_mode"] == "tar"
     assert kwargs["delete_old_versions"] is True
+    assert kwargs.get("ignore_patterns") is None
+
+
+def test_datasets_version_parser_with_ignore_patterns_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        [
+            "datasets",
+            "version",
+            "-m",
+            "version message",
+            "--ignore-patterns",
+            "*.tmp",
+            "--ignore-patterns",
+            "temp/",
+        ]
+    )
+    assert func.__name__ == "dataset_create_version_cli"
+    assert kwargs["version_notes"] == "version message"
+    assert kwargs["ignore_patterns"] == ["*.tmp", "temp/"]
 
 
 def test_datasets_init_parser_default_succeeds(parser):
