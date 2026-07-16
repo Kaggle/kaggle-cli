@@ -394,3 +394,24 @@ kaggle kernels topics show owner/kernel-slug/12345
 **Purpose:**
 
 This command displays a full discussion topic along with all of its comments rendered in an indented tree structure.
+
+## Using Secrets in Kernels
+
+If your kernel needs to access sensitive information (like API keys or passwords) without exposing them in your code, you should use **Kaggle Secrets**.
+
+### 1. Add Secrets on Kaggle.com
+1.  Open your notebook in the Kaggle Notebook Editor.
+2.  In the menu, select **Add-ons** -> **Secrets**.
+3.  Add your secrets as key-value pairs (e.g., Label: `MY_API_KEY`, Value: `your-actual-key-value`).
+
+### 2. Access Secrets in your Code
+Use the `UserSecretsClient` from the `kaggle_secrets` package to retrieve your secrets at runtime:
+
+```python
+from kaggle_secrets import UserSecretsClient
+
+# Retrieve the secret value using the label you defined
+secret_value = UserSecretsClient().get_secret("MY_API_KEY")
+```
+
+**Note:** The `kaggle_secrets` package is pre-installed and only functional within the Kaggle notebook execution environment. It will not work when running scripts locally.
