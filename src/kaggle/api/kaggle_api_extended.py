@@ -5026,6 +5026,7 @@ class KaggleApi:
         convert_to_csv: bool = True,
         delete_old_versions: bool = False,
         dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
     ) -> ApiCreateDatasetResponse:
         """Creates a new version of a dataset.
 
@@ -5093,12 +5094,28 @@ class KaggleApi:
                 message = kaggle.datasets.dataset_api_client.create_dataset_version
             request.body = body
             with ResumableUploadContext() as upload_context:
-                self.upload_files(body, resources, folder, ApiBlobType.DATASET, upload_context, quiet, dir_mode)
+                self.upload_files(
+                    body,
+                    resources,
+                    folder,
+                    ApiBlobType.DATASET,
+                    upload_context,
+                    quiet,
+                    dir_mode,
+                    ignore_patterns,
+                )
                 response = cast(ApiCreateDatasetResponse, self.with_retry(message)(request))
                 return response
 
     def dataset_create_version_cli(
-        self, folder, version_notes, quiet=False, convert_to_csv=True, delete_old_versions=False, dir_mode="skip"
+        self,
+        folder,
+        version_notes,
+        quiet=False,
+        convert_to_csv=True,
+        delete_old_versions=False,
+        dir_mode="skip",
+        ignore_patterns=None,
     ):
         """A client wrapper for creating a new version of a dataset.
 
@@ -5109,6 +5126,7 @@ class KaggleApi:
             convert_to_csv: If True, convert data to CSV on upload.
             delete_old_versions: If True, delete old versions of the dataset.
             dir_mode: What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
         result = self.dataset_create_version(
@@ -5118,6 +5136,7 @@ class KaggleApi:
             convert_to_csv=convert_to_csv,
             delete_old_versions=delete_old_versions,
             dir_mode=dir_mode,
+            ignore_patterns=ignore_patterns,
         )
 
         if result is None:
@@ -5253,6 +5272,7 @@ class KaggleApi:
         quiet: bool = False,
         convert_to_csv: bool = True,
         dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
     ) -> ApiCreateDatasetResponse:
         """Creates a new dataset.
 
@@ -5331,7 +5351,16 @@ class KaggleApi:
         request.category_ids = keywords
 
         with ResumableUploadContext() as upload_context:
-            self.upload_files(request, resources, folder, ApiBlobType.DATASET, upload_context, quiet, dir_mode)
+            self.upload_files(
+                request,
+                resources,
+                folder,
+                ApiBlobType.DATASET,
+                upload_context,
+                quiet,
+                dir_mode,
+                ignore_patterns,
+            )
 
             with self.build_kaggle_client() as kaggle:
                 retry_request = ApiCreateDatasetRequest()
@@ -5350,7 +5379,15 @@ class KaggleApi:
                     result.error = None
                 return result
 
-    def dataset_create_new_cli(self, folder=None, public=False, quiet=False, convert_to_csv=True, dir_mode="skip"):
+    def dataset_create_new_cli(
+        self,
+        folder=None,
+        public=False,
+        quiet=False,
+        convert_to_csv=True,
+        dir_mode="skip",
+        ignore_patterns=None,
+    ):
         """A client wrapper for creating a new dataset.
 
         Args:
@@ -5359,9 +5396,12 @@ class KaggleApi:
             quiet: Suppress verbose output (default is False).
             convert_to_csv: If True, convert data to comma-separated values.
             dir_mode: What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
-        result = self.dataset_create_new(folder, public, quiet, convert_to_csv, dir_mode)
+        result = self.dataset_create_new(
+            folder, public, quiet, convert_to_csv, dir_mode, ignore_patterns
+        )
         if result.invalidTags:
             print(
                 "The following are not valid tags and could not be added to " "the dataset: " + str(result.invalidTags)
