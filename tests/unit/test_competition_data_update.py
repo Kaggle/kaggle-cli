@@ -94,6 +94,30 @@ class TestCompetitionDataUpdate(unittest.TestCase):
 
     @patch.object(KaggleApi, "_upload_file")
     @patch.object(KaggleApi, "build_kaggle_client")
+    def test_update_directory_respects_ignore_patterns(self, mock_client, mock_upload):
+        ignore_patterns = ["test.csv", "images/cats/"]
+
+        mock_upload.side_effect = [_mock_upload_file(f"tok-{i}") for i in range(10)]
+        mock_kaggle = self._patch_client(mock_client)
+
+        self.api.competition_data_update(
+            competition_name="my-comp",
+            path=self.tmp,
+            version_notes="version with ignores",
+            ignore_patterns=ignore_patterns,
+        )
+
+        request = mock_kaggle.competitions.competition_api_client.create_competition_data.call_args[0][0]
+        names = sorted(f.name for f in request.files)
+        self.assertEqual(
+            names,
+            ["images/dog.png", "train.csv"],
+        )
+        called_names = sorted(call.args[0] for call in mock_upload.call_args_list)
+        self.assertEqual(called_names, names)
+
+    @patch.object(KaggleApi, "_upload_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
     def test_update_single_file_uploads_as_is(self, mock_client, mock_upload):
         archive = os.path.join(self.tmp, "bundle.zip")
         with open(archive, "wb") as f:

@@ -3104,6 +3104,7 @@ class KaggleApi:
         rerun: bool = False,
         quiet: bool = False,
         include_hidden: bool = False,
+        ignore_patterns: Optional[List[str]] = None,
     ) -> ApiCreateCompetitionDataResponse:
         """Update (version) the data files for a competition you host.
 
@@ -3129,6 +3130,7 @@ class KaggleApi:
             quiet (bool): Suppress per-file upload progress lines.
             include_hidden (bool): If True, upload hidden files and traverse
                 hidden sub-directories. Default False.
+            ignore_patterns (Optional[List[str]]): Patterns of files/dirs to ignore.
 
         Returns:
             ApiCreateCompetitionDataResponse: url, databundle_id,
@@ -3145,11 +3147,31 @@ class KaggleApi:
         if os.path.isfile(path):
             uploads.append((os.path.basename(path), path))
         else:
+            patterns = (ignore_patterns or []) if include_hidden else DEFAULT_IGNORE_PATTERNS + (ignore_patterns or [])
+
             for dirpath, dirnames, filenames in os.walk(path):
                 if not include_hidden:
                     # Prune hidden sub-directories in place so os.walk skips them.
                     dirnames[:] = [d for d in dirnames if not d.startswith(".")]
                     filenames = [n for n in filenames if not n.startswith(".")]
+
+                # Prune by ignore_patterns
+                pruned_dirnames = []
+                for d in dirnames:
+                    full_dir_path = os.path.join(dirpath, d)
+                    rel_dir_path = os.path.relpath(full_dir_path, path)
+                    if not should_ignore(rel_dir_path, is_dir=True, patterns=patterns):
+                        pruned_dirnames.append(d)
+                dirnames[:] = pruned_dirnames
+
+                pruned_filenames = []
+                for f in filenames:
+                    full_file_path = os.path.join(dirpath, f)
+                    rel_file_path = os.path.relpath(full_file_path, path)
+                    if not should_ignore(rel_file_path, is_dir=False, patterns=patterns):
+                        pruned_filenames.append(f)
+                filenames = pruned_filenames
+
                 for name in filenames:
                     full = os.path.join(dirpath, name)
                     rel = os.path.relpath(full, path).replace(os.sep, "/")
@@ -3166,7 +3188,12 @@ class KaggleApi:
         with ResumableUploadContext() as upload_context:
             for rel_name, full_path in uploads:
                 upload_file = self._upload_file(
-                    rel_name, full_path, ApiBlobType.DATASET, upload_context, quiet, resources=None
+                    rel_name,
+                    full_path,
+                    ApiBlobType.DATASET,
+                    upload_context,
+                    quiet,
+                    resources=None,
                 )
                 if upload_file is not None:
                     f = ApiCompetitionDataFile()
@@ -3195,6 +3222,7 @@ class KaggleApi:
         rerun=False,
         quiet=False,
         include_hidden=False,
+        ignore_patterns=None,
     ):
         """CLI wrapper for competition_data_update."""
         competition_name = competition or competition_opt
@@ -3216,6 +3244,7 @@ class KaggleApi:
             rerun=rerun,
             quiet=quiet,
             include_hidden=include_hidden,
+            ignore_patterns=ignore_patterns,
         )
         print(f'New data version created for "{competition_name}": {response.url}')
 
