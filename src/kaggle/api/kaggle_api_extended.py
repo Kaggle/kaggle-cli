@@ -416,29 +416,118 @@ class OutputFormat(Enum):
         return self.value
 
 
+DEFAULT_IGNORE_PATTERNS = [
+    ".git/",
+    "*/.git/",
+    ".cache/",
+    ".huggingface/",
+]
+
+
+def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
+    """Helper to check if a path should be ignored based on patterns."""
+    import fnmatch
+
+    rel_path = rel_path.replace(os.path.sep, "/")
+    match_path = (
+        rel_path + "/" if is_dir and not rel_path.endswith("/") else rel_path
+    )
+
+    for pattern in patterns:
+        pattern = pattern.replace(os.path.sep, "/")
+        if pattern.endswith("/"):
+            if not is_dir:
+                continue
+        if fnmatch.fnmatch(match_path, pattern):
+            return True
+    return False
+
+
 class DirectoryArchive(object):
-    """
-    Context manager for handling directory archives.
+    """Context manager for handling directory archives with filtering.
 
-    This class provides a context manager for working with directory archives in various formats.
-    It manages the lifecycle of the archive, including opening and closing resources as needed.
+    This class provides a context manager for working with directory archives in
+    various formats. It manages the lifecycle of the archive, including opening
+    and closing resources as needed. It supports filtering files based on
+    ignore patterns.
     """
 
-    def __init__(self, fullpath, fmt):
+    def __init__(self, fullpath, fmt, ignore_patterns=None):
         self._fullpath = fullpath
         self._format = fmt
+        self._ignore_patterns = ignore_patterns or []
         self.name = None
         self.path = None
 
     def __enter__(self):
         self._temp_dir = tempfile.mkdtemp()
         _, dir_name = os.path.split(self._fullpath)
-        self.path = shutil.make_archive(os.path.join(self._temp_dir, dir_name), self._format, self._fullpath)
+        archive_base_path = os.path.join(self._temp_dir, dir_name)
+
+        if self._ignore_patterns:
+            self.path = self._create_archive_with_filters(archive_base_path)
+        else:
+            self.path = shutil.make_archive(
+                archive_base_path, self._format, self._fullpath
+            )
+
         _, self.name = os.path.split(self.path)
         return self
 
     def __exit__(self, *args):
         shutil.rmtree(self._temp_dir)
+
+    def _create_archive_with_filters(self, base_name):
+        if self._format == "zip":
+            archive_path = base_name + ".zip"
+            with zipfile.ZipFile(
+                archive_path, "w", zipfile.ZIP_DEFLATED
+            ) as zipf:
+                for root, dirs, files in os.walk(self._fullpath):
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not should_ignore(
+                            os.path.relpath(
+                                os.path.join(root, d), self._fullpath
+                            ),
+                            True,
+                            self._ignore_patterns,
+                        )
+                    ]
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, self._fullpath)
+                        if not should_ignore(
+                            rel_path, False, self._ignore_patterns
+                        ):
+                            zipf.write(file_path, rel_path)
+            return archive_path
+        elif self._format == "tar":
+            archive_path = base_name + ".tar"
+            with tarfile.open(archive_path, "w") as tarf:
+                for root, dirs, files in os.walk(self._fullpath):
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not should_ignore(
+                            os.path.relpath(
+                                os.path.join(root, d), self._fullpath
+                            ),
+                            True,
+                            self._ignore_patterns,
+                        )
+                    ]
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, self._fullpath)
+                        if not should_ignore(
+                            rel_path, False, self._ignore_patterns
+                        ):
+                            tarf.add(file_path, rel_path)
+            return archive_path
+        else:
+            raise ValueError(f"Unsupported archive format: {self._format}")
 
 
 class ResumableUploadContext(object):
