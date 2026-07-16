@@ -156,6 +156,38 @@ class TestModelCreate(unittest.TestCase):
             self.assertEqual(body.base_model_instance, "base-instance")
             self.assertEqual(body.external_base_model_url, "http://example.com")
 
+    @patch.object(KaggleApi, "upload_files")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_create_with_ignore_patterns_succeeds(
+        self, mock_client, mock_upload
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = ApiCreateModelResponse()
+        mock_kaggle.models.model_api_client.create_model_instance.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_instance_metadata()
+        ignore_patterns = ["*.tmp", "temp/"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            response = self.api.model_instance_create(
+                tmpdir,
+                quiet=True,
+                dir_mode="zip",
+                ignore_patterns=ignore_patterns,
+            )
+
+            self.assertEqual(response, mock_response)
+            mock_upload.assert_called_once()
+            call_args = mock_upload.call_args[0]
+            self.assertEqual(call_args[2], tmpdir)
+            self.assertEqual(call_args[3], ApiBlobType.MODEL)
+            self.assertTrue(call_args[5])
+            self.assertEqual(call_args[6], "zip")
+            self.assertEqual(call_args[7], ignore_patterns)
+
     def test_model_instance_update_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
             self.api.model_instance_update("/non/existent/folder")
@@ -488,6 +520,94 @@ class TestModelCreate(unittest.TestCase):
 
             self.assertIsNotNone(request.update_mask)
             self.assertEqual(list(request.update_mask.paths), ["title"])
+class TestModelInstanceVersionCreate(unittest.TestCase):
+    """Tests for model_instance_version_create."""
+
+    def setUp(self):
+        self.api = KaggleApi.__new__(KaggleApi)
+        self.api.config_values = {"username": "testuser"}
+        self.api.already_printed_version_warning = True
+
+    @patch.object(KaggleApi, "upload_files")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_version_create_succeeds(
+        self, mock_client, mock_upload
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = ApiCreateModelResponse()
+        mock_kaggle.models.model_api_client.create_model_instance_version.return_value = (
+            mock_response
+        )
+        mock_client.return_value.__enter__ = MagicMock(
+            return_value=mock_kaggle
+        )
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        model_instance = "testuser/test-model/keras/test-instance"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = self.api.model_instance_version_create(
+                model_instance,
+                tmpdir,
+                version_notes="test version",
+                quiet=True,
+                dir_mode="zip",
+            )
+
+            self.assertEqual(response, mock_response)
+            mock_upload.assert_called_once()
+            call_args = mock_upload.call_args[0]
+            self.assertEqual(call_args[2], tmpdir)
+            self.assertEqual(call_args[3], ApiBlobType.MODEL)
+            self.assertTrue(call_args[5])
+            self.assertEqual(call_args[6], "zip")
+            self.assertIsNone(mock_upload.call_args[1].get("ignore_patterns"))
+
+            mock_kaggle.models.model_api_client.create_model_instance_version.assert_called_once()
+            request = mock_kaggle.models.model_api_client.create_model_instance_version.call_args[
+                0
+            ][0]
+            self.assertEqual(request.owner_slug, "testuser")
+            self.assertEqual(request.model_slug, "test-model")
+            self.assertEqual(request.instance_slug, "test-instance")
+            self.assertEqual(request.body.version_notes, "test version")
+
+    @patch.object(KaggleApi, "upload_files")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_version_create_with_ignore_patterns_succeeds(
+        self, mock_client, mock_upload
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = ApiCreateModelResponse()
+        mock_kaggle.models.model_api_client.create_model_instance_version.return_value = (
+            mock_response
+        )
+        mock_client.return_value.__enter__ = MagicMock(
+            return_value=mock_kaggle
+        )
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        model_instance = "testuser/test-model/keras/test-instance"
+        ignore_patterns = ["*.tmp", "temp/"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            response = self.api.model_instance_version_create(
+                model_instance,
+                tmpdir,
+                version_notes="test version",
+                quiet=True,
+                dir_mode="zip",
+                ignore_patterns=ignore_patterns,
+            )
+
+            self.assertEqual(response, mock_response)
+            mock_upload.assert_called_once()
+            call_args = mock_upload.call_args[0]
+            self.assertEqual(call_args[2], tmpdir)
+            self.assertEqual(call_args[3], ApiBlobType.MODEL)
+            self.assertTrue(call_args[5])
+            self.assertEqual(call_args[6], "zip")
+            self.assertEqual(call_args[7], ignore_patterns)
 
 
 if __name__ == "__main__":
