@@ -203,6 +203,23 @@ def test_model_instances_create_parser_with_flags_succeeds(parser):
     assert kwargs["folder"] == "/path/to/instance"
     assert kwargs["quiet"] is True
     assert kwargs["dir_mode"] == "zip"
+    assert kwargs.get("ignore_patterns") is None
+
+
+def test_model_instances_create_parser_with_ignore_patterns_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        [
+            "models",
+            "instances",
+            "create",
+            "--ignore-patterns",
+            "*.tmp",
+            "--ignore-patterns",
+            "temp/",
+        ]
+    )
+    assert func.__name__ == "model_instance_create_cli"
+    assert kwargs["ignore_patterns"] == ["*.tmp", "temp/"]
 
 
 def test_model_instances_files_parser_missing_instance_fails(parser):
@@ -346,6 +363,28 @@ def test_model_instance_versions_create_parser_succeeds(parser):
     assert kwargs["version_notes"] == "version notes"
     assert kwargs["quiet"] is True
     assert kwargs["dir_mode"] == "tar"
+    assert kwargs.get("ignore_patterns") is None
+
+
+def test_model_instance_versions_create_parser_with_ignore_patterns_succeeds(
+    parser,
+):
+    func, kwargs = parser.dispatch(
+        [
+            "models",
+            "instances",
+            "versions",
+            "create",
+            "owner/model/framework/variation",
+            "--ignore-patterns",
+            "*.tmp",
+            "--ignore-patterns",
+            "temp/",
+        ]
+    )
+    assert func.__name__ == "model_instance_version_create_cli"
+    assert kwargs["model_instance"] == "owner/model/framework/variation"
+    assert kwargs["ignore_patterns"] == ["*.tmp", "temp/"]
 
 
 def test_model_instance_versions_download_parser_missing_version_fails(parser):
