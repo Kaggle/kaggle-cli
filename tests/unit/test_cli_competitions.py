@@ -376,9 +376,35 @@ def test_competitions_data_update_succeeds(parser):
     assert kwargs["version_notes"] == "update msg"
     assert kwargs["rerun"] is True
     assert kwargs["include_hidden"] is True
+    assert kwargs.get("ignore_patterns") is None
+
+
+def test_competitions_data_update_with_ignore_patterns_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        [
+            "competitions",
+            "data",
+            "update",
+            "my-comp",
+            "-p",
+            "/path/to/data",
+            "-m",
+            "update msg",
+            "--ignore-patterns",
+            "*.tmp",
+            "--ignore-patterns",
+            "temp/",
+        ]
+    )
+    assert func.__name__ == "competition_data_update_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["path"] == "/path/to/data"
+    assert kwargs["version_notes"] == "update msg"
+    assert kwargs["ignore_patterns"] == ["*.tmp", "temp/"]
 
 
 def test_competitions_settings_get_succeeds(parser):
+
     func, kwargs = parser.dispatch(["competitions", "settings", "get", "my-comp", "--json"])
     assert func.__name__ == "competition_get_settings_cli"
     assert kwargs["competition"] == "my-comp"

@@ -3147,7 +3147,12 @@ class KaggleApi:
         if os.path.isfile(path):
             uploads.append((os.path.basename(path), path))
         else:
-            patterns = DEFAULT_IGNORE_PATTERNS + (ignore_patterns or [])
+            patterns = (
+                ignore_patterns or []
+            ) if include_hidden else DEFAULT_IGNORE_PATTERNS + (
+                ignore_patterns or []
+            )
+
             for dirpath, dirnames, filenames in os.walk(path):
                 if not include_hidden:
                     # Prune hidden sub-directories in place so os.walk skips them.
