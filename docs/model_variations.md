@@ -44,6 +44,8 @@ kaggle models variations create -p <FOLDER_PATH> [options]
 *   `-p, --path <FOLDER_PATH>`: Path to the folder containing the model variation files and the `model-instance-metadata.json` file (defaults to the current directory).
 *   `-q, --quiet`: Suppress verbose output.
 *   `-r, --dir-mode <MODE>`: How to handle directories within the upload: `skip` (ignore), `zip` (compressed upload), `tar` (uncompressed upload) (default: `skip`).
+*   `--ignore-patterns <PATTERNS>`: Patterns of files/dirs to ignore. Can be specified multiple times.
+
 
 **Example:**
 

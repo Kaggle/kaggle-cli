@@ -173,6 +173,8 @@ kaggle datasets create -p <FOLDER_PATH> [options]
 *   `-q, --quiet`: Suppress verbose output.
 *   `-t, --keep-tabular`: Do not convert tabular files to CSV (default is to convert).
 *   `-r, --dir-mode <MODE>`: How to handle directories: `skip` (ignore), `zip` (compressed upload), `tar` (uncompressed upload) (default: `skip`).
+*   `--ignore-patterns <PATTERNS>`: Patterns of files/dirs to ignore. Can be specified multiple times.
+
 
 **Example:**
 
@@ -208,6 +210,8 @@ kaggle datasets version -p <FOLDER_PATH> -m <VERSION_NOTES> [options]
 *   `-t, --keep-tabular`: Do not convert tabular files to CSV.
 *   `-r, --dir-mode <MODE>`: Directory handling mode (`skip`, `zip`, `tar`).
 *   `-d, --delete-old-versions`: Delete old versions of this dataset.
+*   `--ignore-patterns <PATTERNS>`: Patterns of files/dirs to ignore. Can be specified multiple times.
+
 
 **Example:**
 

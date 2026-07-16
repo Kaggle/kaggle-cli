@@ -520,7 +520,7 @@ file you want in the new version.
 
 ```bash
 kaggle competitions data update <competition> -p <path> -m "<version notes>" \
-    [--rerun] [--include-hidden]
+    [--rerun] [--include-hidden] [--ignore-patterns <patterns>]
 ```
 
 **Arguments:**
@@ -545,6 +545,7 @@ kaggle competitions data update <competition> -p <path> -m "<version notes>" \
   sub-directories (names starting with `.` — e.g. `.DS_Store`, `.git/`,
   `.gitignore`). Skipped by default so you don't accidentally publish OS
   metadata or version-control detritus.
+- `--ignore-patterns <patterns>` (optional): Patterns to ignore when uploading files/dirs. Can be specified multiple times. Note that default ignore patterns (like `.git/`, `.cache/`, `.huggingface/`) are bypassed when `--include-hidden` is True.
 
 **Examples:**
 
