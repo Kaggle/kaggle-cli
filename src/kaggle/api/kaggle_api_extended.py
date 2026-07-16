@@ -21,6 +21,7 @@ import csv
 from datetime import datetime, timezone
 from enum import Enum
 import io
+from contextlib import redirect_stdout
 
 import json  # Needed by mypy.
 import logging
@@ -72,7 +73,11 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiPublishBenchmarkTaskRequest,
 )
 from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
-from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
+from kagglesdk.benchmarks.types.benchmarks_api_service import (
+    ApiListBenchmarkModelsRequest,
+    ApiGetBenchmarkLeaderboardRequest,
+    ApiBenchmarkLeaderboard,
+)
 from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionsRequest,
     ApiCreateCodeSubmissionRequest,
@@ -102,6 +107,8 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiDeleteCompetitionPageRequest,
     ApiUpdateCompetitionPageRequest,
     ApiGetCompetitionSettingsRequest,
+    ApiListCompetitionHostsRequest,
+    ApiUpdateCompetitionSettingsRequest,
     ApiCreateCompetitionDataRequest,
     ApiCreateCompetitionDataResponse,
     ApiCompetitionDataFile,
@@ -147,7 +154,7 @@ from kagglesdk.competitions.types.competition_enums import (
     SubmissionSortBy,
 )
 
-from kagglesdk.competitions.types.competition import Reward, RewardTypeId
+from kagglesdk.competitions.types.competition import PubliclyCloneable, Reward, RewardTypeId
 from kagglesdk.competitions.types.host_service import CompetitionSettings
 
 from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
@@ -234,7 +241,7 @@ import kagglesdk.kaggle_client
 from enum import EnumMeta
 from requests.exceptions import HTTPError
 from requests.models import Response
-from typing import Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
+from typing import Any, Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
 
 T = TypeVar("T")
 
@@ -558,9 +565,11 @@ class ResumableFileUpload(object):
             return False
 
     def _is_previous_valid(self, previous):
+        prev_req = previous.start_blob_upload_request.to_dict() if previous.start_blob_upload_request else None
+        curr_req = self.start_blob_upload_request.to_dict() if self.start_blob_upload_request else None
         return (
             previous.path == self.path
-            and previous.start_blob_upload_request == self.start_blob_upload_request
+            and prev_req == curr_req
             and previous.timestamp > time.time() - ResumableFileUpload.RESUMABLE_UPLOAD_EXPIRY_SECONDS
         )
 
@@ -579,6 +588,7 @@ class ResumableFileUpload(object):
             return
 
         self.start_blob_upload_response = start_blob_upload_response
+        self.can_resume = True
         with io.open(self._upload_info_file_path, "w") as f:
             json.dump(self.to_dict(), f, indent=True)
 
@@ -639,16 +649,15 @@ class ResumableFileUpload(object):
         Returns:
             A new ResumableFileUpload object.
         """
-        req = ApiStartBlobUploadRequest()
-        req.from_dict(other["start_blob_upload_request"])
+        req = ApiStartBlobUploadRequest.from_dict(other["start_blob_upload_request"])
         new = ResumableFileUpload(other["path"], req, context)
         new.timestamp = other.get("timestamp")
         start_blob_upload_response = other.get("start_blob_upload_response")
         if start_blob_upload_response is not None:
-            rsp = ApiStartBlobUploadResponse()
-            rsp.from_dict(**start_blob_upload_response)
-            new.start_blob_upload_response = rsp
-            new.upload_complete = other.get("upload_complete") or False
+            new.start_blob_upload_response = ApiStartBlobUploadResponse.from_dict(start_blob_upload_response)
+        else:
+            new.start_blob_upload_response = None
+        new.upload_complete = other.get("upload_complete") or False
         return new
 
     def to_str(self):
@@ -883,6 +892,7 @@ class KaggleApi:
     episode_fields = ["id", "createTime", "endTime", "state", "type"]
     episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
     competition_page_fields = ["name"]
+    competition_host_fields = ["userName", "displayName", "id", "profileUrl"]
     competition_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
     competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
     valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
@@ -1120,11 +1130,36 @@ class KaggleApi:
     def _authenticate_anonymously(self) -> bool:
         """Check if the command can run anonymously.
 
+        Anonymous access is derived from ``sys.argv``, which is only a Kaggle
+        command when the Kaggle CLI itself is the running program. When the
+        library is merely imported by another application, ``sys.argv`` belongs
+        to that host script (e.g. ``python my_script.py -h``) and must not be
+        interpreted as a Kaggle CLI command.
+
         Returns:
             bool: True if anonymous access is allowed.
         """
+        if not self._invoked_as_cli():
+            return False
         api_command = " ".join(sys.argv[1:])
         return self._command_allows_logged_out(api_command)
+
+    @staticmethod
+    def _invoked_as_cli() -> bool:
+        """Whether the current process is the Kaggle CLI rather than a host
+        application that imported the library.
+
+        Recognizes the installed console entry point (``kaggle`` /
+        ``kaggle.exe``) and ``python -m kaggle`` (which runs
+        ``kaggle/__main__.py``).
+
+        Returns:
+            bool: True if running as the Kaggle CLI.
+        """
+        prog = (sys.argv[0] if sys.argv else "").replace("\\", "/")
+        if os.path.splitext(os.path.basename(prog))[0] == "kaggle":
+            return True
+        return prog.endswith("/kaggle/__main__.py")
 
     def _authenticate_with_access_token(self) -> bool:
         access_token, source = get_access_token_from_env()
@@ -1597,10 +1632,10 @@ class KaggleApi:
         """
         group_val = CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING
         if group:
-            if group not in self.valid_competition_groups:
-                raise ValueError("Invalid group specified. Valid options are " + str(self.valid_competition_groups))
             if group == "all":
                 group_val = CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING
+            elif group not in self.valid_competition_groups:
+                raise ValueError("Invalid group specified. Valid options are " + str(self.valid_competition_groups))
             else:
                 group_val = self.lookup_enum(CompetitionListTab, group_val, group)
 
@@ -2395,6 +2430,49 @@ class KaggleApi:
         else:
             print("No pages found")
 
+    def competition_list_hosts(self, competition: str):
+        """List hosts (users with host access) for a competition.
+
+        Args:
+            competition (str): The competition name (slug).
+
+        Returns:
+            list: A list of ApiCompetitionHost objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListCompetitionHostsRequest()
+            request.competition_name = competition
+            response = kaggle.competitions.competition_api_client.list_competition_hosts(request)
+            return response.hosts
+
+    def competition_list_hosts_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        csv_display=False,
+        quiet=False,
+        output_format=None,
+    ):
+        """CLI wrapper for competition_list_hosts."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+        if competition is None:
+            raise ValueError("No competition specified")
+
+        hosts = self.competition_list_hosts(competition)
+        if hosts:
+            self.print_results(
+                hosts,
+                self.competition_host_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
+        else:
+            print("No hosts found")
+
     def competition_create_page(
         self,
         competition_name: str,
@@ -2776,6 +2854,172 @@ class KaggleApi:
                 return None
             return name
         return str(value)
+
+    def competition_update_settings(
+        self,
+        competition_name: str,
+        updates: Dict[str, Any],
+    ) -> CompetitionSettings:
+        """Update selected fields on a competition's unified settings.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            updates (Dict[str, Any]): Field name → new value. Keys may be
+                snake_case (matches SDK) or camelCase (matches JSON). Only
+                the fields present here are sent; the server's FieldMask is
+                derived from the keys.
+
+        Returns:
+            CompetitionSettings: the settings blob returned by the server.
+        """
+        if not updates:
+            raise ValueError("No settings to update — the input file has no fields.")
+
+        field_map = self._competition_settings_field_map()
+        settings = CompetitionSettings()
+        paths: List[str] = []
+        for raw_key, raw_value in updates.items():
+            key = self._normalize_setting_key(raw_key, field_map)
+            if key is None:
+                raise ValueError(f"Unknown competition setting: {raw_key!r}")
+            _, field_type = field_map[key]
+            coerced = self._coerce_setting_value(key, field_type, raw_value)
+            setattr(settings, key, coerced)
+            paths.append(key)
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiUpdateCompetitionSettingsRequest()
+            request.competition_name = competition_name
+            request.settings = settings
+            request.update_mask = field_mask_pb2.FieldMask(paths=paths)
+            return kaggle.competitions.competition_api_client.update_competition_settings(request)
+
+    def competition_update_settings_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        file_path=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_update_settings."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not file_path:
+            raise ValueError("--from-file is required")
+
+        updates = self._load_settings_file(file_path)
+        settings = self.competition_update_settings(competition_name, updates)
+        if not quiet:
+            print(f'Settings updated on competition "{competition_name}" ({len(updates)} field(s)).')
+        if json_output:
+            self.print_obj(settings)
+        else:
+            self._print_competition_settings(settings)
+
+    @staticmethod
+    def _load_settings_file(file_path: str) -> Dict[str, Any]:
+        """Load a settings update payload from a JSON or YAML file."""
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Settings file not found: {file_path}")
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        lower = file_path.lower()
+        try:
+            if lower.endswith((".yaml", ".yml")):
+                import yaml  # transitive via jupytext
+
+                data = yaml.safe_load(raw)
+            else:
+                data = json.loads(raw)
+        except Exception as e:
+            raise ValueError(f"Failed to parse settings file {file_path}: {e}") from e
+        if data is None:
+            raise ValueError(f"Settings file {file_path} is empty.")
+        if not isinstance(data, dict):
+            raise ValueError(f"Settings file {file_path} must contain a mapping at the top level.")
+        return data
+
+    @staticmethod
+    def _competition_settings_field_map() -> Dict[str, Any]:
+        """Return {snake_case_name: (json_name, python_type)} for CompetitionSettings."""
+        return {meta.field_name: (meta.json_name, meta.field_type) for meta in CompetitionSettings._fields}
+
+    @staticmethod
+    def _normalize_setting_key(key: str, field_map: Dict[str, Any]) -> Optional[str]:
+        """Resolve a user-supplied key (snake or camel) to the snake_case field name."""
+        if not isinstance(key, str):
+            return None
+        if key in field_map:
+            return key
+        for snake, (json_name, _) in field_map.items():
+            if key == json_name:
+                return snake
+        return None
+
+    @staticmethod
+    def _coerce_setting_value(field_name: str, field_type: type, value: Any) -> Any:
+        """Convert a raw JSON/YAML value into the type CompetitionSettings expects."""
+        if value is None:
+            return None
+        if field_type is bool:
+            if isinstance(value, bool):
+                return value
+            raise ValueError(f"Field {field_name!r} expects a bool, got {type(value).__name__}")
+        if field_type is int:
+            if isinstance(value, bool):
+                raise ValueError(f"Field {field_name!r} expects an int, got bool")
+            if isinstance(value, int):
+                return value
+            raise ValueError(f"Field {field_name!r} expects an int, got {type(value).__name__}")
+        if field_type is float:
+            if isinstance(value, bool):
+                raise ValueError(f"Field {field_name!r} expects a float, got bool")
+            if isinstance(value, (int, float)):
+                return float(value)
+            raise ValueError(f"Field {field_name!r} expects a number, got {type(value).__name__}")
+        if field_type is str:
+            if isinstance(value, str):
+                return value
+            raise ValueError(f"Field {field_name!r} expects a string, got {type(value).__name__}")
+        if field_type is datetime:
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                iso = value.replace("Z", "+00:00")
+                try:
+                    return datetime.fromisoformat(iso)
+                except ValueError as e:
+                    raise ValueError(f"Field {field_name!r} expects an ISO-8601 datetime, got {value!r}") from e
+            raise ValueError(f"Field {field_name!r} expects a datetime string, got {type(value).__name__}")
+        # Enum types (HostSegment, PubliclyCloneable, etc.)
+        if isinstance(field_type, EnumMeta):
+            if isinstance(value, field_type):
+                return value
+            if not isinstance(value, str):
+                raise ValueError(
+                    f"Field {field_name!r} expects a {field_type.__name__} name, got {type(value).__name__}"
+                )
+            try:
+                return field_type[value]
+            except KeyError:
+                pass
+            snake = re.sub(r"(?<!^)(?=[A-Z])", "_", field_type.__name__).upper()
+            candidate = f"{snake}_{value.upper()}"
+            try:
+                return field_type[candidate]
+            except KeyError as e:
+                allowed = [n for n in field_type.__members__ if not n.endswith("_UNSPECIFIED")]
+                raise ValueError(
+                    f"Field {field_name!r} value {value!r} is not a valid {field_type.__name__}. "
+                    f"Allowed: {', '.join(allowed)}"
+                ) from e
+        raise ValueError(f"Field {field_name!r} has unsupported type {field_type!r}")
 
     def competition_data_update(
         self,
@@ -3716,11 +3960,11 @@ class KaggleApi:
         """Recursively print comments with indentation to show tree structure."""
         indent = "  " * depth
         for comment in comments or []:
-            author = getattr(comment, "author_name", "Unknown")
+            author = getattr(comment, "author_name", None) or "[deleted]"
             date = getattr(comment, "post_date", "")
             votes = getattr(comment, "votes", 0)
-            content = getattr(comment, "content", "")
-            if content:
+            content = getattr(comment, "content", None) or "[deleted]"
+            if content and content != "[deleted]":
                 content = bleach.clean(content, tags=[], strip=True).strip()
                 # Truncate long content for display
                 if len(content) > 200:
@@ -4030,7 +4274,7 @@ class KaggleApi:
             else:
                 license_name_val = self.lookup_enum(DatasetLicenseGroup, license_name_val, license_name)
 
-        if page and int(page) <= 0:
+        if page is not None and int(page) <= 0:
             raise ValueError("Page number must be >= 1")
 
         if max_size and min_size:
@@ -4435,17 +4679,10 @@ class KaggleApi:
             # a plain string instead of JSON.
             selected_fields = ["status"]
         else:
-            format_name, fields = _parse_format(format)
+            format_name, _ = _parse_format(format)
             if format_name != "json":
                 raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
-            if fields:
-                unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
-                if unknown:
-                    raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
-                selected_fields = list(fields)
-            else:
-                # No projection: include all fields.
-                selected_fields = list(self._DATASET_STATUS_FIELDS)
+            selected_fields, _ = self._resolve_projection(format, list(self._DATASET_STATUS_FIELDS))
 
         if "/" in dataset:
             self.validate_dataset_string(dataset)
@@ -4682,17 +4919,20 @@ class KaggleApi:
         file_upload = upload_context.new_resumable_file_upload(path, start_blob_upload_request)
         for i in range(0, self.MAX_UPLOAD_RESUME_ATTEMPTS):
             if file_upload.upload_complete:
-                return file_upload
+                return file_upload.get_token()
 
+            just_initiated = False
             if not file_upload.can_resume:
                 # Initiate upload on Kaggle backend to get the url and token.
                 with self.build_kaggle_client() as kaggle:
                     method = kaggle.blobs.blob_api_client.start_blob_upload
                     start_blob_upload_response = self.with_retry(method)(file_upload.start_blob_upload_request)
                     file_upload.upload_initiated(cast(ApiStartBlobUploadResponse, start_blob_upload_response))
+                    just_initiated = True
 
             upload_response = cast(ApiStartBlobUploadResponse, file_upload.start_blob_upload_response)
-            upload_result = self.upload_complete(path, upload_response.create_url, quiet, resume=file_upload.can_resume)
+            resume_attempt = file_upload.can_resume and not just_initiated
+            upload_result = self.upload_complete(path, upload_response.create_url, quiet, resume=resume_attempt)
             if upload_result == ResumableUploadResult.INCOMPLETE:
                 continue  # Continue (i.e., retry/resume) only if the upload is incomplete.
 
@@ -6497,8 +6737,10 @@ class KaggleApi:
             raise ValueError("Default slug detected, please change values before uploading")
         if not isinstance(is_private, bool):
             raise ValueError("model.isPrivate must be a boolean")
+
         if publish_time:
             self.validate_date(publish_time)
+            publish_time = datetime.strptime(publish_time, "%Y-%m-%d")
         else:
             publish_time = None
 
@@ -6609,16 +6851,19 @@ class KaggleApi:
         if subtitle != None:
             update_mask["paths"].append("subtitle")
         if is_private != None:
-            update_mask["paths"].append("isPrivate")  # is_private
+            update_mask["paths"].append("is_private")
         else:
             is_private = True  # default value, not updated
         if description != None:
             description = self.sanitize_markdown(description)
             update_mask["paths"].append("description")
+
         if publish_time != None and len(publish_time) > 0:
             update_mask["paths"].append("publish_time")
+            publish_time = datetime.strptime(publish_time, "%Y-%m-%d")
         else:
             publish_time = None
+
         if provenance_sources != None and len(provenance_sources) > 0:
             update_mask["paths"].append("provenance_sources")
         else:
@@ -6626,7 +6871,6 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             fm = field_mask_pb2.FieldMask(paths=update_mask["paths"])
-            fm = fm.FromJsonString(json.dumps(update_mask))
             request = ApiUpdateModelRequest()
             request.owner_slug = owner_slug
             request.model_slug = slug
@@ -7066,23 +7310,22 @@ class KaggleApi:
             usage = self.sanitize_markdown(usage)
             update_mask["paths"].append("usage")
         if license_name != None:
-            update_mask["paths"].append("licenseName")
+            update_mask["paths"].append("license_name")
         else:
             license_name = "Apache 2.0"  # default value even if not updated
         if fine_tunable != None:
-            update_mask["paths"].append("fineTunable")
+            update_mask["paths"].append("fine_tunable")
         if training_data != None:
-            update_mask["paths"].append("trainingData")
+            update_mask["paths"].append("training_data")
         if model_instance_type != None:
-            update_mask["paths"].append("modelInstanceType")
+            update_mask["paths"].append("model_instance_type")
         if base_model_instance != None:
-            update_mask["paths"].append("baseModelInstance")
+            update_mask["paths"].append("base_model_instance")
         if external_base_model_url != None:
-            update_mask["paths"].append("externalBaseModelUrl")
+            update_mask["paths"].append("external_base_model_url")
 
         with self.build_kaggle_client() as kaggle:
             fm = field_mask_pb2.FieldMask(paths=update_mask["paths"])
-            fm = fm.FromJsonString(json.dumps(update_mask))
             request = ApiUpdateModelInstanceRequest()
             request.owner_slug = owner_slug
             request.model_slug = model_slug
@@ -7946,7 +8189,7 @@ class KaggleApi:
     def _get_bytes_already_uploaded(self, response, quiet):
         range_val = response.headers.get("Range")
         if range_val is None:
-            return 0  # This means server hasn't received anything before.
+            return -1  # This means server hasn't received anything before.
         items = range_val.split("-")  # Example: bytes=0-1000 => ['0', '1000']
         if len(items) != 2:
             if not quiet:
@@ -8936,7 +9179,7 @@ class KaggleApi:
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",
                 "LLM_DEFAULT_EVAL": "google/gemini-3-flash-preview",
-                "LLMS_AVAILABLE": "anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5",
+                "LLMS_AVAILABLE": "anthropic/claude-sonnet-5@default,deepseek-ai/deepseek-r1-0528,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,ibm/granite-4.0-h-small,openai/gpt-5.4-nano-2026-03-17,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct",
             }
         )
         if not self._write_benchmarks_env(env_vars, no_confirm, env_file, quiet=True):
@@ -9513,6 +9756,122 @@ class KaggleApi:
                     print("Backing notebook also published.")
                 else:
                     print("Note: No backing notebook is associated with this task.", file=sys.stderr)
+
+    def benchmark_leaderboard_view(self, benchmark: str, version: Optional[int] = None) -> ApiBenchmarkLeaderboard:
+        """View a leaderboard based on a benchmark name.
+
+        Args:
+            benchmark (str): The benchmark name (owner/slug) to view leaderboard for.
+            version (Optional[int]): The benchmark version (optional).
+
+        Returns:
+            ApiBenchmarkLeaderboard: The leaderboard response.
+        """
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetBenchmarkLeaderboardRequest()
+            request.owner_slug = owner_slug
+            request.benchmark_slug = benchmark_slug
+            if version is not None:
+                request.version_number = version
+            response = self.with_retry(kaggle.benchmarks.benchmarks_api_client.get_benchmark_leaderboard)(request)
+        return response
+
+    def benchmark_leaderboard_cli(
+        self,
+        benchmark,
+        version=None,
+        view=False,
+        download=False,
+        path=None,
+        csv_display=False,
+        output_format=None,
+        quiet=False,
+    ):
+        """A wrapper for benchmark_leaderboard_view that will print the results or download them.
+
+        Args:
+            benchmark (str): The benchmark name (owner/slug) to view leaderboard for.
+            version (Optional[int]): The benchmark version (optional).
+            view (bool): If True, show the results in the terminal.
+            download (bool): If True, download the leaderboard as CSV.
+            path (Optional[str]): Path to download folder.
+            csv_display (bool): If True, print CSV instead of table (legacy).
+            output_format (Optional[str]): The output format to use.
+            quiet (bool): Suppress verbose output.
+        """
+        if not view and not download:
+            raise ValueError("Either --show or --download must be specified")
+
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+
+        response = self.benchmark_leaderboard_view(benchmark, version)
+
+        if not response.rows:
+            if not quiet:
+                print("No results found")
+            return
+
+        # Flatten the response
+        tasks = {}  # slug -> name
+        for row in response.rows:
+            for result in row.task_results:
+                tasks[result.benchmark_task_slug] = result.benchmark_task_name
+
+        sorted_task_slugs = sorted(tasks.keys())
+
+        def slug_to_field(slug):
+            return slug.replace("-", "_")
+
+        fields = ["model"] + [slug_to_field(slug) for slug in sorted_task_slugs]
+        labels = ["Model"] + [tasks[slug] for slug in sorted_task_slugs]
+
+        items = []
+        for row in response.rows:
+            row_view = BenchmarkLeaderboardRowView(row.model_version_name)
+            for slug in sorted_task_slugs:
+                setattr(row_view, slug_to_field(slug), "N/A")
+            for result in row.task_results:
+                field_name = slug_to_field(result.benchmark_task_slug)
+                score = "N/A"
+                if result.result:
+                    if result.result.numeric_result:
+                        score = str(result.result.numeric_result.value)
+                    elif result.result.boolean_result is not None:
+                        score = "Pass" if result.result.boolean_result else "Fail"
+                setattr(row_view, field_name, score)
+            items.append(row_view)
+
+        if download:
+            if path is None:
+                effective_path = self.get_default_download_dir("benchmarks", benchmark_slug)
+            else:
+                effective_path = path
+
+            os.makedirs(effective_path, exist_ok=True)
+            file_name = benchmark_slug + "_leaderboard.csv"
+            outfile = os.path.join(effective_path, file_name)
+
+            with open(outfile, "w", newline="", encoding="utf-8") as f:
+                with redirect_stdout(f):
+                    self.print_csv(items, fields, labels)
+            if not quiet:
+                print(f"Leaderboard downloaded to {outfile}")
+
+        if view:
+            self.print_results(
+                items,
+                fields,
+                labels=labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
+
+
+class BenchmarkLeaderboardRowView(object):
+
+    def __init__(self, model):
+        self.model = model
 
 
 class TqdmBufferedReader(io.BufferedReader):

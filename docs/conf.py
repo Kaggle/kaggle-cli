@@ -68,5 +68,5 @@ suppress_warnings = ["ref.unknown"]
 # -- Options for sphinx.ext.apidoc -------------------------------------------
 apidoc_module_dir = "../src/kaggle"
 apidoc_output_dir = "source"
-apidoc_excluded_paths = ["api/kaggle_api.py"]
+apidoc_excluded_paths = []
 apidoc_separate_modules = True

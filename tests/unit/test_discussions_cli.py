@@ -706,3 +706,31 @@ class TestForumsTopicShowCliOutput:
         assert list(output["comments"][0].keys()) == ["content"]
         assert output["comments"][0]["content"] == "Comment Content"
         assert "id" not in output["comments"][0]
+
+    def test_text_output_with_deleted_comments(self, api, capsys):
+        mock_topic = MagicMock()
+        mock_topic.id = 123
+        mock_topic.title = "Test Title"
+        mock_topic.author_name = "test-author"
+        mock_topic.post_date = "2026-06-01"
+        mock_topic.votes = 5
+        mock_topic.comment_count = 1
+        mock_topic.content = "Test Content"
+
+        # Deleted comment (missing author_name and content)
+        mock_comment = MagicMock()
+        mock_comment.id = 456
+        mock_comment.author_name = None
+        mock_comment.content = None
+        mock_comment.post_date = "2026-06-02"
+        mock_comment.votes = 2
+        mock_comment.replies = []
+
+        api.forums_topic_show = MagicMock(return_value=(mock_topic, [mock_comment], ""))
+
+        api.forums_topic_show_cli(topic_ref="123")
+
+        captured = capsys.readouterr()
+
+        assert "├─ [deleted] (2026-06-02) [+2]" in captured.out
+        assert "│  [deleted]" in captured.out

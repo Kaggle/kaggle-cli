@@ -261,7 +261,11 @@ class ResumableUploadResult(object):
     def __init__(self, result, bytes_uploaded=None):
         self.result = result
         self.bytes_uploaded = bytes_uploaded
-        self.start_at = 0 if bytes_uploaded is None else bytes_uploaded + 1
+        if bytes_uploaded == -1:
+            self.bytes_uploaded = 0
+            self.start_at = 0
+        else:
+            self.start_at = 0 if bytes_uploaded is None else bytes_uploaded + 1
 
     @staticmethod
     def Complete():

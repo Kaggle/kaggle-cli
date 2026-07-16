@@ -159,6 +159,18 @@ class TestCompetitionsList(unittest.TestCase):
         self.assertEqual(request.page_token, "token-abc")
 
     @patch.object(KaggleApi, "build_kaggle_client")
+    def test_competitions_list_success_group_all(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.competitions_list(group="all")
+
+        request = mock_kaggle.competitions.competition_api_client.list_competitions.call_args[0][0]
+        self.assertEqual(request.group, CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING)
+
+    @patch.object(KaggleApi, "build_kaggle_client")
     def test_competitions_list_category_all_succeeds(self, mock_client):
         mock_kaggle = MagicMock()
         mock_kaggle.competitions.competition_api_client.list_competitions.return_value = MagicMock()

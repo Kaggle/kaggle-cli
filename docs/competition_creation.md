@@ -6,6 +6,9 @@ public competition-creation API endpoints (kagglesdk 0.1.31+):
 - [`kaggle competitions init`](#kaggle-competitions-init)
 - [`kaggle competitions create`](#kaggle-competitions-create)
 - [`kaggle competitions pages create`](#kaggle-competitions-pages-create)
+- [`kaggle competitions hosts`](#kaggle-competitions-hosts)
+- [`kaggle competitions settings get`](#kaggle-competitions-settings-get)
+- [`kaggle competitions settings update`](#kaggle-competitions-settings-update)
 - [`kaggle competitions launch`](#kaggle-competitions-launch)
 - [`kaggle competitions data update`](#kaggle-competitions-data-update)
 
@@ -31,7 +34,12 @@ kaggle competitions pages create my-comp-slug --name rules -f ./rules.md --publi
 # 5. Update the competition data (train.csv, test.csv, sample_submission.csv, ...).
 kaggle competitions data update my-comp-slug -p ./data -m "Initial release"
 
-# 6. Launch the competition (now, or schedule a future UTC time).
+# 6. Optionally tune host-only settings not covered by competition-metadata.json
+#    (deadlines, runtime caps, leaderboard behavior, etc.).
+kaggle competitions settings get my-comp-slug
+kaggle competitions settings update my-comp-slug -f ./settings.json
+
+# 7. Launch the competition (now, or schedule a future UTC time).
 kaggle competitions launch my-comp-slug --at 2027-01-01T00:00:00Z
 ```
 
@@ -307,6 +315,159 @@ deleted; attempting to delete one returns an error from the server.
 
 Deletion is not recoverable — there is no "undelete". List pages first with
 `kaggle competitions pages list <competition>` if you're unsure of the name.
+
+---
+
+## `kaggle competitions hosts`
+
+Lists the hosts (users with host access) for a competition. Useful for
+confirming who can edit settings, upload data, or launch — especially after
+adding or removing collaborators via the web UI.
+
+Also invocable as `kaggle competitions hosts list`.
+
+**Usage:**
+
+```bash
+kaggle competitions hosts <competition> [-v | --format json]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Examples:**
+
+```bash
+# Table output.
+kaggle competitions hosts my-comp
+
+# CSV — useful for piping into other tools.
+kaggle competitions hosts my-comp -v
+
+# JSON.
+kaggle competitions hosts my-comp --format json
+```
+
+Output columns: `userName`, `displayName`, `id`, `profileUrl`.
+
+---
+
+## `kaggle competitions settings get`
+
+Shows the unified settings blob for a competition you host — the same set of
+fields the "Settings" tab exposes in the web UI, covering general info,
+access & teams, key dates, submissions & leaderboard behavior, code
+competition parameters, and host attribution.
+
+By default the output is grouped by UI section and hides fields left at their
+type default (unset strings, `false` booleans, zero ints). Pass `--json` for
+the raw blob (camelCase keys, matching the update payload format).
+
+**Usage:**
+
+```bash
+kaggle competitions settings get <competition> [--json]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Examples:**
+
+```bash
+# Grouped, human-readable summary.
+kaggle competitions settings get my-comp
+
+# Machine-readable dump — pipe into jq, or save + edit + feed back to update.
+kaggle competitions settings get my-comp --json > settings.json
+```
+
+---
+
+## `kaggle competitions settings update`
+
+Applies a partial update to a competition's settings. You author a JSON or
+YAML file containing only the fields you want to change; the CLI builds the
+server-side FieldMask from the keys present in the file, so unspecified
+fields are left alone.
+
+The typical loop is:
+
+1. `kaggle competitions settings get my-comp --json > settings.json` — pull
+   the current values.
+2. Edit the file down to just the fields you want to change (delete the rest).
+3. `kaggle competitions settings update my-comp -f ./settings.json`.
+
+**Usage:**
+
+```bash
+kaggle competitions settings update <competition> -f <path> [--json]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `-f, --from-file <path>` (required): JSON or YAML file with the fields to
+  update. Extension picks the parser (`.yaml`/`.yml` → YAML, anything else →
+  JSON). Keys may be `snake_case` (matches the SDK) or `camelCase` (matches
+  the `--json` output of `settings get`).
+- `--json` (optional): After the update, print the returned settings as JSON
+  instead of the grouped text view.
+
+**Examples:**
+
+Toggle a single boolean:
+
+```json
+// disable-leaderboard.json
+{ "has_leaderboard": false }
+```
+
+```bash
+kaggle competitions settings update my-comp -f ./disable-leaderboard.json
+```
+
+Bump the code-competition runtime caps and set the team-merger deadline
+(YAML, mixing types):
+
+```yaml
+# tune.yaml
+max_cpu_runtime_minutes: 540
+max_gpu_runtime_minutes: 720
+team_merger_explicit_deadline: 2027-01-15T00:00:00Z
+rules_required: true
+```
+
+```bash
+kaggle competitions settings update my-comp -f ./tune.yaml
+```
+
+**Type notes:**
+
+- Booleans → JSON `true`/`false` (or YAML equivalents).
+- Numeric fields → plain numbers (`240`, `1.5`).
+- Datetime fields → ISO-8601 strings (`"2027-01-01T00:00:00Z"` or with an
+  explicit offset).
+- Enum fields (`host_segment`, `publicly_cloneable`) → the enum member name
+  as a string; either the full name (`"HOST_SEGMENT_FEATURED"`) or the short
+  suffix (`"FEATURED"`) works.
+
+**Common errors:**
+
+- `Unknown competition setting: '<name>'` — the field name isn't in
+  `CompetitionSettings`. Check `settings get --json` for the exact keys.
+- `Field '<name>' expects a bool, got str` — the file has a string where a
+  boolean is required (e.g. `"true"` instead of `true`).
+- `not a valid HostSegment. Allowed: ...` — the enum value you passed isn't
+  a member; the error lists the accepted names.
+- Some settings are gated to Kaggle admins (marked "ADMIN ONLY" in the
+  proto — e.g. `host_segment`, `directly_responsible_user_id`) and the server
+  will reject writes to them for non-admin hosts.
 
 ---
 

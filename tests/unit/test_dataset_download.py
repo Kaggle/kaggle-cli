@@ -21,7 +21,7 @@ class TestDatasetDownload(unittest.TestCase):
     @patch.object(KaggleApi, "download_needed", return_value=False)
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_download_cached_unzip(
+    def test_dataset_download_cached_unzip_succeeds(
         self, mock_client, mock_download_file, mock_download_needed, mock_zipfile, mock_remove, mock_exists
     ):
         """Case 1: When dataset is cached (download_needed is False) and unzip=True,
@@ -58,7 +58,7 @@ class TestDatasetDownload(unittest.TestCase):
     @patch.object(KaggleApi, "download_needed", return_value=True)
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_dataset_download_fresh_unzip(
+    def test_dataset_download_fresh_unzip_succeeds(
         self, mock_client, mock_download_file, mock_download_needed, mock_zipfile, mock_remove, mock_exists
     ):
         """Case 2: When dataset is not cached (download_needed is True) and unzip=True,
@@ -88,6 +88,125 @@ class TestDatasetDownload(unittest.TestCase):
         mock_zipfile().__enter__().extractall.assert_called_once_with(path)
         mock_remove.assert_called_once()
         self.assertEqual(os.path.normpath(mock_remove.call_args[0][0]), expected_outfile)
+
+    @patch.object(KaggleApi, "download_needed", return_value=True)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_download_file_succeeds(self, mock_client, mock_download_file, mock_download_needed):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = self.api.dataset_download_file("owner/my-dataset", "file1.csv", path="/tmp/download")
+
+        self.assertTrue(result)
+        mock_kaggle.datasets.dataset_api_client.download_dataset.assert_called_once()
+        request = mock_kaggle.datasets.dataset_api_client.download_dataset.call_args[0][0]
+        self.assertEqual(request.owner_slug, "owner")
+        self.assertEqual(request.dataset_slug, "my-dataset")
+        self.assertEqual(request.file_name, "file1.csv")
+        self.assertEqual(request.dataset_version_number, 0)
+
+        mock_download_needed.assert_called_once()
+        mock_download_file.assert_called_once()
+        expected_outfile = os.path.join("/tmp/download", "file1.csv")
+        self.assertEqual(mock_download_file.call_args[0][1], expected_outfile)
+
+    @patch.object(KaggleApi, "download_needed", return_value=False)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_download_file_not_needed_skips_download(
+        self, mock_client, mock_download_file, mock_download_needed
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = self.api.dataset_download_file("owner/my-dataset", "file1.csv", path="/tmp/download")
+
+        self.assertFalse(result)
+        mock_download_needed.assert_called_once()
+        mock_download_file.assert_not_called()
+
+    @patch.object(KaggleApi, "download_needed", return_value=False)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_download_file_force_downloads(self, mock_client, mock_download_file, mock_download_needed):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = self.api.dataset_download_file("owner/my-dataset", "file1.csv", path="/tmp/download", force=True)
+
+        self.assertTrue(result)
+        mock_download_needed.assert_not_called()
+        mock_download_file.assert_called_once()
+
+    @patch.object(KaggleApi, "get_default_download_dir", return_value="/tmp/default")
+    @patch.object(KaggleApi, "download_needed", return_value=True)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_download_file_default_path_succeeds(
+        self, mock_client, mock_download_file, mock_download_needed, mock_get_default_dir
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.dataset_download_file("owner/my-dataset", "file1.csv")
+
+        mock_get_default_dir.assert_called_once_with("datasets", "owner", "my-dataset")
+        expected_outfile = os.path.join("/tmp/default", "file1.csv")
+        self.assertEqual(mock_download_file.call_args[0][1], expected_outfile)
+
+    @patch.object(KaggleApi, "download_needed", return_value=True)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_download_file_no_owner_defaults_owner_succeeds(
+        self, mock_client, mock_download_file, mock_download_needed
+    ):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.dataset_download_file("my-dataset", "file1.csv", path="/tmp/download")
+
+        request = mock_kaggle.datasets.dataset_api_client.download_dataset.call_args[0][0]
+        self.assertEqual(request.owner_slug, "testuser")
+        self.assertEqual(request.dataset_slug, "my-dataset")
+
+    @patch.object(KaggleApi, "download_needed", return_value=True)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_download_file_with_version_succeeds(self, mock_client, mock_download_file, mock_download_needed):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.request.url = "http://example.com/download/testuser/test-dataset/file1.csv?token=123"
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.dataset_download_file("owner/my-dataset/3", "file1.csv", path="/tmp/download")
+
+        request = mock_kaggle.datasets.dataset_api_client.download_dataset.call_args[0][0]
+        self.assertEqual(request.owner_slug, "owner")
+        self.assertEqual(request.dataset_slug, "my-dataset")
+        self.assertEqual(request.dataset_version_number, 3)
 
 
 if __name__ == "__main__":
