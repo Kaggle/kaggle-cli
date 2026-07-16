@@ -158,9 +158,7 @@ class TestModelCreate(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_create_with_ignore_patterns_succeeds(
-        self, mock_client, mock_upload
-    ):
+    def test_model_instance_create_with_ignore_patterns_succeeds(self, mock_client, mock_upload):
         mock_kaggle = MagicMock()
         mock_response = ApiCreateModelResponse()
         mock_kaggle.models.model_api_client.create_model_instance.return_value = mock_response
@@ -520,6 +518,8 @@ class TestModelCreate(unittest.TestCase):
 
             self.assertIsNotNone(request.update_mask)
             self.assertEqual(list(request.update_mask.paths), ["title"])
+
+
 class TestModelInstanceVersionCreate(unittest.TestCase):
     """Tests for model_instance_version_create."""
 
@@ -530,17 +530,11 @@ class TestModelInstanceVersionCreate(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_version_create_succeeds(
-        self, mock_client, mock_upload
-    ):
+    def test_model_instance_version_create_succeeds(self, mock_client, mock_upload):
         mock_kaggle = MagicMock()
         mock_response = ApiCreateModelResponse()
-        mock_kaggle.models.model_api_client.create_model_instance_version.return_value = (
-            mock_response
-        )
-        mock_client.return_value.__enter__ = MagicMock(
-            return_value=mock_kaggle
-        )
+        mock_kaggle.models.model_api_client.create_model_instance_version.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         model_instance = "testuser/test-model/keras/test-instance"
@@ -564,9 +558,7 @@ class TestModelInstanceVersionCreate(unittest.TestCase):
             self.assertIsNone(mock_upload.call_args[1].get("ignore_patterns"))
 
             mock_kaggle.models.model_api_client.create_model_instance_version.assert_called_once()
-            request = mock_kaggle.models.model_api_client.create_model_instance_version.call_args[
-                0
-            ][0]
+            request = mock_kaggle.models.model_api_client.create_model_instance_version.call_args[0][0]
             self.assertEqual(request.owner_slug, "testuser")
             self.assertEqual(request.model_slug, "test-model")
             self.assertEqual(request.instance_slug, "test-instance")
@@ -574,17 +566,11 @@ class TestModelInstanceVersionCreate(unittest.TestCase):
 
     @patch.object(KaggleApi, "upload_files")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_model_instance_version_create_with_ignore_patterns_succeeds(
-        self, mock_client, mock_upload
-    ):
+    def test_model_instance_version_create_with_ignore_patterns_succeeds(self, mock_client, mock_upload):
         mock_kaggle = MagicMock()
         mock_response = ApiCreateModelResponse()
-        mock_kaggle.models.model_api_client.create_model_instance_version.return_value = (
-            mock_response
-        )
-        mock_client.return_value.__enter__ = MagicMock(
-            return_value=mock_kaggle
-        )
+        mock_kaggle.models.model_api_client.create_model_instance_version.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
         model_instance = "testuser/test-model/keras/test-instance"

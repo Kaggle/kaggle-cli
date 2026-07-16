@@ -7184,9 +7184,7 @@ class KaggleApi:
                 response = cast(ApiCreateModelResponse, self.with_retry(message)(request))
                 return response
 
-    def model_instance_create_cli(
-        self, folder, quiet=False, dir_mode="skip", ignore_patterns=None
-    ):
+    def model_instance_create_cli(self, folder, quiet=False, dir_mode="skip", ignore_patterns=None):
         """A client wrapper for creating a new model instance.
 
         Args:
@@ -7196,9 +7194,7 @@ class KaggleApi:
             ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
-        result = self.model_instance_create(
-            folder, quiet, dir_mode, ignore_patterns
-        )
+        result = self.model_instance_create(folder, quiet, dir_mode, ignore_patterns)
 
         if result.id:
             print("Your model instance was created. Id={}. Url={}".format(result.id, result.url))
@@ -8113,10 +8109,7 @@ class KaggleApi:
         new_file.token = file.token
         new_file.description = file.description
         if file.columns:
-            new_file.columns = [
-                ApiDatasetColumn.from_dict(file.to_dict())
-                for file in file.columns
-            ]
+            new_file.columns = [ApiDatasetColumn.from_dict(file.to_dict()) for file in file.columns]
         return new_file
 
     def _upload_file_or_folder(
@@ -8127,9 +8120,7 @@ class KaggleApi:
         upload_context: ResumableUploadContext,
         dir_mode: str,
         quiet: bool = False,
-        resources: Optional[
-            List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]
-        ] = None,
+        resources: Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]] = None,
         ignore_patterns: Optional[List[str]] = None,
     ) -> Union[UploadFile, None]:
         full_path = os.path.join(parent_path, file_or_folder_name)
@@ -8145,9 +8136,7 @@ class KaggleApi:
             )
         elif os.path.isdir(full_path):
             if dir_mode in ["zip", "tar"]:
-                with DirectoryArchive(
-                    full_path, dir_mode, ignore_patterns=ignore_patterns
-                ) as archive:
+                with DirectoryArchive(full_path, dir_mode, ignore_patterns=ignore_patterns) as archive:
                     upload_file = self._upload_file(
                         archive.name,
                         archive.path,
@@ -8157,11 +8146,7 @@ class KaggleApi:
                         resources,
                     )
             elif not quiet:
-                print(
-                    "Skipping folder: "
-                    + file_or_folder_name
-                    + "; use '--dir-mode' to upload folders"
-                )
+                print("Skipping folder: " + file_or_folder_name + "; use '--dir-mode' to upload folders")
         else:
             if not quiet:
                 print("Skipping: " + file_or_folder_name)
