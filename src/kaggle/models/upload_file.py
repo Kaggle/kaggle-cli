@@ -20,7 +20,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-
+from typing import Any
 from kagglesdk.datasets.types.dataset_api_service import ApiDatasetColumn
 
 
@@ -125,7 +125,7 @@ class UploadFile(object):
 
     def to_dict(self):
         """Returns the model properties as a dict."""
-        result = {}
+        result: dict[str, Any] = {}
 
         for attr, _ in six.iteritems(self.column_types):
             value = getattr(self, attr)

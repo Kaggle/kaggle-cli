@@ -241,9 +241,24 @@ import kagglesdk.kaggle_client
 from enum import EnumMeta
 from requests.exceptions import HTTPError
 from requests.models import Response
-from typing import Any, Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
+from typing import (
+    Any,
+    Callable,
+    cast,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    TypeVar,
+    Iterable,
+    ParamSpec,
+)
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 BENCHMARKS_SYNTAX_REF = """\
 # kaggle-benchmarks Task Syntax Reference
@@ -867,7 +882,7 @@ class KaggleApi:
     MAX_NUM_INBOX_FILES_TO_UPLOAD = 1000
     MAX_UPLOAD_RESUME_ATTEMPTS = 10
 
-    config_dir = os.environ.get("KAGGLE_CONFIG_DIR")
+    config_dir: str = os.environ.get("KAGGLE_CONFIG_DIR") or ""
 
     if not config_dir:
         config_dir = os.path.join(expanduser("~"), ".kaggle")
@@ -989,7 +1004,7 @@ class KaggleApi:
     ]
     valid_forum_topic_groups = ["all", "owned", "upvoted", "bookmarked", "my_activity", "drafts"]
 
-    def _is_retriable(self, e: HTTPError) -> bool:
+    def _is_retriable(self, e: Exception) -> bool:
         if self._is_rate_limited(e):
             return True
         return (
@@ -1053,21 +1068,25 @@ class KaggleApi:
 
     def with_retry(
         self,
-        func: Callable[[KaggleObject], KaggleObject],
+        func: Callable[P, T],
         max_retries: int = 10,
         initial_delay_millis: int = 500,
         retry_multiplier: float = 1.7,
         randomness_factor: float = 0.5,
-    ) -> Callable[[KaggleObject], KaggleObject]:
-        def retriable_func(*args):
+    ) -> Callable[P, T]:
+        if max_retries <= 0:
+            raise ValueError("max_retries must be positive")
+
+        def retriable_func(*args: P.args, **kwargs: P.kwargs) -> T:
             for i in range(1, max_retries + 1):
                 try:
-                    return func(*args)
+                    return func(*args, **kwargs)
                 except Exception as e:
                     if self._is_retriable(e) and i < max_retries:
                         # Use Retry-After header for 429 responses when available
                         if self._is_rate_limited(e):
-                            retry_delay = self._get_retry_after_delay(e.response)
+                            http_error = cast(HTTPError, e)
+                            retry_delay = self._get_retry_after_delay(http_error.response)
                             if retry_delay is not None:
                                 total_delay = retry_delay
                                 self.logger.info(
@@ -1095,6 +1114,7 @@ class KaggleApi:
                         time.sleep(total_delay)
                         continue
                     raise
+            raise RuntimeError("Unreachable")
 
         return retriable_func
 
@@ -1846,7 +1866,12 @@ class KaggleApi:
                 return submit_response
 
     def competition_submit(
-        self, file_name: str, message: str, competition: str, quiet: bool = False, sandbox: bool = False
+        self,
+        file_name: str | None,
+        message: str,
+        competition: str | None,
+        quiet: bool = False,
+        sandbox: bool = False,
     ) -> ApiCreateSubmissionResponse:
         """Submits to a competition.
 
@@ -5179,7 +5204,7 @@ class KaggleApi:
         else:
             print("Dataset version creation error: " + result.error)
 
-    def dataset_delete(self, owner_slug: str, dataset_slug: str, no_confirm: bool = False) -> bool:
+    def dataset_delete(self, owner_slug: str | None, dataset_slug: str, no_confirm: bool = False) -> bool:
         """Deletes a dataset.
 
         Args:
@@ -5589,7 +5614,8 @@ class KaggleApi:
 
                 # Use Retry-After header for 429 responses when available
                 if self._is_rate_limited(e):
-                    retry_delay = self._get_retry_after_delay(e.response)
+                    http_error = cast(HTTPError, e)
+                    retry_delay = self._get_retry_after_delay(http_error.response)
                     if retry_delay is not None:
                         backoff_time = retry_delay
                         self.logger.info(
@@ -6480,7 +6506,7 @@ class KaggleApi:
         else:
             print('%s has status "%s"' % (kernel, status))
 
-    def kernels_logs(self, kernel: str) -> str:
+    def kernels_logs(self, kernel: str | None) -> str:
         """Retrieves the execution log for a specified kernel.
 
         Args:
@@ -6509,7 +6535,7 @@ class KaggleApi:
                 raise
         return response.log or ""
 
-    def _split_kernel(self, kernel: str) -> Tuple[str, str]:
+    def _split_kernel(self, kernel: str | None) -> Tuple[str, str]:
         """Split a kernel identifier into (owner_slug, kernel_slug)."""
         if kernel is None:
             raise ValueError("A kernel must be specified")
@@ -6523,7 +6549,7 @@ class KaggleApi:
     # Sentinel value emitted by the streaming endpoint to signal end-of-stream.
     _LOG_STREAM_END_SENTINEL = "END_OF_LOG"
 
-    def kernels_logs_stream(self, kernel: str) -> Iterator[Dict[str, str]]:
+    def kernels_logs_stream(self, kernel: str | None) -> Iterator[Dict[str, str]]:
         """Stream execution logs for a kernel via the midtier logs endpoint.
 
         `GET /api/v1/kernels/logs/stream/{owner}/{slug}` adapts to the session
@@ -7317,7 +7343,11 @@ class KaggleApi:
             print("The model instance was deleted.")
 
     def model_instance_files(
-        self, model_instance: str, page_token: Union[str, None] = None, page_size: int = 20, csv_display: bool = False
+        self,
+        model_instance: str | None,
+        page_token: Union[str, None] = None,
+        page_size: int = 20,
+        csv_display: bool = False,
     ) -> FileList:
         """Lists files for the current version of a model instance.
 
@@ -7596,7 +7626,7 @@ class KaggleApi:
 
     def model_instance_version_download(
         self,
-        model_instance_version: str,
+        model_instance_version: str | None,
         path: Optional[str] = None,
         force: bool = False,
         quiet: bool = True,
@@ -7683,7 +7713,7 @@ class KaggleApi:
 
     def model_instance_version_files(
         self,
-        model_instance_version: str,
+        model_instance_version: str | None,
         page_token: Union[str, None] = None,
         page_size: int = 20,
         csv_display: bool = False,

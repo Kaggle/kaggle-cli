@@ -15,21 +15,26 @@
 # limitations under the License.
 
 # coding=utf-8
+from __future__ import annotations
 from datetime import datetime
+from typing import Any
 
 
 class Competition(object):
+    ref: str
+    tags: list[Tag]
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
         self.__dict__.update(parsed_dict)
-        self.tags = [Tag(t) for t in self.tags]
+        self.tags = [Tag(t) for t in parsed_dict.get("tags", [])]
 
     def __repr__(self):
         return self.ref
 
 
 class SubmitResult(object):
+    message: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -40,20 +45,25 @@ class SubmitResult(object):
 
 
 class Submission(object):
+    ref: str | None
+    totalBytes: int | None
+    size: str | None
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
         self.__dict__.update(parsed_dict)
-        if self.totalBytes is None:
+        total_bytes = parsed_dict.get("totalBytes")
+        if total_bytes is None:
             self.size = None
         else:
-            self.size = File.get_size(self.totalBytes)
+            self.size = File.get_size(total_bytes)
 
     def __repr__(self):
         return str(self.ref)
 
 
 class LeaderboardEntry(object):
+    teamId: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -64,20 +74,28 @@ class LeaderboardEntry(object):
 
 
 class Dataset(object):
+    ref: str
+    tags: list[Tag]
+    files: list[File]
+    versions: list[DatasetVersion]
+    totalBytes: int | None
+    size: str | None
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
         self.__dict__.update(parsed_dict)
-        self.tags = [Tag(t) for t in self.tags]
-        self.files = [File(f) for f in self.files]
-        self.versions = [DatasetVersion(v) for v in self.versions]
-        self.size = File.get_size(self.totalBytes)
+        self.tags = [Tag(t) for t in parsed_dict.get("tags", [])]
+        self.files = [File(f) for f in parsed_dict.get("files", [])]
+        self.versions = [DatasetVersion(v) for v in parsed_dict.get("versions", [])]
+        total_bytes = parsed_dict.get("totalBytes")
+        self.size = File.get_size(total_bytes) if total_bytes is not None else None
 
     def __repr__(self):
         return self.ref
 
 
 class Model(object):
+    ref: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -88,6 +106,11 @@ class Model(object):
 
 
 class Metadata(object):
+    datasetId: int
+    id: str
+    id_no: int
+    ownerUser: str
+    datasetSlug: str
 
     def __init__(self, init_info):
         parsed_info = {k: parse(v) for k, v in init_info.items()}
@@ -101,6 +124,7 @@ class Metadata(object):
 
 
 class DatasetVersion(object):
+    versionNumber: int
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -111,12 +135,18 @@ class DatasetVersion(object):
 
 
 class File(object):
+    totalBytes: int | None
+    name: str
+    creation_date: Any
+    size: str
+    total_bytes: str
 
     def __init__(self, init_dict):
         try:  # TODO Remove try-block
             parsed_dict = {k: parse(v) for k, v in init_dict.items()}
             self.__dict__.update(parsed_dict)
-            self.size = File.get_size(self.totalBytes)
+            total_bytes = parsed_dict.get("totalBytes")
+            self.size = File.get_size(total_bytes) if total_bytes is not None else ""
         except AttributeError:
             self.name = init_dict.name
             self.creation_date = init_dict.creation_date
@@ -140,6 +170,7 @@ class File(object):
 
 
 class Tag(object):
+    ref: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -150,6 +181,7 @@ class Tag(object):
 
 
 class DatasetNewVersionResponse(object):
+    url: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -160,6 +192,7 @@ class DatasetNewVersionResponse(object):
 
 
 class DatasetNewResponse(object):
+    url: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -170,6 +203,9 @@ class DatasetNewResponse(object):
 
 
 class ListFilesResult(object):
+    error_message: str
+    files: list[File]
+    nextPageToken: str
 
     def __init__(self, init_dict):
         try:  # TODO Remove try-block
@@ -183,7 +219,7 @@ class ListFilesResult(object):
         if files:
             self.files = [File(f) for f in files]
         else:
-            self.files = {}
+            self.files = []
         if token:
             self.nextPageToken = token
         else:
@@ -194,6 +230,7 @@ class ListFilesResult(object):
 
 
 class Kernel:
+    title: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -204,6 +241,7 @@ class Kernel:
 
 
 class KernelPushResponse(object):
+    newUrl: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -214,6 +252,7 @@ class KernelPushResponse(object):
 
 
 class ModelNewResponse(object):
+    url: str
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
@@ -224,6 +263,7 @@ class ModelNewResponse(object):
 
 
 class ModelDeleteResponse(object):
+    error: str | None
 
     def __init__(self, init_dict):
         parsed_dict = {k: parse(v) for k, v in init_dict.items()}
