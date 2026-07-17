@@ -48,13 +48,13 @@ DEFAULT_TASK_CONTENT = '@task(name="my-task")\ndef evaluate(): pass\n'
 def api():
     """A KaggleApi with mocked auth and client — no network calls."""
     a = KaggleApi()
-    a.authenticate = MagicMock()
+    a.authenticate = MagicMock()  # type: ignore[method-assign]
     mock_client = MagicMock()
-    a.build_kaggle_client = MagicMock()
+    a.build_kaggle_client = MagicMock()  # type: ignore[method-assign]
     a.build_kaggle_client.return_value.__enter__.return_value = mock_client
     # Expose internals so helpers can wire up responses.
-    a._mock_client = mock_client
-    a._mock_benchmarks = mock_client.benchmarks.benchmark_tasks_api_client
+    a._mock_client = mock_client  # type: ignore[attr-defined]
+    a._mock_benchmarks = mock_client.benchmarks.benchmark_tasks_api_client  # type: ignore[attr-defined]
     return a
 
 

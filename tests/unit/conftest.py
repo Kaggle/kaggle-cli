@@ -27,8 +27,8 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 @pytest.fixture
 def api():
     a = KaggleApi()
-    a.authenticate = MagicMock()
-    a.build_kaggle_client = MagicMock()
+    a.authenticate = MagicMock()  # type: ignore[method-assign]
+    a.build_kaggle_client = MagicMock()  # type: ignore[method-assign]
     return a
 
 
@@ -70,7 +70,7 @@ def parser(monkeypatch, api):
     root = argparse.ArgumentParser()
     subparsers = root.add_subparsers(title="commands", dest="command")
     subparsers.required = True
-    subparsers.choices = Help.kaggle_choices
+    subparsers.choices = Help.kaggle_choices  # type: ignore[assignment]
 
     parse_quota(subparsers)
     parse_config(subparsers)

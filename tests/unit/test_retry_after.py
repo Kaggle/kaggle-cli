@@ -6,6 +6,7 @@ that the retry logic respects the Retry-After header.
 """
 
 import unittest
+from typing import Any, cast
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -55,22 +56,28 @@ class TestGetRetryAfterDelay(unittest.TestCase):
 
     def test_parses_integer_seconds(self):
         response = self._make_response("120")
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 120.0)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 120.0)
 
     def test_parses_float_seconds(self):
         response = self._make_response("30.5")
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 30.5)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 30.5)
 
     def test_negative_value_clamped_to_zero(self):
         response = self._make_response("-5")
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 0.0)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 0.0)
 
     def test_parses_http_date(self):
         future = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=60)
         date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
         response = self._make_response(date_str)
         delay = KaggleApi._get_retry_after_delay(response)
-        self.assertIsNotNone(delay)
+        assert delay is not None
         # Allow some tolerance for time elapsed during test
         self.assertAlmostEqual(delay, 60.0, delta=2.0)
 
@@ -78,7 +85,9 @@ class TestGetRetryAfterDelay(unittest.TestCase):
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=60)
         date_str = past.strftime("%a, %d %b %Y %H:%M:%S GMT")
         response = self._make_response(date_str)
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 0.0)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 0.0)
 
     def test_returns_none_for_garbage(self):
         response = self._make_response("not-a-number-or-date")
@@ -152,8 +161,9 @@ class TestWithRetryRateLimiting(unittest.TestCase):
         # Should have slept for 42 seconds (from Retry-After)
         mock_sleep.assert_called_once_with(42.0)
         # Logger should have been called with rate-limit info
-        self.api.logger.info.assert_called()
-        log_msg = self.api.logger.info.call_args[0][0]
+        logger = cast(Any, self.api.logger)
+        logger.info.assert_called()
+        log_msg = logger.info.call_args[0][0]
         self.assertIn("Retry-After", log_msg)
 
     @patch("kaggle.api.kaggle_api_extended.time.sleep")
@@ -177,7 +187,8 @@ class TestWithRetryRateLimiting(unittest.TestCase):
         # Should have slept for some backoff delay (not the retry-after value)
         mock_sleep.assert_called_once()
         # Logger should mention missing Retry-After
-        log_msg = self.api.logger.info.call_args[0][0]
+        logger = cast(Any, self.api.logger)
+        log_msg = logger.info.call_args[0][0]
         self.assertIn("No valid Retry-After", log_msg)
 
     @patch("kaggle.api.kaggle_api_extended.time.sleep")

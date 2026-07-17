@@ -34,11 +34,11 @@ from kagglesdk.discussions.types.discussions_api_service import (
 def api():
     """A KaggleApi with mocked auth and client — no network calls."""
     a = KaggleApi()
-    a.authenticate = MagicMock()
+    a.authenticate = MagicMock()  # type: ignore[method-assign]
     mock_client = MagicMock()
-    a.build_kaggle_client = MagicMock()
+    a.build_kaggle_client = MagicMock()  # type: ignore[method-assign]
     a.build_kaggle_client.return_value.__enter__.return_value = mock_client
-    a._mock_client = mock_client
+    a._mock_client = mock_client  # type: ignore[attr-defined]
     return a
 
 
@@ -66,7 +66,7 @@ def parser(monkeypatch, api):
     root.add_argument("-W", "--no-warn", dest="disable_version_warning", action="store_true")
     subparsers = root.add_subparsers(title="commands", dest="command")
     subparsers.required = True
-    subparsers.choices = Help.kaggle_choices
+    subparsers.choices = Help.kaggle_choices  # type: ignore[assignment]
 
     parse_competitions(subparsers)
     parse_datasets(subparsers)

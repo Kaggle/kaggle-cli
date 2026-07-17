@@ -221,6 +221,7 @@ class TestKaggleApi(unittest.TestCase):
     def test_kernels_a_list(self):
         try:
             kernels = api.kernels_list(sort_by="dateCreated", user="stevemessick", language="python")
+            assert kernels is not None
             self.assertGreater(len(kernels), 0)
             api.kernels_list_cli(user="stevemessick", csv_display=True)
         except ApiException as e:
@@ -284,7 +285,7 @@ class TestKaggleApi(unittest.TestCase):
             self.fail(f"kernels_list_files failed: {e}")
 
     def test_kernels_f_output(self):
-        fs = []
+        fs: list[str] = []
         try:
             fs, token = api.kernels_output("kerneler/sqlite-global-default", "kernel/tmp")
             self.assertIsInstance(fs, list)
@@ -308,24 +309,20 @@ class TestKaggleApi(unittest.TestCase):
             self.assertTrue(os.path.exists(fs))
             with open(f'{fs}/{self.kernel_metadata_path.split("/")[1]}') as f:
                 metadata = json.load(f)
-                [
-                    self.assertTrue(metadata.get(f))
-                    for f in ["id", "id_no", "title", "code_file", "language", "kernel_type"]
-                ]
-                [
-                    self.assertTrue(metadata.get(f) is not None)
-                    for f in [
-                        "is_private",
-                        "enable_gpu",
-                        "enable_tpu",
-                        "enable_internet",
-                        "keywords",
-                        "dataset_sources",
-                        "kernel_sources",
-                        "competition_sources",
-                        "model_sources",
-                    ]
-                ]
+                for field in ["id", "id_no", "title", "code_file", "language", "kernel_type"]:
+                    self.assertTrue(metadata.get(field))
+                for field in [
+                    "is_private",
+                    "enable_gpu",
+                    "enable_tpu",
+                    "enable_internet",
+                    "keywords",
+                    "dataset_sources",
+                    "kernel_sources",
+                    "competition_sources",
+                    "model_sources",
+                ]:
+                    self.assertTrue(metadata.get(field) is not None)
         except ApiException as e:
             self.fail(f"kernels_pull failed: {e}")
         finally:
@@ -335,11 +332,19 @@ class TestKaggleApi(unittest.TestCase):
 
     def test_competition_a_list(self):
         try:
-            competitions = api.competitions_list(group="general").competitions
+            resp = api.competitions_list(group="general")
+            assert resp is not None
+            competitions = resp.competitions
+            assert competitions is not None
             self.assertGreater(len(competitions), 0)
             self.assertLessEqual(len(competitions), 20)
-            [self.assertTrue(hasattr(competitions[0], api.camel_to_snake(f))) for f in api.competition_fields]
-            competitions = api.competitions_list(page=2, category="gettingStarted", sort_by="prize").competitions
+            assert competitions[0] is not None
+            for f in api.competition_fields:
+                self.assertTrue(hasattr(competitions[0], api.camel_to_snake(f)))
+            resp2 = api.competitions_list(page=2, category="gettingStarted", sort_by="prize")
+            assert resp2 is not None
+            competitions = resp2.competitions
+            assert competitions is not None
             self.assertEqual(len(competitions), 1)
         except ApiException as e:
             self.fail(f"competitions_list failed: {e}")
@@ -363,9 +368,12 @@ class TestKaggleApi(unittest.TestCase):
         try:
             submissions = api.competition_submissions(competition)
             self.assertIsInstance(submissions, list)
+            assert submissions is not None
             if not self.skip_submissions:
                 self.assertGreater(len(submissions), 0)
-                [self.assertTrue(hasattr(submissions[0], api.camel_to_snake(f))) for f in api.submission_fields]
+                assert submissions[0] is not None
+                for f in api.submission_fields:
+                    self.assertTrue(hasattr(submissions[0], api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"competition_submissions failed: {e}")
 
@@ -375,13 +383,15 @@ class TestKaggleApi(unittest.TestCase):
             self.assertIsInstance(competition_files, list)
             self.assertGreater(len(competition_files), 0)
             self.competition_file = competition_files[0]
-            [self.assertTrue(hasattr(competition_files[0], api.camel_to_snake(f))) for f in api.competition_file_fields]
+            for f in api.competition_file_fields:
+                self.assertTrue(hasattr(competition_files[0], api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"competition_list_files failed: {e}")
 
     def test_competition_e_download_file(self):
         if self.competition_file is None:
             self.test_competition_d_list_files()
+        assert self.competition_file is not None
         try:
             api.competition_download_file(competition, self.competition_file.ref, force=True)
             self.assertTrue(os.path.exists(self.competition_file.ref))
@@ -407,8 +417,11 @@ class TestKaggleApi(unittest.TestCase):
         try:
             result = api.competition_leaderboard_view(competition)
             self.assertIsInstance(result, list)
+            assert result is not None
             self.assertGreater(len(result), 0)
-            [self.assertTrue(hasattr(result[0], api.camel_to_snake(f))) for f in api.competition_leaderboard_fields]
+            assert result[0] is not None
+            for f in api.competition_leaderboard_fields:
+                self.assertTrue(hasattr(result[0], api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"competition_leaderboard_view failed: {e}")
 
@@ -433,7 +446,8 @@ class TestKaggleApi(unittest.TestCase):
             self.assertIsInstance(topics, list)
             self.assertGreaterEqual(response.total_count, 0)
             if topics:
-                [self.assertTrue(hasattr(topics[0], api.camel_to_snake(f))) for f in api.competition_topic_fields]
+                for f in api.competition_topic_fields:
+                    self.assertTrue(hasattr(topics[0], api.camel_to_snake(f)))
                 self.competition_topic_id = topics[0].id
             else:
                 self.competition_topic_id = None
@@ -450,10 +464,8 @@ class TestKaggleApi(unittest.TestCase):
             self.assertTrue(hasattr(response, "messages"))
             self.assertIsInstance(response.messages, list)
             if response.messages:
-                [
+                for f in api.competition_topic_message_fields:
                     self.assertTrue(hasattr(response.messages[0], api.camel_to_snake(f)))
-                    for f in api.competition_topic_message_fields
-                ]
         except ApiException as e:
             self.fail(f"competition_list_topic_messages failed: {e}")
 
@@ -480,7 +492,8 @@ class TestKaggleApi(unittest.TestCase):
             forums = response.forums
             self.assertIsInstance(forums, list)
             self.assertGreater(len(forums), 0)
-            [self.assertTrue(hasattr(forums[0], api.camel_to_snake(f))) for f in api.forum_fields]
+            for f in api.forum_fields:
+                self.assertTrue(hasattr(forums[0], api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"forums_list failed: {e}")
 
@@ -491,7 +504,8 @@ class TestKaggleApi(unittest.TestCase):
             topics = response.topics
             self.assertIsInstance(topics, list)
             self.assertGreater(len(topics), 0)
-            [self.assertTrue(hasattr(topics[0], api.camel_to_snake(f))) for f in api.forum_topic_fields]
+            for f in api.forum_topic_fields:
+                self.assertTrue(hasattr(topics[0], api.camel_to_snake(f)))
             if topics:
                 self.forum_topic_id = topics[0].id
             else:
@@ -518,10 +532,14 @@ class TestKaggleApi(unittest.TestCase):
     def test_dataset_a_list(self):
         try:
             datasets = api.dataset_list(sort_by="votes")
+            assert datasets is not None
             self.assertGreater(len(datasets), 0)
+            assert datasets[0] is not None
             self.dataset = str(datasets[0].ref)
-            [self.assertTrue(hasattr(datasets[0], api.camel_to_snake(f))) for f in api.dataset_fields]
+            for f in api.dataset_fields:
+                self.assertTrue(hasattr(datasets[0], api.camel_to_snake(f)))
             datasets = api.dataset_list(license_name="other", file_type="bigQuery")
+            assert datasets is not None
             self.assertGreater(len(datasets), 10)
         except ApiException as e:
             self.fail(f"dataset_list failed: {e}")
@@ -554,7 +572,8 @@ class TestKaggleApi(unittest.TestCase):
             self.assertIsInstance(response.dataset_files, list)
             self.assertGreater(len(response.dataset_files), 0)
             self.dataset_file = response.dataset_files[0]
-            [self.assertTrue(hasattr(self.dataset_file, api.camel_to_snake(f))) for f in api.dataset_file_fields]
+            for f in api.dataset_file_fields:
+                self.assertTrue(hasattr(self.dataset_file, api.camel_to_snake(f)))
             api.dataset_list_files_cli(self.dataset)
         except ApiException as e:
             self.fail(f"dataset_list_files failed: {e}")
@@ -571,6 +590,7 @@ class TestKaggleApi(unittest.TestCase):
     def test_dataset_f_download_file(self):
         if self.dataset_file is None:
             self.test_dataset_d_list_files()
+        assert self.dataset_file is not None
         try:
             api.dataset_download_file(self.dataset, self.dataset_file.name, "tmp")
             self.assertTrue(os.path.exists(f"tmp/{self.dataset_file.name}"))
@@ -642,8 +662,11 @@ class TestKaggleApi(unittest.TestCase):
         try:
             ms = api.model_list()
             self.assertIsInstance(ms, list)
+            assert ms is not None
             self.assertGreater(len(ms), 0)
-            [self.assertTrue(hasattr(ms[0], api.camel_to_snake(f))) for f in api.model_fields]
+            assert ms[0] is not None
+            for f in api.model_fields:
+                self.assertTrue(hasattr(ms[0], api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"models_list failed: {e}")
 
@@ -664,6 +687,7 @@ class TestKaggleApi(unittest.TestCase):
             if model.error:
                 if "already used" in model.error:
                     delete_response = api.model_delete(f"{test_user}/{model_title}", True)
+                    assert delete_response is not None
                     if delete_response.error:
                         self.fail(delete_response.error)
                     else:
@@ -674,7 +698,8 @@ class TestKaggleApi(unittest.TestCase):
                     self.fail(model.error)
             self.assertIsNotNone(model.ref)
             self.assertGreater(len(model.ref), 0)
-            [self.assertTrue(hasattr(model, api.camel_to_snake(f))) for f in ["id", "url"]]
+            for f in ["id", "url"]:
+                self.assertTrue(hasattr(model, api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"model_create_new failed: {e}")
 
@@ -684,7 +709,8 @@ class TestKaggleApi(unittest.TestCase):
             self.assertIsNotNone(model_data.ref)
             self.assertGreater(len(model_data.ref), 0)
             self.assertEqual(model_data.title, model_title)
-            [self.assertTrue(hasattr(model_data, api.camel_to_snake(f))) for f in api.model_all_fields]
+            for f in api.model_all_fields:
+                self.assertTrue(hasattr(model_data, api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"model_get failed: {e}")
 
@@ -723,6 +749,7 @@ class TestKaggleApi(unittest.TestCase):
                 if inst_create_resp.error:
                     if "already exists" in inst_create_resp.error:
                         delete_response = api.model_instance_delete(f"{test_user}/{model_title}", True)
+                        assert delete_response is not None
                         if delete_response.error:
                             self.fail(delete_response.error)
                         else:
@@ -766,7 +793,8 @@ class TestKaggleApi(unittest.TestCase):
             inst_files_resp = api.model_instance_files(self.model_instance)
             self.assertIsInstance(inst_files_resp.files, list)
             self.assertGreater(len(inst_files_resp.files), 0)
-            [self.assertTrue(hasattr(inst_files_resp.files[0], api.camel_to_snake(f))) for f in api.model_file_fields]
+            for f in api.model_file_fields:
+                self.assertTrue(hasattr(inst_files_resp.files[0], api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"model_instance_files failed: {e}")
 
@@ -778,6 +806,7 @@ class TestKaggleApi(unittest.TestCase):
                 self.test_model_c_create_new()
             except AssertionError:
                 pass
+            assert self.model_meta_data is not None
             try:
                 update_model_instance_metadata(
                     self.instance_metadata_file, test_user, self.model_meta_data["slug"], instance_name, framework_name
@@ -791,7 +820,8 @@ class TestKaggleApi(unittest.TestCase):
             self.assertIsNotNone(inst_update_resp)
             self.assertIsNotNone(inst_update_resp.ref)
             self.assertGreater(len(inst_update_resp.ref), 0)
-            [self.assertTrue(hasattr(inst_update_resp, api.camel_to_snake(f))) for f in ["error", "id", "ref", "url"]]
+            for f in ["error", "id", "ref", "url"]:
+                self.assertTrue(hasattr(inst_update_resp, api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"model_instance_update failed: {e}")
 
@@ -803,10 +833,8 @@ class TestKaggleApi(unittest.TestCase):
             inst_files_resp = api.model_instances_list(f"{a}/{b}")
             self.assertIsInstance(inst_files_resp.instances, list)
             self.assertGreater(len(inst_files_resp.instances), 0)
-            [
+            for f in api.model_instance_fields:
                 self.assertTrue(hasattr(inst_files_resp.instances[0], api.camel_to_snake(f)))
-                for f in api.model_instance_fields
-            ]
         except ApiException as e:
             self.fail(f"model_instance_files failed: {e}")
 
@@ -818,7 +846,8 @@ class TestKaggleApi(unittest.TestCase):
         try:
             version_metadata_resp = api.model_instance_version_create(self.model_instance, model_inst_vers_directory)
             self.assertIsNotNone(version_metadata_resp.ref)
-            [self.assertTrue(hasattr(version_metadata_resp, api.camel_to_snake(f))) for f in ["id", "url", "error"]]
+            for f in ["id", "url", "error"]:
+                self.assertTrue(hasattr(version_metadata_resp, api.camel_to_snake(f)))
         except ApiException as e:
             self.fail(f"model_instance_version_create failed: {e}")
 
@@ -827,6 +856,7 @@ class TestKaggleApi(unittest.TestCase):
             self.test_model_b_initialize()
         try:
             r = api.model_instance_version_files(f"{self.model_instance}/1")
+            assert r is not None
             self.assertIsInstance(r.files, list)
             self.assertGreater(len(r.files), 0)
             api.model_instance_version_files_cli(f"{self.model_instance}/1")
@@ -844,7 +874,7 @@ class TestKaggleApi(unittest.TestCase):
             except KeyError:
                 pass  # TODO Create a version that has content.
             except ApiException as e:
-                if e.strerror.startsWith("The archive is not ready yet"):
+                if e.strerror and e.strerror.startswith("The archive is not ready yet"):
                     continue
                 self.fail(f"model_instance_version_download failed: {e}")
             finally:
@@ -877,6 +907,7 @@ class TestKaggleApi(unittest.TestCase):
             self.test_model_b_initialize()
         try:
             version_delete_resp = api.model_instance_version_delete(f"{self.model_instance}/1", True)
+            assert version_delete_resp is not None
             self.assertEqual(len(version_delete_resp.error), 0, msg=version_delete_resp.error)
         except ApiException as e:
             self.fail(f"model_instance_version_delete failed: {e}")
@@ -887,6 +918,7 @@ class TestKaggleApi(unittest.TestCase):
         try:
             inst_update_resp = api.model_instance_delete(self.model_instance, True)
             self.assertIsNotNone(inst_update_resp)
+            assert inst_update_resp is not None
             if len(inst_update_resp.error):
                 print(inst_update_resp.error)
             self.assertEqual(len(inst_update_resp.error), 0)
@@ -896,6 +928,7 @@ class TestKaggleApi(unittest.TestCase):
     def test_model_z_delete(self):
         try:
             delete_response = api.model_delete(f"{test_user}/{model_title}", True)
+            assert delete_response is not None
             if delete_response.error:
                 self.fail(delete_response.error)
             else:

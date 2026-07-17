@@ -52,7 +52,7 @@ class TestKernelsLogs(unittest.TestCase):
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
         mock_get.return_value = MagicMock(content=b"png")
-        self.api.download_needed = MagicMock(return_value=True)
+        self.api.download_needed = MagicMock(return_value=True)  # type: ignore[method-assign]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
@@ -82,7 +82,7 @@ class TestKernelsLogs(unittest.TestCase):
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
         mock_get.return_value = MagicMock(content=b"csv")
-        self.api.download_needed = MagicMock(return_value=True)
+        self.api.download_needed = MagicMock(return_value=True)  # type: ignore[method-assign]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(

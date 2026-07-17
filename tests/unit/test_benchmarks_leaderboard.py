@@ -12,12 +12,12 @@ from kagglesdk.benchmarks.types.benchmarks_api_service import ApiBenchmarkLeader
 @pytest.fixture
 def api():
     a = KaggleApi()
-    a.authenticate = MagicMock()
+    a.authenticate = MagicMock()  # type: ignore[method-assign]
     mock_client = MagicMock()
-    a.build_kaggle_client = MagicMock()
+    a.build_kaggle_client = MagicMock()  # type: ignore[method-assign]
     a.build_kaggle_client.return_value.__enter__.return_value = mock_client
-    a._mock_client = mock_client
-    a._mock_benchmarks = mock_client.benchmarks.benchmarks_api_client
+    a._mock_client = mock_client  # type: ignore[attr-defined]
+    a._mock_benchmarks = mock_client.benchmarks.benchmarks_api_client  # type: ignore[attr-defined]
     return a
 
 

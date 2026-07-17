@@ -15,6 +15,7 @@ class TestModels(unittest.TestCase):
 
     def test_list_models(self) -> None:
         models = self.api.model_list()
+        assert models is not None
         self.assertGreater(len(models), 0)
 
     def test_get_model(self) -> None:

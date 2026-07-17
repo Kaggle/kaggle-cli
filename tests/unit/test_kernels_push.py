@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from typing import Any
 from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
@@ -271,7 +272,7 @@ class TestKernelsPush(unittest.TestCase):
         mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
 
-        notebook_content = {"cells": []}
+        notebook_content: dict[str, list[Any]] = {"cells": []}
         metadata_dict = self._get_valid_metadata()
         metadata_dict["code_file"] = "notebook.ipynb"
         metadata_dict["kernel_type"] = "notebook"

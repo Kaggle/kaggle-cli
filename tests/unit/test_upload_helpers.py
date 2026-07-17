@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+from typing import Any
 import sys
 import requests
 from urllib3.util import Retry
@@ -299,7 +300,7 @@ class TestUploadHelpers(unittest.TestCase):
 
         result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=None)
 
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertEqual(result.token, "token-123")
         self.assertIsNone(result.description)
         mock_upload_blob.assert_called_once_with(path, True, ApiBlobType.INBOX, context, None)
@@ -322,7 +323,7 @@ class TestUploadHelpers(unittest.TestCase):
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
 
-        resources = [
+        resources: list[dict[str, Any]] = [
             {
                 "path": "dummy.bin",
                 "description": "my description",
@@ -340,7 +341,7 @@ class TestUploadHelpers(unittest.TestCase):
 
         result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=resources)
 
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertEqual(result.token, "token-123")
         self.assertEqual(result.description, "my description")
         self.assertEqual(len(result.columns), 5)
@@ -647,7 +648,7 @@ class TestResumableFileUpload(unittest.TestCase):
         context = ResumableUploadContext(no_resume=False)
         with context:
             file_upload = ResumableFileUpload("path.bin", self.req, context)
-            expired_time = time.time() - (8 * 24 * 3600)
+            expired_time = int(time.time() - (8 * 24 * 3600))
 
             previous = ResumableFileUpload("path.bin", self.req, context)
             previous.timestamp = expired_time
@@ -671,7 +672,7 @@ class TestResumableFileUpload(unittest.TestCase):
         context = ResumableUploadContext(no_resume=False)
         with context:
             file_upload = ResumableFileUpload("path.bin", self.req, context)
-            fresh_time = time.time() - 100
+            fresh_time = int(time.time() - 100)
 
             previous = ResumableFileUpload("path.bin", self.req, context)
             previous.timestamp = fresh_time
