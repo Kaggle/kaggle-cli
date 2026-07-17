@@ -399,12 +399,12 @@ This command displays a full discussion topic along with all of its comments ren
 
 If your kernel needs to access sensitive information (like API keys or passwords) without exposing them in your code, you should use **Kaggle Secrets**.
 
-### 1. Add Secrets on Kaggle.com
+### 1. Define Secrets on Kaggle.com (no CLI support)
 1.  Open your notebook in the Kaggle Notebook Editor.
 2.  In the menu, select **Add-ons** -> **Secrets**.
 3.  Add your secrets as key-value pairs (e.g., Label: `MY_API_KEY`, Value: `your-actual-key-value`).
 
-### 2. Access Secrets in your Code
+### 2. Use Secrets in your Code Running on Kaggle.com
 Use the `UserSecretsClient` from the `kaggle_secrets` package to retrieve your secrets at runtime:
 
 ```python
