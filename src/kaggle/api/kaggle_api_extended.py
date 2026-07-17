@@ -255,10 +255,28 @@ from typing import (
     TypeVar,
     Iterable,
     ParamSpec,
+    Protocol,
+    runtime_checkable,
 )
 
 T = TypeVar("T")
 P = ParamSpec("P")
+
+
+@runtime_checkable
+class HasPageSize(Protocol):
+    page_size: int
+
+
+@runtime_checkable
+class HasPageToken(HasPageSize, Protocol):
+    page_token: str
+
+
+@runtime_checkable
+class HasPage(HasPageToken, Protocol):
+    page: int
+
 
 BENCHMARKS_SYNTAX_REF = """\
 # kaggle-benchmarks Task Syntax Reference
@@ -1118,6 +1136,28 @@ class KaggleApi:
 
         return retriable_func
 
+    def _set_paging(
+        self,
+        request: HasPageSize,
+        page_size: Optional[int],
+        page_token: Optional[str] = None,
+        page: Optional[int] = None,
+    ) -> None:
+        if page_size is not None:
+            request.page_size = page_size
+
+        if isinstance(request, HasPageToken):
+            if page_token is not None:
+                request.page_token = page_token
+            else:
+                request.page_token = ""
+
+        if isinstance(request, HasPage):
+            if page is not None and page != -1:
+                request.page = page
+            elif not page_token:
+                request.page = 1
+
     ## Authentication
 
     def _get_output_format(self, csv_display: Optional[bool], output_format: Optional[str]) -> OutputFormat:
@@ -1753,16 +1793,11 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListCompetitionsRequest()
             request.group = group_val
-            # -1 is the default in argparse. We don't set it here to indicate we are using new pagination.
-            if page != -1:
-                request.page = page
-            elif page_token is None:
-                request.page = 1
             request.category = category_val
             request.search = search or ""
             request.sort_by = sort_by_val
-            request.page_size = page_size
-            request.page_token = page_token
+            # -1 is the default in argparse. We don't set it here to indicate we are using new pagination.
+            self._set_paging(request, page_size, page_token, page)
             return kaggle.competitions.competition_api_client.list_competitions(request)
 
     def competitions_list_cli(
@@ -2008,11 +2043,9 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListSubmissionsRequest()
             request.competition_name = competition
-            request.page = page_number
-            request.page_token = page_token
-            request.page_size = page_size
             request.group = group
             request.sort_by = sort
+            self._set_paging(request, page_size, page_token, page_number)
             response = kaggle.competitions.competition_api_client.list_submissions(request)
             result: list[ApiSubmission | None] | None = response.submissions
             return result
@@ -2078,8 +2111,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListDataFilesRequest()
             request.competition_name = competition
-            request.page_token = cast(str, page_token)
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token)
             response: ApiListDataFilesResponse = kaggle.competitions.competition_api_client.list_data_files(request)
             for file in cast(Iterable[ApiDataFile], response.files):
                 file.ref = file.name
@@ -2257,8 +2289,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiGetLeaderboardRequest()
             request.competition_name = competition
-            request.page_size = page_size
-            request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             response = kaggle.competitions.competition_api_client.get_leaderboard(request)
         if response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
@@ -3560,8 +3591,7 @@ class KaggleApi:
                 if sort_by not in self.valid_comment_sort_by:
                     raise ValueError("Invalid sort_by specified. Valid options are " + str(self.valid_comment_sort_by))
                 request.sort_by = CommentListSortBy["COMMENT_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
+            self._set_paging(request, page_size)
             return kaggle.competitions.competition_api_client.list_topic_messages(request)
 
     def competition_list_topic_messages_cli(
@@ -3687,10 +3717,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             if category:
@@ -3736,10 +3763,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_dataset_topics(request)
@@ -3775,10 +3799,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_kernel_topics(request)
@@ -3814,10 +3835,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_model_topics(request)
@@ -3853,10 +3871,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_benchmark_topics(request)
@@ -3939,9 +3954,7 @@ class KaggleApi:
                 # Single page requested
                 comments_request = ApiListCommentsRequest()
                 comments_request.topic_id = topic_id
-                comments_request.page_size = page_size
-                if page_token:
-                    comments_request.page_token = page_token
+                self._set_paging(comments_request, page_size, page_token)
                 comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
                 return topic, comments_response.comments or [], comments_response.next_page_token or ""
             else:
@@ -3951,8 +3964,7 @@ class KaggleApi:
                 while True:
                     comments_request = ApiListCommentsRequest()
                     comments_request.topic_id = topic_id
-                    if current_token:
-                        comments_request.page_token = current_token
+                    self._set_paging(comments_request, None, current_token)
                     comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
                     if comments_response.comments:
                         all_comments.extend(comments_response.comments)
@@ -4430,14 +4442,7 @@ class KaggleApi:
             request.tag_ids = tag_ids or ""
             request.search = search or ""
             request.user = user or ""
-            if page is not None:
-                request.page = int(page)
-            elif page_token is None:
-                request.page = 1
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token is not None:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token, page)
             request.max_size = int(max_size) if max_size else None  # type: ignore[assignment]
             request.min_size = int(min_size) if min_size else None  # type: ignore[assignment]
             return kaggle.datasets.dataset_api_client.list_datasets(request)
@@ -4741,8 +4746,7 @@ class KaggleApi:
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
             request.dataset_version_number = int(dataset_version_number) if dataset_version_number else None
-            request.page_token = page_token
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token)
             response = kaggle.datasets.dataset_api_client.list_dataset_files(request)
             return response
 
@@ -5756,13 +5760,7 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelsRequest()
-            if page is not None:
-                request.page = page
-            elif page_token is None:
-                request.page = 1
-            request.page_size = page_size
-            if page_token is not None:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token, page)
             request.group = group_val
             request.user = user or ""
             request.language = language or "all"
@@ -5909,8 +5907,7 @@ class KaggleApi:
             request = ApiListKernelFilesRequest()
             request.kernel_slug = kernel_slug
             request.user_name = user_name
-            request.page_token = page_token
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token)
             return kaggle.kernels.kernels_api_client.list_kernel_files(request)
 
     def kernels_list_files_cli(
@@ -6371,9 +6368,7 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
-            request.page_size = page_size
-            if token:
-                request.page_token = token
+            self._set_paging(request, page_size, token)
             try:
                 response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
             except HTTPError as e:
@@ -6788,8 +6783,7 @@ class KaggleApi:
             request.sort_by = sort_by_val
             request.search = search or ""
             request.owner = owner or ""
-            request.page_size = page_size
-            request.page_token = page_token  # type: ignore[assignment]
+            self._set_paging(request, page_size, page_token)
             response = kaggle.models.model_api_client.list_models(request)
             if response.next_page_token:
                 print("Next Page Token = {}".format(response.next_page_token))
@@ -7373,8 +7367,7 @@ class KaggleApi:
             request.model_slug = model_slug
             request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_API, framework)
             request.instance_slug = instance_slug
-            request.page_size = page_size
-            request.page_token = page_token  # type: ignore[assignment]
+            self._set_paging(request, page_size, page_token)
             response = kaggle.models.model_api_client.list_model_instance_version_files(request)
 
             if response:
@@ -7416,8 +7409,7 @@ class KaggleApi:
             request = ApiListModelInstancesRequest()
             request.owner_slug = owner_slug
             request.model_slug = model_slug
-            request.page_size = page_size
-            request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             return kaggle.models.model_api_client.list_model_instances(request)
 
     def model_instances_list_cli(
@@ -7742,8 +7734,7 @@ class KaggleApi:
         request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_API, framework)
         request.instance_slug = instance_slug
         request.version_number = int(version_number)
-        request.page_size = page_size
-        request.page_token = page_token  # type: ignore[assignment]
+        self._set_paging(request, page_size, page_token)
         with self.build_kaggle_client() as kaggle:
             response = kaggle.models.model_api_client.list_model_instance_version_files(request)
 
@@ -7793,8 +7784,7 @@ class KaggleApi:
             request.model_slug = model_slug
             request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_UNSPECIFIED, framework)
             request.instance_slug = instance_slug
-            request.page_size = page_size
-            request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             return kaggle.models.model_api_client.list_model_instance_versions(request)
 
     def model_instance_versions_list_cli(
@@ -9117,7 +9107,7 @@ class KaggleApi:
             request.model_version_slugs = models
 
         def _fetch(page_token):
-            request.page_token = page_token
+            self._set_paging(request, None, page_token)
             return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs)(request)
 
         runs = self._paginate(_fetch, lambda r: r.runs or [])
@@ -9628,7 +9618,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
 
             def _fetch(page_token):
-                request.page_token = page_token
+                self._set_paging(request, None, page_token)
                 return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
