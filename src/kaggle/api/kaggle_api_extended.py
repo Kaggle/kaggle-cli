@@ -6877,6 +6877,8 @@ class KaggleApi:
             raise ValueError("Default title detected, please change values before uploading")
         if slug == "INSERT_SLUG_HERE":
             raise ValueError("Default slug detected, please change values before uploading")
+        self._validate_slug_syntax(owner_slug, allow_underscore=True)
+        self._validate_slug_syntax(slug, allow_underscore=False)
         if not isinstance(is_private, bool):
             raise ValueError("model.isPrivate must be a boolean")
 
@@ -6981,6 +6983,8 @@ class KaggleApi:
             raise ValueError("Default ownerSlug detected, please change values before uploading")
         if slug == "INSERT_SLUG_HERE":
             raise ValueError("Default slug detected, please change values before uploading")
+        self._validate_slug_syntax(owner_slug, allow_underscore=True)
+        self._validate_slug_syntax(slug, allow_underscore=False)
         if is_private != None and not isinstance(is_private, bool):
             raise ValueError("model.isPrivate must be a boolean")
         if publish_time:
@@ -8473,6 +8477,25 @@ class KaggleApi:
             split = model.split("/")
             if not split[0] or not split[1]:
                 raise ValueError("Invalid model specification " + model)
+
+    def _validate_slug_syntax(self, slug: str, allow_underscore: bool = False) -> None:
+        if allow_underscore:
+            pattern = r"^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+            error_msg = (
+                f"Invalid owner slug: {slug}. Owner slugs must be lowercase, "
+                "alphanumeric, and may contain hyphens and underscores, but "
+                "not start or end with them, nor contain consecutive ones."
+            )
+        else:
+            pattern = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            error_msg = (
+                f"Invalid slug: {slug}. Slugs must be lowercase, alphanumeric, "
+                "and may contain hyphens, but not start or end with them, nor "
+                "contain consecutive ones."
+            )
+
+        if not re.match(pattern, slug):
+            raise ValueError(error_msg)
 
     def split_model_string(self, model: str) -> Tuple[Union[str, None], str]:
         """Splits a model string into owner_slug and model_slug.

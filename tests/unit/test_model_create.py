@@ -366,6 +366,126 @@ class TestModelCreate(unittest.TestCase):
                 self.api.model_create_new(tmpdir)
             self.assertIn("Default slug detected", str(context.exception))
 
+    def test_model_create_new_invalid_slug_uppercase_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["slug"] = "Invalid-Slug"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid slug", str(context.exception))
+
+    def test_model_create_new_invalid_slug_special_char_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["slug"] = "invalid_slug"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid slug", str(context.exception))
+
+    def test_model_create_new_invalid_slug_leading_hyphen_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["slug"] = "-invalid-slug"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid slug", str(context.exception))
+
+    def test_model_create_new_invalid_slug_trailing_hyphen_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["slug"] = "invalid-slug-"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid slug", str(context.exception))
+
+    def test_model_create_new_invalid_slug_consecutive_hyphens_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["slug"] = "invalid--slug"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid slug", str(context.exception))
+
+    def test_model_create_new_invalid_owner_slug_uppercase_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "Invalid-Owner"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid owner slug", str(context.exception))
+
+    def test_model_create_new_invalid_owner_slug_special_char_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "invalid@owner"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid owner slug", str(context.exception))
+
+    def test_model_create_new_invalid_owner_slug_leading_hyphen_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "-invalid-owner"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid owner slug", str(context.exception))
+
+    def test_model_create_new_invalid_owner_slug_trailing_underscore_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "invalid-owner_"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid owner slug", str(context.exception))
+
+    def test_model_create_new_invalid_owner_slug_consecutive_underscores_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "invalid__owner"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_create_new(tmpdir)
+            self.assertIn("Invalid owner slug", str(context.exception))
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_create_new_valid_owner_slug_with_underscore_succeeds(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_response = ApiCreateModelResponse()
+        mock_kaggle.models.model_api_client.create_model.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "test_user"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            response = self.api.model_create_new(tmpdir)
+            self.assertEqual(response, mock_response)
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_create_new_valid_owner_slug_with_hyphen_succeeds(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_response = ApiCreateModelResponse()
+        mock_kaggle.models.model_api_client.create_model.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "test-user"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            response = self.api.model_create_new(tmpdir)
+            self.assertEqual(response, mock_response)
+
     def test_model_create_new_invalid_is_private_fails(self):
         metadata = self._get_valid_model_metadata()
         metadata["isPrivate"] = "not-a-bool"
@@ -435,6 +555,39 @@ class TestModelCreate(unittest.TestCase):
             with self.assertRaises(ValueError) as context:
                 self.api.model_update(tmpdir)
             self.assertIn("Default slug detected", str(context.exception))
+
+    def test_model_update_invalid_slug_uppercase_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["slug"] = "Invalid-Slug"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_update(tmpdir)
+            self.assertIn("Invalid slug", str(context.exception))
+
+    def test_model_update_invalid_owner_slug_uppercase_fails(self):
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "Invalid-Owner"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            with self.assertRaises(ValueError) as context:
+                self.api.model_update(tmpdir)
+            self.assertIn("Invalid owner slug", str(context.exception))
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_update_valid_owner_slug_with_underscore_succeeds(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_kaggle.models.model_api_client.update_model.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_model_metadata()
+        metadata["ownerSlug"] = "test_user"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata, "model-metadata.json")
+            response = self.api.model_update(tmpdir)
+            self.assertEqual(response, mock_response)
 
     def test_model_update_invalid_is_private_fails(self):
         metadata = self._get_valid_model_metadata()
