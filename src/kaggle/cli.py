@@ -734,6 +734,67 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_settings_update._action_groups.append(parser_competitions_settings_update_optional)
     parser_competitions_settings_update.set_defaults(func=api.competition_update_settings_cli)
 
+    # Competitions solution (group: create, status)
+    parser_competitions_solution = subparsers_competitions.add_parser(
+        "solution",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_solution,
+    )
+    subparsers_competitions_solution = parser_competitions_solution.add_subparsers(title="commands", dest="command")
+    subparsers_competitions_solution.required = True
+    subparsers_competitions_solution.choices = Help.entity_solution_choices
+
+    # Competitions solution create
+    parser_competitions_solution_create = subparsers_competitions_solution.add_parser(
+        "create",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_solution_create,
+    )
+    parser_competitions_solution_create_optional = parser_competitions_solution_create._action_groups.pop()
+    parser_competitions_solution_create_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_solution_create_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_solution_create_optional.add_argument(
+        "-p",
+        "--path",
+        dest="path",
+        required=True,
+        help="Path to the private solution CSV. Must be a single file in the same shape as a submission.",
+    )
+    parser_competitions_solution_create_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_solution_create._action_groups.append(parser_competitions_solution_create_optional)
+    parser_competitions_solution_create.set_defaults(func=api.competition_create_solution_cli)
+
+    # Competitions solution status
+    parser_competitions_solution_status = subparsers_competitions_solution.add_parser(
+        "status",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_solution_status,
+    )
+    parser_competitions_solution_status_optional = parser_competitions_solution_status._action_groups.pop()
+    parser_competitions_solution_status_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_solution_status_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_solution_status_optional.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit the status as JSON instead of the human-readable view.",
+    )
+    parser_competitions_solution_status_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_solution_status._action_groups.append(parser_competitions_solution_status_optional)
+    parser_competitions_solution_status.set_defaults(func=api.competition_get_solution_status_cli)
+
     # Competitions launch (publish now, or schedule for a future UTC time)
     parser_competitions_launch = subparsers_competitions.add_parser(
         "launch", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_launch
@@ -2356,6 +2417,7 @@ class Help(object):
         "hosts",
         "data",
         "settings",
+        "solution",
         "launch",
         "init",
         "create",
@@ -2424,6 +2486,7 @@ class Help(object):
     entity_hosts_choices = ["list"]
     entity_data_choices = ["update"]
     entity_settings_choices = ["get", "update"]
+    entity_solution_choices = ["create", "status"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2505,6 +2568,9 @@ class Help(object):
     command_competitions_settings = "Manage settings for a competition you host"
     command_competitions_settings_get = "Show the current settings for a competition you host"
     command_competitions_settings_update = "Update settings for a competition you host from a JSON or YAML file"
+    command_competitions_solution = "Manage the private solution file for a competition you host"
+    command_competitions_solution_create = "Upload the private solution CSV for a competition you host"
+    command_competitions_solution_status = "Show the setup status for a competition's solution file"
     command_competitions_launch = "Launch a competition you host, optionally at a future UTC time"
     command_competitions_init = "Initialize folder with a competition-metadata.json template"
     command_competitions_create = "Create a new competition from competition-metadata.json"

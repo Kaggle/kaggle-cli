@@ -111,6 +111,9 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiUpdateCompetitionSettingsRequest,
     ApiCreateCompetitionDataRequest,
     ApiCreateCompetitionDataResponse,
+    ApiCreateCompetitionSolutionRequest,
+    ApiGetCompetitionSolutionStatusRequest,
+    ApiCompetitionSolutionStatus,
     ApiCompetitionDataFile,
     ApiCompetitionPage,
     ApiCreateCompetitionRequest,
@@ -3303,6 +3306,146 @@ class KaggleApi:
             ignore_patterns=ignore_patterns,
         )
         print(f'New data version created for "{competition_name}": {response.url}')
+
+    def competition_create_solution(self, competition_name: str, path: str, quiet: bool = False) -> None:
+        """Upload the private solution CSV for a competition you host.
+
+        The file is uploaded via the public blob-upload pipeline with
+        ApiBlobType.INBOX — the backend's CreateCompetitionSolutionHandler
+        pulls the blob out of the inbox bucket. After this call, poll
+        ``competition_get_solution_status`` until ``ready`` flips true (or
+        ``setup_error`` is populated) before submissions can be scored.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            path (str): Path to a single CSV file. The CSV must have the same
+                shape as a submission file.
+            quiet (bool): Suppress per-file upload progress lines.
+        """
+        if not path:
+            raise ValueError("-p/--path is required")
+        if not os.path.exists(path):
+            raise ValueError("Invalid path: " + path)
+        if not os.path.isfile(path):
+            raise ValueError("Solution must be a single CSV file, not a directory: " + path)
+
+        with ResumableUploadContext() as upload_context:
+            upload_file = self._upload_file(
+                os.path.basename(path),
+                path,
+                ApiBlobType.INBOX,
+                upload_context,
+                quiet,
+                resources=None,
+            )
+            if upload_file is None:
+                raise ValueError("Solution file upload failed")
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateCompetitionSolutionRequest()
+            request.competition_name = competition_name
+            request.blob_token = upload_file.token
+            kaggle.competitions.competition_api_client.create_competition_solution(request)
+
+    def competition_create_solution_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        path=None,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_create_solution."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not path:
+            raise ValueError("-p/--path is required")
+
+        self.competition_create_solution(competition_name=competition_name, path=path, quiet=quiet)
+        print(
+            f'Solution uploaded for "{competition_name}". '
+            f"Run 'kaggle competitions solution status {competition_name}' to check readiness."
+        )
+
+    def competition_get_solution_status(self, competition_name: str) -> ApiCompetitionSolutionStatus:
+        """Fetch the solution-setup status for a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+
+        Returns:
+            ApiCompetitionSolutionStatus: current setup state, including a
+            ``ready`` flag and any ``setup_error`` reported by preprocessing.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetCompetitionSolutionStatusRequest()
+            request.competition_name = competition_name
+            return kaggle.competitions.competition_api_client.get_competition_solution_status(request)
+
+    def competition_get_solution_status_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_get_solution_status."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        status = self.competition_get_solution_status(competition_name)
+        if json_output:
+            self.print_obj(status)
+        else:
+            self._print_competition_solution_status(status)
+
+    def _print_competition_solution_status(self, status: ApiCompetitionSolutionStatus) -> None:
+        """Print a compact human view of a solution status."""
+        print(f"Ready: {'true' if status.ready else 'false'}")
+        if status.setup_error:
+            print(f"Setup error: {status.setup_error}")
+        if status.kernels_metric:
+            print("Kernels metric: true")
+        if status.row_id_column_name:
+            print(f"Row ID column: {status.row_id_column_name}")
+        info = status.solution_info
+        if info is not None and (info.file_name or info.file_size_bytes or info.total_rows):
+            parts = []
+            if info.file_name:
+                parts.append(info.file_name)
+            if info.file_size_bytes:
+                parts.append(File.get_size(info.file_size_bytes))
+            if info.upload_date:
+                parts.append(f"uploaded {info.upload_date.isoformat()}")
+            print("Solution file: " + " — ".join(parts) if parts else "Solution file:")
+            row_bits = []
+            if info.total_rows:
+                row_bits.append(f"total={info.total_rows}")
+            if info.public_rows:
+                row_bits.append(f"public={info.public_rows}")
+            if info.private_rows:
+                row_bits.append(f"private={info.private_rows}")
+            if row_bits:
+                print("  " + ", ".join(row_bits))
+        if status.column_mapping:
+            print("Column mapping:")
+            for metric_col, csv_col in status.column_mapping.items():
+                print(f"  {metric_col} -> {csv_col}")
+        if status.required_metric_columns:
+            print("Required columns:")
+            for col in status.required_metric_columns:
+                if col is None:
+                    continue
+                print(f"  {col.name} ({col.data_type})")
 
     def competition_launch(self, competition_name: str, future_time: Optional[datetime] = None) -> None:
         """Launch a competition you host, optionally at a future UTC time.

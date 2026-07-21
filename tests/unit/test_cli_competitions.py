@@ -424,6 +424,41 @@ def test_competitions_settings_update_succeeds(parser):
     assert kwargs["json_output"] is True
 
 
+def test_competitions_solution_create_missing_path_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["competitions", "solution", "create", "my-comp"])
+
+
+def test_competitions_solution_create_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "solution", "create", "my-comp", "-p", "/tmp/sol.csv", "-q"])
+    assert func.__name__ == "competition_create_solution_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["path"] == "/tmp/sol.csv"
+    assert kwargs["quiet"] is True
+
+
+def test_competitions_solution_create_with_dash_c_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "solution", "create", "-c", "my-comp", "-p", "/tmp/sol.csv"])
+    assert func.__name__ == "competition_create_solution_cli"
+    assert kwargs["competition"] is None
+    assert kwargs["competition_opt"] == "my-comp"
+    assert kwargs["path"] == "/tmp/sol.csv"
+
+
+def test_competitions_solution_status_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "solution", "status", "my-comp", "--json"])
+    assert func.__name__ == "competition_get_solution_status_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["json_output"] is True
+
+
+def test_competitions_solution_status_default_no_json_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "solution", "status", "my-comp"])
+    assert func.__name__ == "competition_get_solution_status_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["json_output"] is False
+
+
 def test_competitions_launch_parser_default_succeeds(parser):
     func, kwargs = parser.dispatch(["competitions", "launch", "my-comp"])
     assert func.__name__ == "competition_launch_cli"
