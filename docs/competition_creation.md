@@ -9,8 +9,10 @@ public competition-creation API endpoints (kagglesdk 0.1.31+):
 - [`kaggle competitions hosts`](#kaggle-competitions-hosts)
 - [`kaggle competitions settings get`](#kaggle-competitions-settings-get)
 - [`kaggle competitions settings update`](#kaggle-competitions-settings-update)
-- [`kaggle competitions launch`](#kaggle-competitions-launch)
 - [`kaggle competitions data update`](#kaggle-competitions-data-update)
+- [`kaggle competitions solution create`](#kaggle-competitions-solution-create)
+- [`kaggle competitions solution status`](#kaggle-competitions-solution-status)
+- [`kaggle competitions launch`](#kaggle-competitions-launch)
 
 All of these commands require an authenticated session
 (`kaggle config set username/password` or an API token).
@@ -34,12 +36,17 @@ kaggle competitions pages create my-comp-slug --name rules -f ./rules.md --publi
 # 5. Update the competition data (train.csv, test.csv, sample_submission.csv, ...).
 kaggle competitions data update my-comp-slug -p ./data -m "Initial release"
 
-# 6. Optionally tune host-only settings not covered by competition-metadata.json
+# 6. Upload the private solution CSV, then poll until scoring is ready.
+kaggle competitions solution create my-comp-slug -p ./solution.csv
+kaggle competitions solution status my-comp-slug
+# → Ready: true
+
+# 7. Optionally tune host-only settings not covered by competition-metadata.json
 #    (deadlines, runtime caps, leaderboard behavior, etc.).
 kaggle competitions settings get my-comp-slug
 kaggle competitions settings update my-comp-slug -f ./settings.json
 
-# 7. Launch the competition (now, or schedule a future UTC time).
+# 8. Launch the competition (now, or schedule a future UTC time).
 kaggle competitions launch my-comp-slug --at 2027-01-01T00:00:00Z
 ```
 
@@ -576,3 +583,103 @@ keep the format as an opaque single upload, pre-pack it into a `.zip` or
 
 The command prints the public URL plus the new `databundle_id` and
 `databundle_version_id` on success.
+
+---
+
+## `kaggle competitions solution create`
+
+Uploads the private solution CSV for a competition you host. The solution is
+what the backend scores submissions against — one row per row in the sample
+submission, with the same column shape. After uploading, the backend runs
+preprocessing / sampling; poll
+[`kaggle competitions solution status`](#kaggle-competitions-solution-status)
+until it's `ready` before opening submissions.
+
+The file is uploaded via the standard blob-upload pipeline (`ApiBlobType.INBOX`),
+and the resulting token is passed to `CreateCompetitionSolution`.
+
+**Usage:**
+
+```bash
+kaggle competitions solution create <competition> -p <path> [-q]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `-p, --path <path>` (required): Path to a single CSV file. Must be a single
+  file — directories are rejected. The CSV shape must match a submission
+  file (same columns as `sample_submission.csv`).
+- `-q, --quiet` (optional): Suppress per-file upload progress lines.
+
+**Example:**
+
+```bash
+kaggle competitions solution create my-comp -p ./solution.csv
+# → Solution uploaded for "my-comp". Run 'kaggle competitions solution status my-comp' to check readiness.
+```
+
+Re-uploading a solution replaces the prior one. Note that this only works
+pre-launch; after launch the solution file is frozen.
+
+---
+
+## `kaggle competitions solution status`
+
+Shows the setup status for a competition's solution file — whether
+preprocessing/sampling has finished, any errors reported by the backend, and
+(for legacy C# metrics) the auto-inferred column mapping and required metric
+columns.
+
+Poll this after `solution create` (and after `data update` — some setup steps
+run against the databundle) until `Ready: true`. If `Setup error:` is set,
+stop polling and fix the underlying issue.
+
+**Usage:**
+
+```bash
+kaggle competitions solution status <competition> [--json]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `--json` (optional): Emit the raw status as JSON instead of the
+  human-readable view.
+
+**Examples:**
+
+```bash
+# Human-readable summary.
+kaggle competitions solution status my-comp
+# → Ready: true
+#   Solution file: solution.csv — 12.3KB — uploaded 2027-01-01T00:00:00+00:00
+#     total=1000, public=300, private=700
+
+# Machine-readable — useful in a polling loop.
+kaggle competitions solution status my-comp --json
+```
+
+**Fields you might see (human view):**
+
+- `Ready: true|false` — whether scoring is unblocked.
+- `Setup error: <msg>` — populated if preprocessing failed. Surfaced
+  prominently; stop polling when it appears.
+- `Kernels metric: true` — the competition's scoring metric is a Kernels
+  metric. Kernels metrics auto-detect their column mapping; the host only
+  needs to wait for `Ready` to flip true.
+- `Row ID column: <name>` — for Kernels metrics, the auto-detected row-id
+  column.
+- `Solution file: <name> — <size> — uploaded <timestamp>` and
+  `total=..., public=..., private=...` — solution file metadata once the
+  upload is processed.
+- `Column mapping:` — for legacy C# metrics, the current mapping from metric
+  column name to CSV column name.
+- `Required columns:` — for legacy C# metrics, the metric column slots the
+  host needs to fill (name + expected data type).
