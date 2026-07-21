@@ -97,11 +97,15 @@ class TestCompetitionSolutionStatus(unittest.TestCase):
 
     @patch.object(KaggleApi, "competition_get_solution_status")
     def test_cli_human_view_surfaces_setup_error(self, mock_get):
-        mock_get.return_value = _make_status(setup_error="missing header row")
+        # Even if the server also reports ready=True, a setup_error must flip
+        # the Ready line so polling scripts eyeballing the first line stop.
+        mock_get.return_value = _make_status(ready=True, setup_error="missing header row")
         buf = io.StringIO()
         with redirect_stdout(buf):
             self.api.competition_get_solution_status_cli(competition="my-comp")
         out = buf.getvalue()
+        self.assertIn("Ready: false (setup failed)", out)
+        self.assertNotIn("Ready: true", out)
         self.assertIn("Setup error: missing header row", out)
 
     @patch.object(KaggleApi, "competition_get_solution_status")
@@ -158,6 +162,23 @@ class TestCompetitionSolutionStatus(unittest.TestCase):
         self.assertIn("total=100", out)
         self.assertIn("public=30", out)
         self.assertIn("private=70", out)
+
+    @patch.object(KaggleApi, "competition_get_solution_status")
+    def test_cli_human_view_skips_bare_solution_file_label(self, mock_get):
+        # If the server ever returns solution_info populated only with
+        # row-count fields (partial preprocessing state), we should suppress
+        # the "Solution file:" header entirely rather than print a bare label.
+        info = ApiSolutionFileInfo()
+        info.total_rows = 100
+        info.public_rows = 30
+        info.private_rows = 70
+        mock_get.return_value = _make_status(ready=True, solution_info=info)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.api.competition_get_solution_status_cli(competition="my-comp")
+        out = buf.getvalue()
+        self.assertNotIn("Solution file:", out)
 
 
 if __name__ == "__main__":

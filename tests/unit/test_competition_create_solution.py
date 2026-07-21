@@ -72,8 +72,12 @@ class TestCompetitionCreateSolution(unittest.TestCase):
         self.assertIn("upload failed", str(ctx.exception))
 
     def test_missing_path_raises(self):
-        with self.assertRaises(ValueError):
+        # Empty string flows into os.path.exists("") -> False, so we surface the
+        # Invalid-path error. (Argparse's required=True catches this at the CLI
+        # boundary; the guard here is for direct Python callers.)
+        with self.assertRaises(ValueError) as ctx:
             self.api.competition_create_solution(competition_name="my-comp", path="")
+        self.assertIn("Invalid path", str(ctx.exception))
 
     def test_directory_path_raises(self):
         with self.assertRaises(ValueError) as ctx:

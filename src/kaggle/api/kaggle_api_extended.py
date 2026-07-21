@@ -3322,8 +3322,6 @@ class KaggleApi:
                 shape as a submission file.
             quiet (bool): Suppress per-file upload progress lines.
         """
-        if not path:
-            raise ValueError("-p/--path is required")
         if not os.path.exists(path):
             raise ValueError("Invalid path: " + path)
         if not os.path.isfile(path):
@@ -3410,15 +3408,17 @@ class KaggleApi:
 
     def _print_competition_solution_status(self, status: ApiCompetitionSolutionStatus) -> None:
         """Print a compact human view of a solution status."""
-        print(f"Ready: {'true' if status.ready else 'false'}")
         if status.setup_error:
+            print("Ready: false (setup failed)")
             print(f"Setup error: {status.setup_error}")
+        else:
+            print(f"Ready: {'true' if status.ready else 'false'}")
         if status.kernels_metric:
             print("Kernels metric: true")
         if status.row_id_column_name:
             print(f"Row ID column: {status.row_id_column_name}")
         info = status.solution_info
-        if info is not None and (info.file_name or info.file_size_bytes or info.total_rows):
+        if info is not None and (info.file_name or info.file_size_bytes or info.upload_date):
             parts = []
             if info.file_name:
                 parts.append(info.file_name)
@@ -3426,7 +3426,7 @@ class KaggleApi:
                 parts.append(File.get_size(info.file_size_bytes))
             if info.upload_date:
                 parts.append(f"uploaded {info.upload_date.isoformat()}")
-            print("Solution file: " + " — ".join(parts) if parts else "Solution file:")
+            print("Solution file: " + " — ".join(parts))
             row_bits = []
             if info.total_rows:
                 row_bits.append(f"total={info.total_rows}")
