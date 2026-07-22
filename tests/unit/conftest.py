@@ -37,7 +37,9 @@ class KaggleParser:
         self._parser = parser
 
     def dispatch(self, argv):
-        args = self._parser.parse_args(argv)
+        from kaggle.cli import rewrite_argv_for_back_compat
+
+        args = self._parser.parse_args(rewrite_argv_for_back_compat(argv))
         command_args = dict(vars(args))
         del command_args["func"]
         del command_args["command"]

@@ -32,6 +32,23 @@ from kaggle.api.kaggle_api_extended import print_auth_help, OutputFormat
 ApiException = IOError
 
 
+def rewrite_argv_for_back_compat(argv):
+    """Preserve legacy positional forms that argparse can't disambiguate.
+
+    `kaggle competitions submissions <comp>` used to route straight to the
+    list handler with a positional slug. Now that `submissions` is a
+    subcommand group (list / limits), argparse would try to match the
+    slug as a subcommand and error. If we see the old form, inject the
+    explicit `list` subcommand before the slug so users keep working.
+    """
+    for i, tok in enumerate(argv):
+        if tok in ("competitions", "c") and i + 2 < len(argv) and argv[i + 1] == "submissions":
+            next_tok = argv[i + 2]
+            if not next_tok.startswith("-") and next_tok not in Help.entity_submissions_choices:
+                return argv[: i + 2] + ["list"] + argv[i + 2 :]
+    return argv
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
 
@@ -63,7 +80,7 @@ def main() -> None:
     parse_config(subparsers)
     parse_auth(subparsers)
     parse_quota(subparsers)
-    args = parser.parse_args()
+    args = parser.parse_args(rewrite_argv_for_back_compat(sys.argv[1:]))
     command_args = {}
     command_args.update(vars(args))
     del command_args["func"]

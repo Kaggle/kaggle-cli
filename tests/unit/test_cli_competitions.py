@@ -162,8 +162,17 @@ def test_competitions_submissions_parser_default_succeeds(parser):
 
 
 def test_competitions_submissions_parser_with_flags_succeeds(parser):
-    # `submissions` is now a subcommand group; use the explicit `list`
-    # subcommand for the positional-slug form.
+    # Legacy positional form still works via the back-compat argv rewrite in
+    # cli.py: `submissions my-comp` → `submissions list my-comp`.
+    func, kwargs = parser.dispatch(["competitions", "submissions", "my-comp", "--page-size", "10", "--csv"])
+    assert func.__name__ == "competition_submissions_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["page_size"] == 10
+    assert kwargs["csv_display"] is True
+
+
+def test_competitions_submissions_parser_explicit_list_succeeds(parser):
+    # New explicit form after `submissions` was converted to a subcommand group.
     func, kwargs = parser.dispatch(["competitions", "submissions", "list", "my-comp", "--page-size", "10", "--csv"])
     assert func.__name__ == "competition_submissions_cli"
     assert kwargs["competition"] == "my-comp"
@@ -192,6 +201,13 @@ def test_competitions_submissions_limits_dash_c_succeeds(parser):
     assert kwargs["competition"] is None
     assert kwargs["competition_opt"] == "my-comp"
     assert kwargs["json_output"] is False
+
+
+def test_competitions_submissions_alias_c_uses_back_compat_rewrite(parser):
+    # The alias `c` for `competitions` must also trigger the argv rewrite.
+    func, kwargs = parser.dispatch(["c", "submissions", "my-comp"])
+    assert func.__name__ == "competition_submissions_cli"
+    assert kwargs["competition"] == "my-comp"
 
 
 def test_competitions_leaderboard_parser_default_succeeds(parser):
