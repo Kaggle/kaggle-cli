@@ -162,11 +162,36 @@ def test_competitions_submissions_parser_default_succeeds(parser):
 
 
 def test_competitions_submissions_parser_with_flags_succeeds(parser):
-    func, kwargs = parser.dispatch(["competitions", "submissions", "my-comp", "--page-size", "10", "--csv"])
+    # `submissions` is now a subcommand group; use the explicit `list`
+    # subcommand for the positional-slug form.
+    func, kwargs = parser.dispatch(["competitions", "submissions", "list", "my-comp", "--page-size", "10", "--csv"])
     assert func.__name__ == "competition_submissions_cli"
     assert kwargs["competition"] == "my-comp"
     assert kwargs["page_size"] == 10
     assert kwargs["csv_display"] is True
+
+
+def test_competitions_submissions_parser_dash_c_still_works(parser):
+    # The parent parser preserves `-c/--competition` so existing scripted
+    # invocations keep working without a subcommand.
+    func, kwargs = parser.dispatch(["competitions", "submissions", "-c", "my-comp"])
+    assert func.__name__ == "competition_submissions_cli"
+    assert kwargs["competition_opt"] == "my-comp"
+
+
+def test_competitions_submissions_limits_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "submissions", "limits", "my-comp", "--json"])
+    assert func.__name__ == "competition_get_submission_limits_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["json_output"] is True
+
+
+def test_competitions_submissions_limits_dash_c_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "submissions", "limits", "-c", "my-comp"])
+    assert func.__name__ == "competition_get_submission_limits_cli"
+    assert kwargs["competition"] is None
+    assert kwargs["competition_opt"] == "my-comp"
+    assert kwargs["json_output"] is False
 
 
 def test_competitions_leaderboard_parser_default_succeeds(parser):

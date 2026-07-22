@@ -259,28 +259,91 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_submit.set_defaults(func=api.competition_submit_cli)
 
     # Competitions list submissions
-    parser_competitions_submissions = subparsers_competitions.add_parser(
-        "submissions", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_submissions
-    )
-    parser_competitions_submissions_optional = parser_competitions_submissions._action_groups.pop()
-    parser_competitions_submissions_optional.add_argument(
+    # Competitions submissions (group: list / limits) — follows the same
+    # subparser-with-default pattern as competitions hosts/pages/topics.
+    # The positional `competition` slug lives on the *subcommand* parsers, not
+    # the parent, because argparse can't disambiguate a parent positional from
+    # a subcommand name (`submissions list my-comp` would try to consume `list`
+    # as the positional and then error on `my-comp` as a subcommand).
+    shared_competition_submissions_list = argparse.ArgumentParser(add_help=False)
+    shared_competition_submissions_list.add_argument(
         "competition", nargs="?", default=None, help=Help.param_competition
     )
-    parser_competitions_submissions_optional.add_argument(
+    shared_competition_submissions_list.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
-    _add_output_format_args(parser_competitions_submissions_optional)
-    parser_competitions_submissions_optional.add_argument(
+    _add_output_format_args(shared_competition_submissions_list)
+    shared_competition_submissions_list.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
-    parser_competitions_submissions_optional.add_argument(
+    shared_competition_submissions_list.add_argument(
         "--page-size", dest="page_size", required=False, type=int, help=Help.param_page_size
     )
-    parser_competitions_submissions_optional.add_argument(
+    shared_competition_submissions_list.add_argument(
         "--page-token", dest="page_token", required=False, help=Help.param_page_token
     )
-    parser_competitions_submissions._action_groups.append(parser_competitions_submissions_optional)
-    parser_competitions_submissions.set_defaults(func=api.competition_submissions_cli)
+
+    # Parent parser holds only the optional `-c/--competition` alias so bare
+    # `submissions` and `submissions -c my-comp` still route to the default
+    # (list) handler.
+    parser_competitions_submissions = subparsers_competitions.add_parser(
+        "submissions",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_submissions,
+    )
+    parser_competitions_submissions.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=Help.param_competition
+    )
+    subparsers_competitions_submissions = parser_competitions_submissions.add_subparsers(
+        title="commands", dest="command"
+    )
+    subparsers_competitions_submissions.choices = Help.entity_submissions_choices
+    # Default action when no subcommand is given: list. Since the parent parser
+    # doesn't expose the full list-args, we populate the defaults so the
+    # handler still receives them when invoked via `submissions` / `submissions -c ...`.
+    parser_competitions_submissions.set_defaults(
+        func=api.competition_submissions_cli,
+        competition=None,
+        csv_display=False,
+        page_size=None,
+        page_token=None,
+        output_format=None,
+        quiet=False,
+    )
+
+    # Competitions submissions list (explicit) — full arg set lives here.
+    parser_competitions_submissions_list = subparsers_competitions_submissions.add_parser(
+        "list",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_submissions,
+        parents=[shared_competition_submissions_list],
+    )
+    parser_competitions_submissions_list.set_defaults(func=api.competition_submissions_cli)
+
+    # Competitions submissions limits
+    parser_competitions_submissions_limits = subparsers_competitions_submissions.add_parser(
+        "limits",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_submissions_limits,
+    )
+    parser_competitions_submissions_limits_optional = parser_competitions_submissions_limits._action_groups.pop()
+    parser_competitions_submissions_limits_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_submissions_limits_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_submissions_limits_optional.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit the limits as JSON instead of the human-readable view.",
+    )
+    parser_competitions_submissions_limits_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_submissions_limits._action_groups.append(parser_competitions_submissions_limits_optional)
+    parser_competitions_submissions_limits.set_defaults(func=api.competition_get_submission_limits_cli)
 
     # Competitions leaderboard
     parser_competitions_leaderboard = subparsers_competitions.add_parser(
@@ -2487,6 +2550,7 @@ class Help(object):
     entity_data_choices = ["update"]
     entity_settings_choices = ["get", "update"]
     entity_solution_choices = ["create", "status"]
+    entity_submissions_choices = ["list", "limits"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -2553,6 +2617,7 @@ class Help(object):
     command_competitions_download = "Download competition files"
     command_competitions_submit = "Make a new competition submission"
     command_competitions_submissions = "Show your competition submissions"
+    command_competitions_submissions_limits = "Show your team's submission counts and remaining daily allowance"
     command_competitions_leaderboard = "Get competition leaderboard information"
     command_competitions_team_submissions = "List a team's public submissions (every active submission for simulation competitions, or the public leaderboard submission for regular competitions)"
     command_competitions_episodes = "List episodes for a submission in a simulation competition"
