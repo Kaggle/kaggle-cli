@@ -44,17 +44,18 @@ class TestCompetitionCreateSolution(unittest.TestCase):
 
     @patch.object(KaggleApi, "_upload_file")
     @patch.object(KaggleApi, "build_kaggle_client")
-    def test_uploads_file_via_inbox_and_sends_token(self, mock_client, mock_upload):
+    def test_uploads_file_via_competition_solution_bucket_and_sends_token(self, mock_client, mock_upload):
         mock_upload.return_value = _mock_upload_file("blob-tok-1")
         mock_kaggle = self._patch_client(mock_client)
 
         self.api.competition_create_solution(competition_name="my-comp", path=self.solution_path)
 
-        # _upload_file called with basename, full path, ApiBlobType.INBOX
+        # _upload_file called with basename, full path, ApiBlobType.COMPETITION_SOLUTION
+        # (avoids the generic InboxFiles bucket so the source blob doesn't linger).
         args, _ = mock_upload.call_args
         self.assertEqual(args[0], "solution.csv")
         self.assertEqual(args[1], self.solution_path)
-        self.assertEqual(args[2], ApiBlobType.INBOX)
+        self.assertEqual(args[2], ApiBlobType.COMPETITION_SOLUTION)
 
         # The blob token flows through to CreateCompetitionSolution
         request = mock_kaggle.competitions.competition_api_client.create_competition_solution.call_args[0][0]

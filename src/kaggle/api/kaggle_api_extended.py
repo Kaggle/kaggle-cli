@@ -3311,8 +3311,10 @@ class KaggleApi:
         """Upload the private solution CSV for a competition you host.
 
         The file is uploaded via the public blob-upload pipeline with
-        ApiBlobType.INBOX — the backend's CreateCompetitionSolutionHandler
-        pulls the blob out of the inbox bucket. After this call, poll
+        ApiBlobType.COMPETITION_SOLUTION — the backend routes this straight
+        to the CompetitionSolutions bucket instead of the general InboxFiles
+        bucket, so the source blob doesn't linger after CreateCompetitionSolution
+        moves it into the raw-solution slot. After this call, poll
         ``competition_get_solution_status`` until ``ready`` flips true (or
         ``setup_error`` is populated) before submissions can be scored.
 
@@ -3331,7 +3333,7 @@ class KaggleApi:
             upload_file = self._upload_file(
                 os.path.basename(path),
                 path,
-                ApiBlobType.INBOX,
+                ApiBlobType.COMPETITION_SOLUTION,
                 upload_context,
                 quiet,
                 resources=None,

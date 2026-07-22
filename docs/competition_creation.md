@@ -595,8 +595,8 @@ preprocessing / sampling; poll
 [`kaggle competitions solution status`](#kaggle-competitions-solution-status)
 until it's `ready` before opening submissions.
 
-The file is uploaded via the standard blob-upload pipeline (`ApiBlobType.INBOX`),
-and the resulting token is passed to `CreateCompetitionSolution`.
+The file is uploaded via the standard blob-upload pipeline, then the resulting
+token is passed to `CreateCompetitionSolution`.
 
 **Usage:**
 

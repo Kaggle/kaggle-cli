@@ -14,7 +14,6 @@ class TestHttpClient(unittest.TestCase):
             creds = _get_apikey_creds()
             self.assertIsNone(creds)
 
-    @unittest.expectedFailure  # needs kagglesdk >= 0.1.35
     @patch("os.path.exists")
     def test_get_apikey_creds_invalid_json(self, mock_exists):
         mock_exists.return_value = True
