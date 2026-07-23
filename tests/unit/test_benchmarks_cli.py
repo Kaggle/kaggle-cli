@@ -1942,6 +1942,97 @@ class TestModelSlugNormalization:
 
 
 # ============================================================
+# Task Slug Normalization
+# ============================================================
+
+
+class TestTaskSlugNormalization:
+    """Tests for ``_slugify_task`` and ``_make_task_slug``."""
+
+    # -- _slugify_task --
+
+    @pytest.mark.parametrize(
+        "input_task, expected",
+        [
+            # Bare task name — no owner
+            ("my-task", "my-task"),
+            # Owner/task format preserved
+            ("owner/my-task", "owner/my-task"),
+            # Normalization: uppercase, underscores, spaces
+            ("My Task", "my-task"),
+            ("Owner/My Task", "owner/my-task"),
+            ("my_task", "my-task"),
+            ("OWNER/TASK_NAME", "owner/task-name"),
+            # Extra slashes after the first are merged by slugify
+            ("owner/task/extra", "owner/task-extra"),
+            # Unicode transliteration
+            ("café/naïve-task", "cafe/naive-task"),
+        ],
+        ids=[
+            "bare_task",
+            "owner_task",
+            "uppercase_bare",
+            "uppercase_owner_task",
+            "underscore_bare",
+            "uppercase_underscore_owner",
+            "extra_slashes",
+            "unicode",
+        ],
+    )
+    def test_slugify_task(self, input_task, expected):
+        assert KaggleApi._slugify_task(input_task) == expected
+
+    @pytest.mark.parametrize(
+        "invalid_input",
+        [
+            "/task",
+            "owner/",
+            "/",
+        ],
+        ids=[
+            "missing_owner",
+            "missing_task",
+            "bare_slash",
+        ],
+    )
+    def test_slugify_task_rejects_empty_segments(self, invalid_input):
+        with pytest.raises(ValueError, match="Invalid task format"):
+            KaggleApi._slugify_task(invalid_input)
+
+    # -- _make_task_slug --
+
+    def test_make_task_slug_bare(self):
+        slug = KaggleApi._make_task_slug("my-task")
+        assert slug.task_slug == "my-task"
+        assert not slug.owner_slug
+
+    def test_make_task_slug_with_owner(self):
+        slug = KaggleApi._make_task_slug("owner/my-task")
+        assert slug.owner_slug == "owner"
+        assert slug.task_slug == "my-task"
+
+    # -- End-to-end: owner/task propagates to API requests --
+
+    def test_status_sends_owner_slug(self, api, capsys):
+        """``status owner/task`` should set owner_slug on the API request."""
+        _setup_completed_task(api)
+        api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(runs=[], next_page_token="")
+        api.benchmarks_tasks_status_cli("someuser/my-task")
+        request = api._mock_benchmarks.get_benchmark_task.call_args[0][0]
+        assert request.slug.owner_slug == "someuser"
+        assert request.slug.task_slug == "my-task"
+
+    def test_status_bare_task_omits_owner_slug(self, api, capsys):
+        """``status my-task`` should not set owner_slug."""
+        _setup_completed_task(api)
+        api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(runs=[], next_page_token="")
+        api.benchmarks_tasks_status_cli("my-task")
+        request = api._mock_benchmarks.get_benchmark_task.call_args[0][0]
+        assert not request.slug.owner_slug
+        assert request.slug.task_slug == "my-task"
+
+
+# ============================================================
 # Models
 # ============================================================
 

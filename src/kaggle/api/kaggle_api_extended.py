@@ -9099,10 +9099,41 @@ class KaggleApi:
 
     @staticmethod
     def _make_task_slug(task: str) -> ApiBenchmarkTaskSlug:
-        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string."""
+        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string.
+
+        Supports the ``owner/task`` format: when the string contains a ``/``,
+        the part before it is used as ``owner_slug`` and the part after as
+        ``task_slug``. Without a ``/`` only ``task_slug`` is set and the owner
+        defaults to the current user on the server.
+        """
         slug = ApiBenchmarkTaskSlug()
-        slug.task_slug = task
+        if "/" in task:
+            owner, task_slug = task.split("/", 1)
+            slug.owner_slug = owner
+            slug.task_slug = task_slug
+        else:
+            slug.task_slug = task
         return slug
+
+    @staticmethod
+    def _slugify_task(task: str) -> str:
+        """Slugify a task name while preserving the ``owner/task`` separator.
+
+        The generic ``slugify()`` replaces ``/`` with ``-``, which destroys
+        the owner/task structure that ``_make_task_slug`` relies on.  This
+        helper slugifies each segment independently so that
+        ``owner/my-task`` becomes ``owner/my-task``
+        instead of ``owner-my-task``.
+
+        Raises:
+            ValueError: If either the owner or task segment is empty
+                (e.g. ``/task``, ``owner/``, ``/``).
+        """
+        parts = task.split("/", 1)
+        slugified = [slugify(p) for p in parts]
+        if len(slugified) == 2 and not all(slugified):
+            raise ValueError(f"Invalid task format '{task}'. Use 'task-name' or 'owner/task-name'.")
+        return "/".join(slugified)
 
     @staticmethod
     def _normalize_model_slug(slug: str) -> str:
@@ -9827,7 +9858,7 @@ class KaggleApi:
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)
-        task = slugify(task)
+        task = self._slugify_task(task)
 
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
@@ -9943,7 +9974,7 @@ class KaggleApi:
                 page -= 1
 
     def benchmarks_tasks_status_cli(self, task, model=None):
-        task = slugify(task)
+        task = self._slugify_task(task)
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
             print(f"Task:     {task_info.slug.task_slug}")
@@ -9982,7 +10013,7 @@ class KaggleApi:
 
     def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False, force=False):
         """Download output files for completed/errored benchmark task runs."""
-        task = slugify(task)
+        task = self._slugify_task(task)
         output = output or "."
 
         with self.build_kaggle_client() as kaggle:
@@ -10061,6 +10092,7 @@ class KaggleApi:
                     # Note: extractall() is safe here because the zip originates from
                     # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
+                        os.makedirs(tmp_outdir, exist_ok=True)
                         zf.extractall(tmp_outdir)
                 except zipfile.BadZipFile:
                     print(f"{row_prefix} {size_str:<{size_col}} {'Bad zip':<{prog_col}}")
@@ -10144,7 +10176,7 @@ class KaggleApi:
 
     def benchmarks_tasks_log_cli(self, task, model=None):
         """Print execution logs for benchmark task run(s)."""
-        task = slugify(task)
+        task = self._slugify_task(task)
 
         with self.build_kaggle_client() as kaggle:
             self._get_benchmark_task(task, kaggle)
@@ -10246,7 +10278,7 @@ class KaggleApi:
 
     def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=True):
         """Publish a benchmark task, making it public."""
-        task = slugify(task)
+        task = self._slugify_task(task)
 
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists first

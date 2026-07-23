@@ -143,6 +143,21 @@ Displays or downloads the evaluation results for all models that have run tasks 
 
 All tasks commands live under `kaggle benchmarks tasks` (alias: `kaggle b t`).
 
+### Task Name Format
+
+Task arguments (`<TASK>`) support two formats:
+
+*   **Bare slug** (`my-task`): Refers to a task owned by the current user.
+*   **Owner prefix** (`owner/my-task`): Refers to a specific owner's task (e.g., another user's public task, or `your-username/my-task`).
+
+| Command Group | Supported Formats | Description |
+|---|---|---|
+| **View & Run** (`run`, `status`, `download`, `log`) | `my-task`, `owner/my-task` | Interact with your own tasks or public tasks from other users |
+| **Publish** (`publish`) | `my-task`, `your-username/my-task` | Make your own task public (must be task owner) |
+| **Create** (`push`) | `my-task` only | Must match the `@task(name="...")` decorator in your Python source file |
+
+> **Slug Normalization:** Task names are automatically converted to URL-safe slugs (`My Task` → `my-task`). For `owner/task` arguments, each segment is slugified independently (`Owner/My Task` → `owner/my-task`) so the `/` separator is preserved.
+
 ### `kaggle benchmarks tasks push`
 
 Creates or updates a benchmark task from a local Python source file. The file must contain at least one function decorated with `@task`.
@@ -218,7 +233,7 @@ kaggle benchmarks tasks run <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug, e.g. `my-task`).
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
 
 **Options:**
 
@@ -300,7 +315,7 @@ kaggle benchmarks tasks status <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug, e.g. `my-task`).
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
 
 **Options:**
 
@@ -314,7 +329,13 @@ kaggle benchmarks tasks status <TASK> [options]
     kaggle b t status my-task
     ```
 
-2.  Show status for specific models only:
+2.  Show status for another user's task:
+
+    ```bash
+    kaggle b t status someuser/their-task
+    ```
+
+3.  Show status for specific models only:
 
     ```bash
     kaggle b t status my-task -m gemini-2.5-pro
@@ -340,7 +361,7 @@ kaggle benchmarks tasks download <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug, e.g. `my-task`).
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
 
 **Options:**
 
@@ -357,19 +378,25 @@ kaggle benchmarks tasks download <TASK> [options]
     kaggle b t download my-task
     ```
 
-2.  Download outputs for a specific model into a custom directory:
+2.  Download outputs from another user's public task:
+
+    ```bash
+    kaggle b t download someuser/their-task
+    ```
+
+3.  Download outputs for a specific model into a custom directory:
 
     ```bash
     kaggle b t download my-task -m gemini-2.5-pro -o ./results
     ```
 
-3.  Download outputs with source notebooks included:
+4.  Download outputs with source notebooks included:
 
     ```bash
     kaggle b t download my-task --include-source
     ```
 
-4.  Force re-download of previously downloaded runs:
+5.  Force re-download of previously downloaded runs:
 
     ```bash
     kaggle b t download my-task --force
@@ -421,7 +448,7 @@ kaggle benchmarks tasks log <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug, e.g. `my-task`).
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
 
 **Options:**
 
@@ -437,13 +464,19 @@ kaggle benchmarks tasks log <TASK> [options]
     kaggle b t log my-task
     ```
 
-2.  Show logs for a specific model's run(s):
+2.  Show logs for another user's task:
+
+    ```bash
+    kaggle b t log someuser/their-task
+    ```
+
+3.  Show logs for a specific model's run(s):
 
     ```bash
     kaggle b t log my-task -m gemini-2.5-pro
     ```
 
-3.  Show logs for multiple models:
+4.  Show logs for multiple models:
 
     ```bash
     kaggle b t logs my-task -m gemini-2.5-pro -m claude-sonnet-4
@@ -531,7 +564,7 @@ kaggle benchmarks tasks delete <TASK> [options]
 
 **Arguments:**
 
-*   `<TASK>`: Task name (slug, e.g. `my-task`).
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
 
 **Options:**
 
@@ -561,7 +594,7 @@ kaggle benchmarks tasks publish <TASK> [options]
  
 **Arguments:**
  
-*   `<TASK>`: Task name (slug, e.g. `my-task`).
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
  
 **Options:**
  
