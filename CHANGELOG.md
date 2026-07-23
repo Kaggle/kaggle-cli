@@ -5,6 +5,7 @@ Changelog
 
 ### 2.2.4
 
+* fix(benchmarks): support owner/task separator in benchmark commands (#1146)
 * add competitions solution create/status commands (#1141)
 * fix(cli): prevent stale file corruption when resuming downloads (#1142)
 * fix(cli): fix collaborator role handling in dataset metadata update (#1138)
