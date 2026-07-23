@@ -903,6 +903,7 @@ class KaggleApi:
     MODEL_METADATA_FILE = "model-metadata.json"
     MODEL_INSTANCE_METADATA_FILE = "model-instance-metadata.json"
     COMPETITION_METADATA_FILE = "competition-metadata.json"
+    COMPETITION_SUBMIT_UPLOAD_FAILED_MESSAGE = "Could not submit to competition"
     MAX_NUM_INBOX_FILES_TO_UPLOAD = 1000
     MAX_UPLOAD_RESUME_ATTEMPTS = 10
 
@@ -1948,7 +1949,7 @@ class KaggleApi:
                     # Actual error is printed during upload_complete. Not
                     # ideal but changing would not be backwards compatible
                     resp = ApiCreateSubmissionResponse()
-                    resp.message = "Could not submit to competition"
+                    resp.message = self.COMPETITION_SUBMIT_UPLOAD_FAILED_MESSAGE
                     return resp
 
                 submit_request = ApiCreateSubmissionRequest()
@@ -2022,9 +2023,12 @@ class KaggleApi:
                 return ""
             else:
                 raise e
-        if not quiet and competition:
+        submit_succeeded = submit_result.message != self.COMPETITION_SUBMIT_UPLOAD_FAILED_MESSAGE
+        if submit_succeeded and not quiet and competition:
             # Bonus context: how many submissions are left today. Never fail
-            # the submit over a limits-endpoint blip.
+            # the submit over a limits-endpoint blip. Skipped on failed
+            # submissions so we don't imply the submission counted when it
+            # didn't.
             try:
                 limits = self.competition_get_submission_limits(competition)
                 print(f"{limits.num_allowed_now} submissions remaining today.")
