@@ -1942,6 +1942,33 @@ class TestModelSlugNormalization:
 
 
 # ============================================================
+# Task Slug Parsing
+# ============================================================
+
+
+class TestMakeTaskSlug:
+    """Tests for ``KaggleApi._make_task_slug`` owner/task parsing."""
+
+    def test_plain_task_slug_no_owner(self):
+        """A plain task string sets only task_slug; owner is left unset."""
+        slug = KaggleApi._make_task_slug("my-task")
+        assert slug.task_slug == "my-task"
+        assert not slug.owner_slug
+
+    def test_owner_task_format_sets_both(self):
+        """``owner/task`` sets owner_slug and task_slug separately."""
+        slug = KaggleApi._make_task_slug("alice/my-task")
+        assert slug.owner_slug == "alice"
+        assert slug.task_slug == "my-task"
+
+    def test_owner_task_with_extra_slash(self):
+        """Only the first ``/`` splits owner from task; the rest stays in task_slug."""
+        slug = KaggleApi._make_task_slug("alice/my-task/v2")
+        assert slug.owner_slug == "alice"
+        assert slug.task_slug == "my-task/v2"
+
+
+# ============================================================
 # Models
 # ============================================================
 

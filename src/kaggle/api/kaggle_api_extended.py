@@ -9099,9 +9099,20 @@ class KaggleApi:
 
     @staticmethod
     def _make_task_slug(task: str) -> ApiBenchmarkTaskSlug:
-        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string."""
+        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string.
+
+        Supports the ``owner/task`` format: when the string contains a ``/``,
+        the part before it is used as ``owner_slug`` and the part after as
+        ``task_slug``. Without a ``/`` only ``task_slug`` is set and the owner
+        defaults to the current user on the server.
+        """
         slug = ApiBenchmarkTaskSlug()
-        slug.task_slug = task
+        if "/" in task:
+            owner, task_slug = task.split("/", 1)
+            slug.owner_slug = owner
+            slug.task_slug = task_slug
+        else:
+            slug.task_slug = task
         return slug
 
     @staticmethod
