@@ -332,6 +332,31 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_team_submissions._action_groups.append(parser_competitions_team_submissions_optional)
     parser_competitions_team_submissions.set_defaults(func=api.competition_team_submissions_cli)
 
+    # Competitions submission limits (your team's submission counts and remaining daily allowance)
+    parser_competitions_submission_limits = subparsers_competitions.add_parser(
+        "submission-limits",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_submission_limits,
+    )
+    parser_competitions_submission_limits_optional = parser_competitions_submission_limits._action_groups.pop()
+    parser_competitions_submission_limits_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_submission_limits_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_submission_limits_optional.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit the limits as JSON instead of the human-readable view.",
+    )
+    parser_competitions_submission_limits_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_submission_limits._action_groups.append(parser_competitions_submission_limits_optional)
+    parser_competitions_submission_limits.set_defaults(func=api.competition_get_submission_limits_cli)
+
     # Competitions list episodes
     parser_competitions_episodes = subparsers_competitions.add_parser(
         "episodes", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episodes
@@ -564,37 +589,27 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_delete._action_groups.append(parser_competitions_pages_delete_optional)
     parser_competitions_pages_delete.set_defaults(func=api.competition_delete_page_cli)
 
-    # Competitions hosts (group: list)
-    shared_competition_hosts_list = argparse.ArgumentParser(add_help=False)
-    shared_competition_hosts_list.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
-    shared_competition_hosts_list.add_argument(
-        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
-    )
-    _add_output_format_args(shared_competition_hosts_list)
-    shared_competition_hosts_list.add_argument(
-        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
-    )
-
+    # Competitions hosts (list hosts for a competition). Flat parser — an
+    # earlier version wrapped a `list` subcommand around this, but argparse
+    # can't disambiguate a parent positional (`<competition>`) from a
+    # subcommand token, so `kaggle competitions hosts my-comp` errored. Kept
+    # simple.
     parser_competitions_hosts = subparsers_competitions.add_parser(
         "hosts",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_competitions_hosts,
-        parents=[shared_competition_hosts_list],
     )
-    subparsers_competitions_hosts = parser_competitions_hosts.add_subparsers(title="commands", dest="command")
-    subparsers_competitions_hosts.choices = Help.entity_hosts_choices
-
-    # Default action when no subcommand is given: list
+    parser_competitions_hosts_optional = parser_competitions_hosts._action_groups.pop()
+    parser_competitions_hosts_optional.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
+    parser_competitions_hosts_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    _add_output_format_args(parser_competitions_hosts_optional)
+    parser_competitions_hosts_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_hosts._action_groups.append(parser_competitions_hosts_optional)
     parser_competitions_hosts.set_defaults(func=api.competition_list_hosts_cli)
-
-    # Competitions hosts list (explicit)
-    parser_competitions_hosts_list = subparsers_competitions_hosts.add_parser(
-        "list",
-        formatter_class=argparse.RawTextHelpFormatter,
-        help=Help.command_competitions_hosts,
-        parents=[shared_competition_hosts_list],
-    )
-    parser_competitions_hosts_list.set_defaults(func=api.competition_list_hosts_cli)
 
     # Competitions data (group: update)
     parser_competitions_data = subparsers_competitions.add_parser(
@@ -2410,6 +2425,7 @@ class Help(object):
         "submissions",
         "leaderboard",
         "team-submissions",
+        "submission-limits",
         "episodes",
         "replay",
         "logs",
@@ -2483,7 +2499,6 @@ class Help(object):
     forums_topics_choices = ["list", "show"]
     entity_topics_choices = ["list", "show"]
     entity_pages_choices = ["list", "create", "update", "delete"]
-    entity_hosts_choices = ["list"]
     entity_data_choices = ["update"]
     entity_settings_choices = ["get", "update"]
     entity_solution_choices = ["create", "status"]
@@ -2555,6 +2570,9 @@ class Help(object):
     command_competitions_submissions = "Show your competition submissions"
     command_competitions_leaderboard = "Get competition leaderboard information"
     command_competitions_team_submissions = "List a team's public submissions (every active submission for simulation competitions, or the public leaderboard submission for regular competitions)"
+    command_competitions_submission_limits = (
+        "Show your team's submission counts and remaining daily allowance for a competition"
+    )
     command_competitions_episodes = "List episodes for a submission in a simulation competition"
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"

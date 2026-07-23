@@ -331,8 +331,6 @@ Lists the hosts (users with host access) for a competition. Useful for
 confirming who can edit settings, upload data, or launch — especially after
 adding or removing collaborators via the web UI.
 
-Also invocable as `kaggle competitions hosts list`.
-
 **Usage:**
 
 ```bash
