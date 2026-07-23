@@ -3,6 +3,44 @@ Changelog
 
 ### Next
 
+### 2.2.4
+
+* add competitions solution create/status commands (#1141)
+* fix(cli): prevent stale file corruption when resuming downloads (#1142)
+* fix(cli): fix collaborator role handling in dataset metadata update (#1138)
+* Refactor paging to use Protocols (#1137)
+* fix(cli): retry transient connection errors in with_retry (#1132)
+* Add Kaggle Secrets documentation (#1131)
+* Fix model and owner slug validation (#1134)
+* Implement ignore_patterns in uploading (combined) (#1130)
+* Refactor parser fixtures (#1118)
+* fix(auth): avoid skipping auth for programmatic imports (#1117)
+* fix(cli): resumable upload start offset when zero bytes uploaded (#1113)
+* refactor(cli): reuse _resolve_projection in dataset_status (#1116)
+* update supported model list (#1115)
+* fix(cli): handle deleted comments in topics show (#1114)
+* Add leaderboard subcommand to kaggle benchmarks (#1112)
+* feat(cli): add competitions settings update command (#1104)
+* feat(cli): add competitions hosts list command (#1107)
+* feat(cli): add competitions settings get command (#1103)
+* feat(cli): support --page-token and --page-size, preserve --page (#1098)
+* feat(cli): expose userRank in competitions list output (#1094)
+* fix(cli): read kernel metadata and source files using UTF-8 in kernels_push (#1093)
+* Fix crash when running kaggle command with invalid credentials (#1092)
+* feat(cli): add competitions data push command (#1085)
+* fix(cli): restore fallback for unknown kernel language/type in kernels_pull (#1091)
+* fix(auth): prioritize OAuth credentials over anonymous fallback (#1089)
+* feat(cli): add competitions pages update command (#1083)
+* fix(cli): stop treating subcommand -v as version flag (#1082)
+* fix(cli): honor --unzip for cached dataset downloads (#1086)
+* feat(cli): add competitions pages delete command (#1084)
+* feat(cli): add competitions init and create commands (#1080)
+* docs(competitions): add competition_creation.md for new host commands (#1081)
+* feat(cli): add competitions launch command (#1079)
+* feat(cli): add competitions pages create command (#1078)
+* fix(cli): avoid success message after canceled model deletion (#1077)
+* fix(cli): avoid success message after canceled dataset deletion (#1073)
+
 ### 2.2.3
 
 * Update --format help text to reference output_format.md (#1074)
