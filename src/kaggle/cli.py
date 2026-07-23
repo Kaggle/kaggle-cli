@@ -589,11 +589,7 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_pages_delete._action_groups.append(parser_competitions_pages_delete_optional)
     parser_competitions_pages_delete.set_defaults(func=api.competition_delete_page_cli)
 
-    # Competitions hosts (list hosts for a competition). Flat parser — an
-    # earlier version wrapped a `list` subcommand around this, but argparse
-    # can't disambiguate a parent positional (`<competition>`) from a
-    # subcommand token, so `kaggle competitions hosts my-comp` errored. Kept
-    # simple.
+    # Competitions hosts (list hosts for a competition)
     parser_competitions_hosts = subparsers_competitions.add_parser(
         "hosts",
         formatter_class=argparse.RawTextHelpFormatter,
