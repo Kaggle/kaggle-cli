@@ -716,6 +716,18 @@ class ResumableFileUpload(object):
         with io.open(self._upload_info_file_path, "w") as f:
             json.dump(self.to_dict(), f, indent=True)
 
+    def upload_expired(self) -> None:
+        """Discards an upload session that can no longer be resumed.
+
+        The upload has to be restarted from scratch, which means initiating a new
+        upload session to get a fresh create url and token.
+
+        Returns:
+            None:
+        """
+        self.start_blob_upload_response = None
+        self.can_resume = False
+
     def upload_completed(self):
         """Marks the upload as complete.
 
@@ -5457,6 +5469,12 @@ class KaggleApi:
             if upload_result == ResumableUploadResult.INCOMPLETE:
                 continue  # Continue (i.e., retry/resume) only if the upload is incomplete.
 
+            if upload_result == ResumableUploadResult.EXPIRED:
+                # The session can no longer be resumed, so drop it and initiate a
+                # new one on the next attempt to restart the upload from scratch.
+                file_upload.upload_expired()
+                continue
+
             if upload_result == ResumableUploadResult.COMPLETE:
                 file_upload.upload_completed()
             break
@@ -8913,6 +8931,11 @@ class KaggleApi:
 
         Returns:
             None:
+
+        Raises:
+            ValueError: If any file could not be uploaded. The request is left
+                incomplete, so callers must not go on to create the dataset/model
+                version.
         """
         patterns = DEFAULT_IGNORE_PATTERNS + (ignore_patterns or [])
         for file_name in os.listdir(folder):
@@ -8941,6 +8964,8 @@ class KaggleApi:
                 resources,
                 patterns,
             )
+            # None means the entry was intentionally skipped (e.g., a folder without
+            # --dir-mode); a failed upload raises instead of being skipped.
             if upload_file is not None:
                 files = request.files
                 if files is not None:
@@ -9003,7 +9028,7 @@ class KaggleApi:
         quiet: bool,
         resources: Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]],
         content_type: Optional[str] = None,
-    ) -> Union[UploadFile, None]:
+    ) -> UploadFile:
         """A helper function to upload a single file.
 
         Args:
@@ -9016,7 +9041,11 @@ class KaggleApi:
             content_type (str): Optional MIME content type, e.g. "text/plain", "image/png"
 
         Returns:
-            Union[UploadFile, None]: An UploadFile object if the upload was successful, otherwise None.
+            UploadFile: An UploadFile object for the uploaded file.
+
+        Raises:
+            ValueError: If the file could not be uploaded. Callers must not create
+                the dataset/model version in that case, or it would be missing a file.
         """
 
         if not quiet:
@@ -9025,9 +9054,10 @@ class KaggleApi:
         content_length = os.path.getsize(full_path)
         token = self._upload_blob(full_path, quiet, blob_type, upload_context, content_type)
         if token is None:
-            if not quiet:
-                print("Upload unsuccessful: " + file_name)
-            return None
+            # Never swallowed, even when quiet: silently dropping the file here would
+            # produce a dataset/model version that is missing it. The underlying error
+            # was already printed by upload_complete.
+            raise ValueError("Upload unsuccessful: " + file_name)
         if not quiet:
             print("Upload successful: " + file_name + " (" + File.get_size(content_length) + ")")
         upload_file = UploadFile()
@@ -9155,13 +9185,13 @@ class KaggleApi:
         if response.status_code == 404:
             # Upload expired so need to start from scratch.
             if not quiet:
-                print("Upload of %s expired. Please try again." % path)
-            return ResumableUploadResult.Failed()
+                print("Upload of %s expired. Restarting the upload." % path)
+            return ResumableUploadResult.Expired()
         if response.status_code == 308:  # Resume Incomplete
             bytes_uploaded = self._get_bytes_already_uploaded(response, quiet)
             if bytes_uploaded is None:
                 # There is an error with the Range header so need to start from scratch.
-                return ResumableUploadResult.Failed()
+                return ResumableUploadResult.Expired()
             result = ResumableUploadResult.Incomplete(bytes_uploaded)
             if not quiet:
                 print("Already uploaded %d bytes. Will resume upload at %d." % (result.bytes_uploaded, result.start_at))

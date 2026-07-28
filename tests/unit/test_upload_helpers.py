@@ -17,7 +17,7 @@ sys.path.insert(0, "../..")
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kaggle.models.kaggle_models_extended import ResumableUploadResult
 from kagglesdk.blobs.types.blob_api_service import ApiBlobType, ApiStartBlobUploadResponse
-from kagglesdk.datasets.types.dataset_api_service import ApiDatasetColumn
+from kagglesdk.datasets.types.dataset_api_service import ApiCreateDatasetVersionRequestBody, ApiDatasetColumn
 from kaggle.models.upload_file import UploadFile
 
 
@@ -38,6 +38,24 @@ class TestUploadHelpers(unittest.TestCase):
         with open(path, "wb") as f:
             f.write(b"\0" * size)
         return path
+
+    def _mock_blob_client(self, mock_client):
+        """Wires a build_kaggle_client mock whose start_blob_upload returns a fresh
+        url/token per call, so tests can count how often a session was initiated."""
+        mock_kaggle = MagicMock()
+        started = []
+
+        def start_blob_upload(request):
+            started.append(request)
+            response = ApiStartBlobUploadResponse()
+            response.create_url = "http://upload-url/%d" % len(started)
+            response.token = "token-%d" % len(started)
+            return response
+
+        mock_kaggle.blobs.blob_api_client.start_blob_upload.side_effect = start_blob_upload
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+        return mock_kaggle.blobs.blob_api_client.start_blob_upload
 
     # _get_bytes_already_uploaded tests
     def test_get_bytes_no_header_returns_minus_one(self):
@@ -102,8 +120,10 @@ class TestUploadHelpers(unittest.TestCase):
         mock_session.put.return_value = mock_response
         mock_session_cls.return_value = mock_session
 
+        # An expired session cannot be resumed but the file was never rejected, so the
+        # upload has to be restarted from scratch rather than abandoned.
         res = self.api._resume_upload("path", "url", 1000, quiet=True)
-        self.assertEqual(res.result, ResumableUploadResult.FAILED)
+        self.assertEqual(res.result, ResumableUploadResult.EXPIRED)
 
     @patch.object(KaggleApi, "_get_bytes_already_uploaded", return_value=500)
     @patch("requests.Session")
@@ -122,15 +142,16 @@ class TestUploadHelpers(unittest.TestCase):
 
     @patch.object(KaggleApi, "_get_bytes_already_uploaded", return_value=None)
     @patch("requests.Session")
-    def test_resume_upload_incomplete_308_error_returns_failed(self, mock_session_cls, mock_get_bytes):
+    def test_resume_upload_incomplete_308_error_returns_expired(self, mock_session_cls, mock_get_bytes):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 308
         mock_session.put.return_value = mock_response
         mock_session_cls.return_value = mock_session
 
+        # A broken Range header means the offset is unknown, so start from scratch.
         res = self.api._resume_upload("path", "url", 1000, quiet=True)
-        self.assertEqual(res.result, ResumableUploadResult.FAILED)
+        self.assertEqual(res.result, ResumableUploadResult.EXPIRED)
 
     @patch("requests.Session")
     def test_resume_upload_other_error_returns_failed(self, mock_session_cls):
@@ -228,6 +249,18 @@ class TestUploadHelpers(unittest.TestCase):
     @patch.object(KaggleApi, "_resume_upload")
     @patch("requests.Session")
     @patch("kaggle.api.kaggle_api_extended.tqdm")
+    def test_upload_complete_resume_expired_returns_expired(self, mock_tqdm, mock_session_cls, mock_resume):
+        mock_resume.return_value = ResumableUploadResult.Expired()
+
+        path = self._create_dummy_file(100)
+        res = self.api.upload_complete(path, "http://url", quiet=True, resume=True)
+        self.assertEqual(res, ResumableUploadResult.EXPIRED)
+        mock_resume.assert_called_once()
+        mock_session_cls.assert_not_called()
+
+    @patch.object(KaggleApi, "_resume_upload")
+    @patch("requests.Session")
+    @patch("kaggle.api.kaggle_api_extended.tqdm")
     def test_upload_complete_resume_incomplete_resumes_and_succeeds(self, mock_tqdm, mock_session_cls, mock_resume):
         mock_resume.return_value = ResumableUploadResult.Incomplete(40)
 
@@ -312,9 +345,12 @@ class TestUploadHelpers(unittest.TestCase):
         context = ResumableUploadContext(no_resume=True)
         path = self._create_dummy_file(100)
 
-        result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=None)
+        # A failed upload must abort rather than be reported back as a skipped file,
+        # which would leave it out of the dataset/model version.
+        with self.assertRaises(ValueError) as cm:
+            self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=True, resources=None)
 
-        self.assertIsNone(result)
+        self.assertIn("Upload unsuccessful: dummy.bin", str(cm.exception))
 
     @patch.object(KaggleApi, "_upload_blob", return_value="token-123")
     def test_upload_file_with_resources_succeeds(self, mock_upload_blob):
@@ -391,11 +427,11 @@ class TestUploadHelpers(unittest.TestCase):
         from contextlib import redirect_stdout
 
         f = io.StringIO()
-        with redirect_stdout(f):
-            result = self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=False, resources=None)
+        with redirect_stdout(f), self.assertRaises(ValueError) as cm:
+            self.api._upload_file("dummy.bin", path, ApiBlobType.INBOX, context, quiet=False, resources=None)
 
-        self.assertIsNone(result)
-        self.assertIn("Upload unsuccessful: dummy.bin", f.getvalue())
+        self.assertIn("Upload unsuccessful: dummy.bin", str(cm.exception))
+        self.assertIn("Starting upload for file dummy.bin", f.getvalue())
 
     # _upload_blob additional tests
     @patch.object(KaggleApi, "build_kaggle_client")
@@ -439,6 +475,149 @@ class TestUploadHelpers(unittest.TestCase):
         self.assertEqual(token, "token-123")
         # Bug fixed: start_blob_upload should only be called once
         self.assertEqual(mock_kaggle.blobs.blob_api_client.start_blob_upload.call_count, 1)
+
+    def _upload_blob_in_context(self, path, quiet=True):
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=self.temp_dir):
+            context = ResumableUploadContext(no_resume=False)
+            with context:
+                return self.api._upload_blob(path, quiet, ApiBlobType.INBOX, context)
+
+    @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.FAILED)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_blob_failed_does_not_restart_returns_none(self, mock_client, mock_upload_complete):
+        start_blob_upload = self._mock_blob_client(mock_client)
+        path = self._create_dummy_file(100)
+
+        token = self._upload_blob_in_context(path)
+
+        # FAILED means the server rejected the file, so retrying would only hit the
+        # same error: give up after a single attempt and report no token.
+        self.assertIsNone(token)
+        self.assertEqual(mock_upload_complete.call_count, 1)
+        self.assertEqual(start_blob_upload.call_count, 1)
+
+    @patch.object(KaggleApi, "upload_complete")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_blob_expired_restarts_upload_succeeds(self, mock_client, mock_upload_complete):
+        start_blob_upload = self._mock_blob_client(mock_client)
+        mock_upload_complete.side_effect = [ResumableUploadResult.EXPIRED, ResumableUploadResult.COMPLETE]
+        path = self._create_dummy_file(100)
+
+        token = self._upload_blob_in_context(path)
+
+        # The expired session is dropped and a brand new one is initiated, so the
+        # token must come from the second start_blob_upload call.
+        self.assertEqual(token, "token-2")
+        self.assertEqual(start_blob_upload.call_count, 2)
+        # The restarted attempt uploads from scratch instead of resuming.
+        self.assertEqual(mock_upload_complete.call_args_list[1][1]["resume"], False)
+        self.assertEqual(mock_upload_complete.call_args_list[1][0][1], "http://upload-url/2")
+
+    @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.EXPIRED)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_blob_expired_restart_respects_max_attempts_returns_none(self, mock_client, mock_upload_complete):
+        start_blob_upload = self._mock_blob_client(mock_client)
+        path = self._create_dummy_file(100)
+
+        token = self._upload_blob_in_context(path)
+
+        # Restarting is bounded by MAX_UPLOAD_RESUME_ATTEMPTS, i.e., it cannot loop forever.
+        self.assertIsNone(token)
+        self.assertEqual(mock_upload_complete.call_count, KaggleApi.MAX_UPLOAD_RESUME_ATTEMPTS)
+        self.assertEqual(start_blob_upload.call_count, KaggleApi.MAX_UPLOAD_RESUME_ATTEMPTS)
+
+    @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.INCOMPLETE)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_blob_incomplete_exhausts_attempts_returns_none(self, mock_client, mock_upload_complete):
+        start_blob_upload = self._mock_blob_client(mock_client)
+        path = self._create_dummy_file(100)
+
+        token = self._upload_blob_in_context(path)
+
+        # Resuming keeps the same session, and running out of attempts yields no token.
+        self.assertIsNone(token)
+        self.assertEqual(mock_upload_complete.call_count, KaggleApi.MAX_UPLOAD_RESUME_ATTEMPTS)
+        self.assertEqual(start_blob_upload.call_count, 1)
+
+    # upload_files tests
+    def _create_upload_folder(self, *file_names):
+        folder = os.path.join(self.temp_dir, "folder")
+        os.makedirs(folder, exist_ok=True)
+        for file_name in file_names:
+            with open(os.path.join(folder, file_name), "w") as f:
+                f.write("data")
+        return folder
+
+    @patch.object(KaggleApi, "upload_complete")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_files_failure_aborts_and_keeps_no_partial_files(self, mock_client, mock_upload_complete):
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        self._mock_blob_client(mock_client)
+
+        def upload_complete(path, url, quiet, resume=False):
+            if os.path.basename(path) == "two.csv":
+                return ResumableUploadResult.FAILED
+            return ResumableUploadResult.COMPLETE
+
+        mock_upload_complete.side_effect = upload_complete
+
+        folder = self._create_upload_folder("one.csv", "two.csv", "three.csv")
+        request = ApiCreateDatasetVersionRequestBody()
+        request.files = []
+
+        with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=self.temp_dir):
+            context = ResumableUploadContext(no_resume=False)
+            with self.assertRaises(ValueError) as cm:
+                with context:
+                    self.api.upload_files(request, None, folder, ApiBlobType.DATASET, context, quiet=True)
+
+        # The failed file must not be silently skipped: the whole operation aborts so
+        # that no version is created without it.
+        self.assertIn("Upload unsuccessful: two.csv", str(cm.exception))
+        self.assertLess(len(request.files), 3)
+
+    @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_files_all_succeed_registers_every_file(self, mock_client, mock_upload_complete):
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        self._mock_blob_client(mock_client)
+
+        folder = self._create_upload_folder("one.csv", "two.csv", "three.csv")
+        request = ApiCreateDatasetVersionRequestBody()
+        request.files = []
+
+        with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=self.temp_dir):
+            context = ResumableUploadContext(no_resume=False)
+            with context:
+                self.api.upload_files(request, None, folder, ApiBlobType.DATASET, context, quiet=True)
+
+        self.assertEqual(len(request.files), 3)
+        self.assertEqual(sorted(f.token for f in request.files), ["token-1", "token-2", "token-3"])
+
+    @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_upload_files_skips_folder_without_dir_mode_succeeds(self, mock_client, mock_upload_complete):
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        self._mock_blob_client(mock_client)
+
+        folder = self._create_upload_folder("one.csv")
+        os.makedirs(os.path.join(folder, "subfolder"), exist_ok=True)
+        request = ApiCreateDatasetVersionRequestBody()
+        request.files = []
+
+        with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=self.temp_dir):
+            context = ResumableUploadContext(no_resume=False)
+            with context:
+                self.api.upload_files(request, None, folder, ApiBlobType.DATASET, context, quiet=True)
+
+        # An intentionally skipped folder is not an upload failure and must not abort.
+        self.assertEqual(len(request.files), 1)
+        self.assertEqual(request.files[0].token, "token-1")
 
     # Verbose/print tests
     @patch("requests.Session")

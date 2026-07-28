@@ -10,7 +10,8 @@ from requests.exceptions import HTTPError
 sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
-from kagglesdk.blobs.types.blob_api_service import ApiBlobType
+from kaggle.models.kaggle_models_extended import ResumableUploadResult
+from kagglesdk.blobs.types.blob_api_service import ApiBlobType, ApiStartBlobUploadResponse
 
 
 class TestDatasetCreate(unittest.TestCase):
@@ -32,6 +33,39 @@ class TestDatasetCreate(unittest.TestCase):
         meta_file_path = os.path.join(folder, "dataset-metadata.json")
         with open(meta_file_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f)
+
+    def _mock_kaggle_client(self, mock_client):
+        """Wires build_kaggle_client so that blob uploads can be driven end to end."""
+        mock_kaggle = MagicMock()
+        started = []
+
+        def start_blob_upload(request):
+            started.append(request)
+            response = ApiStartBlobUploadResponse()
+            response.create_url = "http://upload-url/%d" % len(started)
+            response.token = "token-%d" % len(started)
+            return response
+
+        mock_kaggle.blobs.blob_api_client.start_blob_upload.side_effect = start_blob_upload
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+        return mock_kaggle
+
+    def _write_data_files(self, folder, *file_names):
+        for file_name in file_names:
+            with open(os.path.join(folder, file_name), "w", encoding="utf-8") as f:
+                f.write("col\n1\n")
+
+    @staticmethod
+    def _fail_upload_of(failing_file_name):
+        """Returns an upload_complete stand-in that only fails one specific file."""
+
+        def upload_complete(path, url, quiet, resume=False):
+            if os.path.basename(path) == failing_file_name:
+                return ResumableUploadResult.FAILED
+            return ResumableUploadResult.COMPLETE
+
+        return upload_complete
 
     def test_dataset_create_new_invalid_folder_fails(self):
         with self.assertRaises(ValueError) as context:
@@ -377,6 +411,59 @@ class TestDatasetCreate(unittest.TestCase):
             self.assertEqual(call_args[2], tmpdir)
             self.assertEqual(call_args[3], ApiBlobType.DATASET)
             self.assertEqual(call_args[7], ignore_patterns)
+
+    @patch.object(KaggleApi, "upload_complete")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_create_version_upload_failure_aborts(self, mock_client, mock_upload_complete):
+        mock_kaggle = self._mock_kaggle_client(mock_client)
+        mock_upload_complete.side_effect = self._fail_upload_of("two.csv")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, self._get_valid_metadata())
+            self._write_data_files(tmpdir, "one.csv", "two.csv", "three.csv")
+
+            with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=tmpdir):
+                with self.assertRaises(ValueError) as context:
+                    self.api.dataset_create_version(tmpdir, "version notes here", quiet=True)
+
+        # A version missing one of its files must never be created.
+        self.assertIn("Upload unsuccessful: two.csv", str(context.exception))
+        mock_kaggle.datasets.dataset_api_client.create_dataset_version.assert_not_called()
+
+    @patch.object(KaggleApi, "dataset_status")
+    @patch.object(KaggleApi, "upload_complete")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_create_new_upload_failure_aborts(self, mock_client, mock_upload_complete, mock_status):
+        mock_kaggle = self._mock_kaggle_client(mock_client)
+        mock_upload_complete.side_effect = self._fail_upload_of("two.csv")
+        mock_status.side_effect = HTTPError("not found")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, self._get_valid_metadata())
+            self._write_data_files(tmpdir, "one.csv", "two.csv", "three.csv")
+
+            with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=tmpdir):
+                with self.assertRaises(ValueError) as context:
+                    self.api.dataset_create_new(tmpdir, quiet=True)
+
+        self.assertIn("Upload unsuccessful: two.csv", str(context.exception))
+        mock_kaggle.datasets.dataset_api_client.create_dataset.assert_not_called()
+
+    @patch.object(KaggleApi, "upload_complete", return_value=ResumableUploadResult.COMPLETE)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_create_version_uploads_every_file_succeeds(self, mock_client, mock_upload_complete):
+        mock_kaggle = self._mock_kaggle_client(mock_client)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, self._get_valid_metadata())
+            self._write_data_files(tmpdir, "one.csv", "two.csv", "three.csv")
+
+            with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=tmpdir):
+                self.api.dataset_create_version(tmpdir, "version notes here", quiet=True)
+
+        mock_kaggle.datasets.dataset_api_client.create_dataset_version.assert_called_once()
+        request = mock_kaggle.datasets.dataset_api_client.create_dataset_version.call_args[0][0]
+        self.assertEqual(sorted(f.token for f in request.body.files), ["token-1", "token-2", "token-3"])
 
 
 if __name__ == "__main__":

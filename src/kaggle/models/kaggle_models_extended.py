@@ -288,15 +288,20 @@ class ResumableUploadResult(object):
     # Upload was complete, i.e., all bytes were received by the server.
     COMPLETE = 1
 
-    # There was a non-transient error during the upload or the upload expired.
-    # The upload cannot be resumed so it should be restarted from scratch
-    # (i.e., call /api/v1/files/upload to initiate the upload and get the
-    # create/upload url and token).
+    # The server rejected the upload with a non-transient error. The upload
+    # cannot be resumed and restarting it would only hit the same error, so it
+    # should be abandoned.
     FAILED = 2
 
     # Upload was interrupted due to some (transient) failure but it can be
     # safely resumed.
     INCOMPLETE = 3
+
+    # The upload session is gone (e.g., it expired) but the file itself was
+    # never rejected. The upload cannot be resumed so it should be restarted
+    # from scratch (i.e., call /api/v1/files/upload to initiate the upload and
+    # get the create/upload url and token).
+    EXPIRED = 4
 
     def __init__(self, result, bytes_uploaded=None):
         self.result = result
@@ -318,3 +323,7 @@ class ResumableUploadResult(object):
     @staticmethod
     def Incomplete(bytes_uploaded=None):
         return ResumableUploadResult(ResumableUploadResult.INCOMPLETE, bytes_uploaded)
+
+    @staticmethod
+    def Expired():
+        return ResumableUploadResult(ResumableUploadResult.EXPIRED)
