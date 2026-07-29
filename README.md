@@ -17,6 +17,7 @@ Some of the key features are:
 * List, create, update, download or delete models & model variations.
 * List, update & run, download code & output or delete kernels (notebooks).
 * Browse and read discussion forums.
+* **Modern Terminal User Interface (TUI)**: Beautiful and responsive output tables out of the box using `rich`.
 
 ## Installation
 

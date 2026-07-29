@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Add opt-in `--format rich` (and `KAGGLE_OUTPUT_FORMAT=rich`) to render tables with `rich`; default output is unchanged
 * Add `kaggle benchmarks quota` to show Model Proxy (AI inference) spend quota, and bump `kagglesdk` to `>= 0.1.37`
 * Add `kaggle competitions submission-download <id>` to download the submitted file for a single submission (requires `kagglesdk >= 0.1.36`)
 * Add `deadline` (Competition Deadline) to the competition settings command and bump `kagglesdk` to `>= 0.1.36`
