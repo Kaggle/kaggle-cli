@@ -218,7 +218,8 @@ kaggle benchmarks tasks push <TASK> -f <FILE> [options]
 
 This command reads a `.py` file, converts it to a Jupyter notebook format, and uploads it to Kaggle as a benchmark task. If a task with the same slug already exists, a new version is created. The file is validated to ensure it contains a `@task` decorator matching the given task name.
  
-**Note on dataset attachment:** When `--kaggle-dataset` / `-d` is specified, the listed datasets are attached to the task's underlying notebook kernel. During execution, they are accessible at `/kaggle/input/<dataset-slug>/` by default, falling back to `/kaggle/input/<owner>/<dataset-slug>/` in the event of a naming conflict. If you re-push without `-d`, all previously-attached datasets are detached (a warning is printed). To preserve datasets across pushes, re-specify them each time. If any specified dataset is invalid, non-existent, or inaccessible, the push command will **fail** with an error: `Failed to push task: Failed to attach the following data sources (not found or inaccessible): <dataset>`.
+> [!NOTE]
+> **On dataset attachment:** When `--kaggle-dataset` / `-d` is specified, the listed datasets are attached to the task's underlying notebook kernel. During execution, they are accessible at `/kaggle/input/<dataset-slug>/` by default, falling back to `/kaggle/input/<owner>/<dataset-slug>/` in the event of a naming conflict. If you re-push without `-d`, all previously-attached datasets are detached (a warning is printed). To preserve datasets across pushes, re-specify them each time. If any specified dataset is invalid, non-existent, or inaccessible, the push command will **fail** with an error: `Failed to push task: Failed to attach the following data sources (not found or inaccessible): <dataset>`.
 
 ---
 
