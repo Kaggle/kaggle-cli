@@ -79,8 +79,8 @@ In addition to the three credential variables written by `auth`, `init` also wri
 *   `LLM_DEFAULT_EVAL` — Default model slug for evaluation.
 *   `LLMS_AVAILABLE` — Comma-separated list of available model slugs.
 
-> [!NOTE]
-> `LLMS_AVAILABLE` is a curated subset of models intended for local development and testing — it is **not** the full set of available models, and the Model Proxy token itself is not restricted to these models. To see all available models, use `kaggle benchmarks tasks models`. To run a task against any model (including those not in `LLMS_AVAILABLE`), use `kaggle benchmarks tasks run`, which executes on Kaggle's infrastructure with access to the full model catalog.
+> [!WARNING]
+> `LLMS_AVAILABLE` is a curated subset of models intended for local development and testing — it is **not** the full set of available models, and the Model Proxy token minted for local development **is** restricted to these models. To see all available models, use `kaggle benchmarks tasks models`. To run a task against any model (including those not in `LLMS_AVAILABLE`), use `kaggle benchmarks tasks run`, which executes on Kaggle's infrastructure with access to the full model catalog.
 
 `init` also creates two files alongside the example file:
 
