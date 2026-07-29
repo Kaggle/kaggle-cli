@@ -8784,6 +8784,17 @@ class KaggleApi:
         """
         if labels is None:
             labels = fields
+            
+        try:
+            from kaggle.ui import print_rich_table, RICH_AVAILABLE
+            if RICH_AVAILABLE:
+                def attr_getter(i, f):
+                    return getattr(i, self.camel_to_snake(f))
+                if print_rich_table(items, fields, labels, string_formatter=self.string, attr_getter=attr_getter):
+                    return
+        except ImportError:
+            pass
+
         formats = []
         borders = []
         if len(items) == 0:
