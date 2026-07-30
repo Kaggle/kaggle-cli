@@ -2913,7 +2913,7 @@ class Help(object):
     param_kernel_acc = (
         "Specify the type of accelerator to use for the kernel run. Note: 'NvidiaTeslaP100' is not usable for GPU "
         "compute with the default Kaggle image, whose PyTorch build (cu128) omits Pascal (sm_60) kernels; use "
-        "'NvidiaTeslaT4' or 'NvidiaL4' instead."
+        "'NvidiaTeslaT4' instead."
     )
     param_kernel_logs_follow = "Stream live execution logs from the running session (like tail -f)"
     param_kernel_logs_interval = argparse.SUPPRESS  # Deprecated; live streaming is push-based.

@@ -168,7 +168,7 @@ Accelerators available as of Feb 2026:
 Some of these are only available to participants of specific competitions, and some are only available to Kaggle admins.
 
 > [!WARNING]
-> `NvidiaTeslaP100` is not usable for GPU compute with the default Kaggle image. Its PyTorch build (cu128) does not include Pascal (`sm_60`) kernels, so `torch.cuda.is_available()` returns `True` but the first CUDA operation fails with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` or `NvidiaL4` instead, or install a Pascal-compatible torch build if you require a P100.
+> `NvidiaTeslaP100` is not usable for GPU compute with the default Kaggle image. Its PyTorch build (cu128) does not include Pascal (`sm_60`) kernels, so `torch.cuda.is_available()` returns `True` but the first CUDA operation fails with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` instead, or install a Pascal-compatible torch build if you require a P100.
 
 ## `kaggle kernels pull`
 

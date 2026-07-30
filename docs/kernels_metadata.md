@@ -37,7 +37,7 @@ We currently support the following metadata fields for kernels.
 * `enable_internet`: Whether or not the kernel should be able to access the internet. If not specified, will be `false`.
 * `machine_shape`: The accelerator/GPU type to use (e.g., `NvidiaTeslaT4`, `NvidiaTeslaP100`, or `Tpu1VmV38`).
   > [!WARNING]
-  > `NvidiaTeslaP100` is not usable with the default Kaggle image. Its PyTorch build (cu128) does not include Pascal (`sm_60`) kernels, so `torch.cuda.is_available()` returns `True` but the first CUDA operation fails with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` or `NvidiaL4` instead, or install a Pascal-compatible torch build if you require a P100.
+  > `NvidiaTeslaP100` is not usable with the default Kaggle image. Its PyTorch build (cu128) does not include Pascal (`sm_60`) kernels, so `torch.cuda.is_available()` returns `True` but the first CUDA operation fails with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` instead, or install a Pascal-compatible torch build if you require a P100.
 * `dataset_sources`: A list of dataset sources, specified as `"username/dataset-slug"`
 * `competition_sources`: A list of competition sources, specified as `"competition-slug"`
 * `kernel_sources`: A list of kernel sources, specified as `"username/kernel-slug"`
