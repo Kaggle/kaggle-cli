@@ -6777,7 +6777,10 @@ class KaggleApi:
             folder (str): The path to the folder.
             timeout (Optional[str]): The maximum run time in seconds.
             acc (Optional[str]): The type of accelerator to use for the kernel run. If set, this value overrides boolean
-                settings for GPU/TPU found in the metadata file.
+                settings for GPU/TPU found in the metadata file. Note: "NvidiaTeslaP100" is not usable for GPU compute
+                with the default Kaggle image, whose PyTorch build (cu128) omits Pascal (sm_60) kernels, so the first
+                CUDA operation fails with cudaErrorNoKernelImageForDevice even though torch.cuda.is_available() returns
+                True. Use "NvidiaTeslaT4" or "NvidiaL4", or install a Pascal-compatible torch build.
 
         Returns:
             ApiSaveKernelResponse: An ApiSaveKernelResponse object.

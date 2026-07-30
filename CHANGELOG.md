@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Document that `NvidiaTeslaP100` is unusable for GPU compute with the default Kaggle image (PyTorch cu128 omits Pascal `sm_60` kernels)
 * Add unified `kaggle search` command across competitions, datasets, notebooks, models, users, and discussions
 * Add `--wait`/`--poll-interval` to `kaggle competitions submit` to wait for scoring, and add `kaggle competitions submission <ref>` to look up a single submission's status and score
 

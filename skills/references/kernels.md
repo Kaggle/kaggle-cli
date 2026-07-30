@@ -135,6 +135,12 @@ kaggle kernels update -p my-kernel
 
 **Purpose:** Upload local notebook/script code and create a new kernel version.
 
+**Notes:** `NvidiaTeslaP100` is not usable for GPU compute with the default
+Kaggle image, whose PyTorch build (cu128) omits Pascal (`sm_60`) kernels:
+`torch.cuda.is_available()` returns `True`, but the first CUDA operation fails
+with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` or `NvidiaL4`, or
+install a Pascal-compatible torch build.
+
 ## `kaggle kernels pull`
 
 Pulls code from a kernel.
