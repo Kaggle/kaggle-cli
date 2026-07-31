@@ -92,6 +92,22 @@ class TestCompetitionUpdateSettings(unittest.TestCase):
         )
 
     @patch.object(KaggleApi, "build_kaggle_client")
+    def test_update_sets_competition_deadline(self, mock_client):
+        mock_kaggle = self._patch_client(mock_client)
+
+        self.api.competition_update_settings(
+            "my-comp",
+            {"deadline": "2027-02-01T23:59:00Z"},
+        )
+
+        request = mock_kaggle.competitions.competition_api_client.update_competition_settings.call_args[0][0]
+        self.assertEqual(request.update_mask.paths, ["deadline"])
+        self.assertEqual(
+            request.settings.deadline,
+            datetime(2027, 2, 1, 23, 59, 0, tzinfo=timezone.utc),
+        )
+
+    @patch.object(KaggleApi, "build_kaggle_client")
     def test_update_coerces_enum_from_full_name(self, mock_client):
         mock_kaggle = self._patch_client(mock_client)
 

@@ -3126,6 +3126,7 @@ class KaggleApi:
         (
             "Key Dates",
             [
+                "deadline",
                 "team_merger_explicit_deadline",
                 "prohibit_new_entrants_explicit_deadline",
                 "kernels_publishing_disabled_deadline",
