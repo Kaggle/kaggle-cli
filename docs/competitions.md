@@ -246,6 +246,38 @@ kaggle competitions submissions house-prices-advanced-regression-techniques -v -
 
 This command allows you to review your previous submission attempts and their scores.
 
+## `kaggle competitions submission-download`
+
+Downloads the submitted file for a single submission by its numeric id.
+
+**Usage:**
+
+```bash
+kaggle competitions submission-download <SUBMISSION_ID> [options]
+```
+
+**Arguments:**
+
+*   `<SUBMISSION_ID>`: The numeric submission id printed by `kaggle competitions submit`, or listed by `kaggle competitions submissions <COMPETITION>`.
+
+**Options:**
+
+*   `-p, --path <PATH>`: Folder to download the file to. Defaults to the current working directory's Kaggle download location.
+*   `-o, --force`: Download even if a local copy already exists (skips the up-to-date check).
+*   `-q, --quiet`: Suppress verbose output.
+
+**Example:**
+
+Download the file for submission `12345678` into `./subs`:
+
+```bash
+kaggle competitions submission-download 12345678 -p ./subs
+```
+
+**Purpose:**
+
+Use this command to retrieve the exact file you (or a teammate) submitted — for example, to inspect an old submission or reproduce a scored result.
+
 ## `kaggle competitions leaderboard`
 
 Gets competition leaderboard information.

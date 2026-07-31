@@ -215,6 +215,27 @@ def test_competitions_submission_limits_dash_c_succeeds(parser):
     assert kwargs["json_output"] is False
 
 
+def test_competitions_submission_download_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "submission-download", "12345", "-p", "/tmp/out", "-o"])
+    assert func.__name__ == "competition_download_submission_cli"
+    assert kwargs["submission_id"] == 12345
+    assert kwargs["path"] == "/tmp/out"
+    assert kwargs["force"] is True
+
+
+def test_competitions_submission_download_dash_i_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "submission-download", "-i", "12345"])
+    assert func.__name__ == "competition_download_submission_cli"
+    assert kwargs["submission_id"] is None
+    assert kwargs["submission_id_opt"] == 12345
+    assert kwargs["force"] is False
+
+
+def test_competitions_submission_download_non_int_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["competitions", "submission-download", "not-a-number"])
+
+
 def test_competitions_episodes_parser_missing_sub_id_fails(parser):
     with pytest.raises(SystemExit):
         parser.dispatch(["competitions", "episodes"])

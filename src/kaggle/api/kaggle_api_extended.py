@@ -95,6 +95,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiDownloadDataFileRequest,
     ApiDownloadDataFilesRequest,
     ApiDownloadLeaderboardRequest,
+    ApiDownloadSubmissionRequest,
     ApiLeaderboardSubmission,
     ApiGetLeaderboardRequest,
     ApiDataFile,
@@ -2237,6 +2238,54 @@ class KaggleApi:
         for label, value in rows:
             display = "" if value is None else self.string(value)
             print("%-*s %s" % (width + 1, label + ":", display))
+
+    def competition_download_submission(
+        self, submission_id: int, path: Optional[str] = None, force: bool = False, quiet: bool = False
+    ) -> None:
+        """Downloads the submitted file for a single competition submission.
+
+        Args:
+            submission_id (int): The numeric submission id (printed by
+                ``kaggle competitions submit`` or listed by
+                ``kaggle competitions submissions <competition>``).
+            path (Optional[str]): A path to download the file to.
+            force (bool): Force the download if the file already exists (default False).
+            quiet (bool): Suppress verbose output (default is False).
+
+        Returns:
+            None:
+        """
+        if path is None:
+            effective_path = self.get_default_download_dir("competitions", "submissions")
+        else:
+            effective_path = path
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiDownloadSubmissionRequest()
+            request.submission_id = int(submission_id)
+            response = kaggle.competitions.competition_api_client.download_submission(request)
+        url = response.url.split("?")[0]
+        outfile = os.path.join(effective_path, url.split("/")[-1])
+
+        if force or self.download_needed(response, outfile, quiet):
+            self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
+
+    def competition_download_submission_cli(
+        self, submission_id=None, submission_id_opt=None, path=None, force=False, quiet=False
+    ):
+        """CLI wrapper for competition_download_submission.
+
+        Args:
+            submission_id: The numeric submission id.
+            submission_id_opt: An alternative id provided by the client.
+            path: A path to download the file to.
+            force: Force the download if the file already exists (default False).
+            quiet: Suppress verbose output (default is False).
+        """
+        submission_id = submission_id if submission_id is not None else submission_id_opt
+        if submission_id is None:
+            raise ValueError("A submission id must be specified")
+        self.competition_download_submission(submission_id, path, force, quiet)
 
     def competition_submissions(
         self,

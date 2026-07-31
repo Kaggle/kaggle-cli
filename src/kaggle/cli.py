@@ -390,6 +390,31 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_submission_limits._action_groups.append(parser_competitions_submission_limits_optional)
     parser_competitions_submission_limits.set_defaults(func=api.competition_get_submission_limits_cli)
 
+    # Competitions download a single submission's file
+    parser_competitions_submission_download = subparsers_competitions.add_parser(
+        "submission-download",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_submission_download,
+    )
+    parser_competitions_submission_download_optional = parser_competitions_submission_download._action_groups.pop()
+    parser_competitions_submission_download_optional.add_argument(
+        "submission_id", nargs="?", default=None, type=int, help=Help.param_submission_id
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-i", "--id", dest="submission_id_opt", required=False, type=int, help=argparse.SUPPRESS
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_downfolder
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-o", "--force", dest="force", action="store_true", help=Help.param_force
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_submission_download._action_groups.append(parser_competitions_submission_download_optional)
+    parser_competitions_submission_download.set_defaults(func=api.competition_download_submission_cli)
+
     # Competitions list episodes
     parser_competitions_episodes = subparsers_competitions.add_parser(
         "episodes", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episodes
@@ -2478,6 +2503,7 @@ class Help(object):
         "leaderboard",
         "team-submissions",
         "submission-limits",
+        "submission-download",
         "episodes",
         "replay",
         "logs",
@@ -2627,6 +2653,7 @@ class Help(object):
     command_competitions_submission_limits = (
         "Show your team's submission counts and remaining daily allowance for a competition"
     )
+    command_competitions_submission_download = "Download the submitted file for a single submission by its id"
     command_competitions_episodes = "List episodes for a submission in a simulation competition"
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
@@ -2752,6 +2779,10 @@ class Help(object):
         "Polling starts at 5s and increases automatically"
     )
     param_submission_ref = "The numeric submission ref (printed by 'kaggle competitions submit')"
+    param_submission_id = (
+        "The numeric submission id (printed by 'kaggle competitions submit' or "
+        "listed by 'kaggle competitions submissions <competition>')"
+    )
     param_csv = "Print results in CSV format (if not set print in table format)"
     param_format = (
         "Print results in selected format (csv, table, json). For details on "
