@@ -437,13 +437,25 @@ Toggle a single boolean:
 kaggle competitions settings update my-comp -f ./disable-leaderboard.json
 ```
 
-Bump the code-competition runtime caps and set the team-merger deadline
-(YAML, mixing types):
+Set the competition deadline:
+
+```json
+// deadline.json
+{ "deadline": "2027-02-01T23:59:00Z" }
+```
+
+```bash
+kaggle competitions settings update my-comp -f ./deadline.json
+```
+
+Bump the code-competition runtime caps and set the competition and team-merger
+deadlines (YAML, mixing types):
 
 ```yaml
 # tune.yaml
 max_cpu_runtime_minutes: 540
 max_gpu_runtime_minutes: 720
+deadline: 2027-02-01T23:59:00Z
 team_merger_explicit_deadline: 2027-01-15T00:00:00Z
 rules_required: true
 ```
