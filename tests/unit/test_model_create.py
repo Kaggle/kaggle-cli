@@ -326,6 +326,44 @@ class TestModelCreate(unittest.TestCase):
             self.assertIsNotNone(request.update_mask)
             self.assertEqual(list(request.update_mask.paths), ["overview", "usage"])
 
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_update_omits_unset_overview_and_usage_from_mask(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.models.model_api_client.update_model_instance.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_instance_metadata()  # no overview or usage key
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            self.api.model_instance_update(tmpdir)
+
+            request = mock_kaggle.models.model_api_client.update_model_instance.call_args[0][0]
+
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(list(request.update_mask.paths), ["license_name"])
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_update_empty_overview_and_usage_are_masked(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.models.model_api_client.update_model_instance.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_instance_metadata()
+        metadata["overview"] = ""
+        metadata["usage"] = ""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            self.api.model_instance_update(tmpdir)
+
+            request = mock_kaggle.models.model_api_client.update_model_instance.call_args[0][0]
+
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(list(request.update_mask.paths), ["overview", "usage", "license_name"])
+
     def _get_valid_model_metadata(self):
         return {
             "ownerSlug": "testuser",
