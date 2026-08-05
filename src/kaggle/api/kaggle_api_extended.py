@@ -7237,7 +7237,7 @@ class KaggleApi:
         if log and page_token is None:
             outfile = os.path.join(target_dir, kernel_slug + ".log")
             outfiles.append(outfile)
-            with open(outfile, "w") as out:
+            with open(outfile, "w", encoding="utf-8") as out:
                 out.write(log)
             if not quiet:
                 print("Kernel log downloaded to %s " % outfile)
