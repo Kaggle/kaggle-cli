@@ -145,6 +145,33 @@ class TestModelDownload(unittest.TestCase):
             self.assertEqual(f.read(), b"dummy content")
 
     @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "download_needed", return_value=False)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_download_cached_untar_succeeds(self, mock_client, mock_download_needed, mock_download_file):
+        """An already-cached archive is still extracted when untar=True, without re-downloading."""
+        outfile = os.path.join(self.temp_dir, "model.tar.gz")
+        with tarfile.open(outfile, mode="w:gz") as tar:
+            file_data = b"dummy content"
+            tarinfo = tarfile.TarInfo(name="dummy.txt")
+            tarinfo.size = len(file_data)
+            tar.addfile(tarinfo, io.BytesIO(file_data))
+
+        mock_kaggle = MagicMock()
+        mock_kaggle.models.model_api_client.download_model_instance_version.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        version_str = "owner/model/keras/instance/2"
+        self.api.model_instance_version_download(version_str, path=self.temp_dir, untar=True)
+
+        mock_download_file.assert_not_called()
+        extracted_file = os.path.join(self.temp_dir, "dummy.txt")
+        self.assertTrue(os.path.exists(extracted_file))
+        with open(extracted_file, "rb") as f:
+            self.assertEqual(f.read(), b"dummy content")
+        self.assertFalse(os.path.exists(outfile))
+
+    @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "download_needed", return_value=True)
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_download_untar_failure_fails(self, mock_client, mock_download_needed, mock_download_file):

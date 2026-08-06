@@ -8493,7 +8493,7 @@ class KaggleApi:
         else:
             downloaded = False
 
-        if downloaded:
+        if downloaded or untar:
             if untar:
                 try:
                     with tarfile.open(outfile, mode="r:gz") as t:
