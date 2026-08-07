@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Add `kaggle competitions host-add <comp> -u <user>` to grant host access on a competition to a Kaggle user
 * Add `kaggle competitions submission-download <id>` to download the submitted file for a single submission (requires `kagglesdk >= 0.1.36`)
 * Add `deadline` (Competition Deadline) to the competition settings command and bump `kagglesdk` to `>= 0.1.36`
 * Document that `NvidiaTeslaP100` is unusable for GPU compute with the default Kaggle image (PyTorch cu128 omits Pascal `sm_60` kernels)

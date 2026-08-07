@@ -112,6 +112,7 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiUpdateCompetitionPageRequest,
     ApiGetCompetitionSettingsRequest,
     ApiListCompetitionHostsRequest,
+    ApiAddCompetitionHostRequest,
     ApiUpdateCompetitionSettingsRequest,
     ApiCreateCompetitionDataRequest,
     ApiCreateCompetitionDataResponse,
@@ -2911,6 +2912,57 @@ class KaggleApi:
             )
         else:
             print("No hosts found")
+
+    def competition_add_host(
+        self,
+        competition_name: str,
+        user_name: str,
+        no_confirm: bool = False,
+    ) -> bool:
+        """Grant host access on a competition to a Kaggle user.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            user_name (str): Kaggle user name (URL slug, e.g. 'kerneler') of the
+                user to add as a host.
+            no_confirm (bool): If True, skip the confirmation prompt.
+
+        Returns:
+            bool: True if the host was added, False if cancelled.
+        """
+        if not no_confirm:
+            if not self.confirmation(f"add '{user_name}' as a host of competition '{competition_name}'"):
+                print("Add host cancelled")
+                return False
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiAddCompetitionHostRequest()
+            request.competition_name = competition_name
+            request.user_name = user_name
+            kaggle.competitions.competition_api_client.add_competition_host(request)
+        return True
+
+    def competition_add_host_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        user_name=None,
+        no_confirm=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_add_host."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not user_name:
+            raise ValueError("--user is required")
+
+        if self.competition_add_host(competition_name, user_name, no_confirm=no_confirm):
+            print(f"User '{user_name}' added as a host of competition '{competition_name}'.")
 
     def competition_create_page(
         self,
