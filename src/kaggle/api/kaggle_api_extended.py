@@ -242,8 +242,16 @@ from kagglesdk.models.types.model_api_service import (
     ApiListModelInstancesRequest,
     ApiListModelInstancesResponse,
 )
-from kagglesdk.models.types.model_enums import ListModelsOrderBy, ModelInstanceType, ModelFramework
-from kagglesdk.models.types.model_proxy_api_service import ApiCreateDefaultModelProxyTokenRequest
+from kagglesdk.models.types.model_enums import (
+    ListModelsOrderBy,
+    ModelInstanceType,
+    ModelFramework,
+    ModelProxyQuotaRefillPeriod,
+)
+from kagglesdk.models.types.model_proxy_api_service import (
+    ApiCreateDefaultModelProxyTokenRequest,
+    ApiGetModelProxyQuotasRequest,
+)
 from kagglesdk.models.types.model_types import Owner
 from kagglesdk.search.types.search_api_service import (
     ApiListType,
@@ -10219,6 +10227,36 @@ class KaggleApi:
 
     # -- Public CLI methods --
 
+    @staticmethod
+    def _translate_model_proxy_error(e):
+        """Re-raise a Model Proxy HTTPError as a ValueError with actionable causes.
+
+        Args:
+            e: The HTTPError raised by a Model Proxy endpoint.
+
+        Raises:
+            ValueError: For 404 and 403 responses, which have known causes.
+            HTTPError: The original error, for any other status.
+        """
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            raise ValueError(
+                "Endpoint not found (404). Possible causes:\n"
+                "  1. Kaggle Benchmarks is currently in beta and isn't enabled on your account.\n"
+                "     Request access from the Kaggle Benchmarks team and try again once enabled.\n"
+                "  2. Your Kaggle CLI may be out of date.\n"
+                "     Upgrade with `pip install --upgrade kaggle` and re-run this command."
+            ) from None
+        if status == 403:
+            raise ValueError(
+                "Authentication failed (403). Possible causes:\n"
+                "  1. Your account is missing phone or identity verification.\n"
+                "     Verify at https://www.kaggle.com/settings.\n"
+                "  2. Your Kaggle API credentials are stale or invalid.\n"
+                "     Regenerate at https://www.kaggle.com/settings/api and replace ~/.kaggle/access_token (or kaggle.json)."
+            ) from None
+        raise e
+
     def _fetch_model_proxy_env(self, source):
         with self.build_kaggle_client() as kaggle:
             # Tag this request so kaggle-analytics can distinguish
@@ -10230,24 +10268,7 @@ class KaggleApi:
             try:
                 response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
             except HTTPError as e:
-                status = e.response.status_code if e.response is not None else None
-                if status == 404:
-                    raise ValueError(
-                        "Endpoint not found (404). Possible causes:\n"
-                        "  1. Kaggle Benchmarks is currently in beta and isn't enabled on your account.\n"
-                        "     Request access from the Kaggle Benchmarks team and try again once enabled.\n"
-                        "  2. Your Kaggle CLI may be out of date.\n"
-                        "     Upgrade with `pip install --upgrade kaggle` and re-run this command."
-                    ) from None
-                if status == 403:
-                    raise ValueError(
-                        "Authentication failed (403). Possible causes:\n"
-                        "  1. Your account is missing phone or identity verification.\n"
-                        "     Verify at https://www.kaggle.com/settings.\n"
-                        "  2. Your Kaggle API credentials are stale or invalid.\n"
-                        "     Regenerate at https://www.kaggle.com/settings/api and replace ~/.kaggle/access_token (or kaggle.json)."
-                    ) from None
-                raise
+                self._translate_model_proxy_error(e)
         return {
             "MODEL_PROXY_URL": response.base_uri,
             "MODEL_PROXY_API_KEY": response.token,
@@ -10350,6 +10371,60 @@ class KaggleApi:
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
         env_vars = self._fetch_model_proxy_env(source="auth")
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
+
+    def benchmarks_quota(self):
+        """Fetches the current user's Model Proxy (AI inference) quota balances.
+
+        Returns:
+            An ApiGetModelProxyQuotasResponse with a quota_balances field holding
+            one balance per refill period (daily and monthly).
+        """
+        with self.build_kaggle_client() as kaggle:
+            try:
+                return kaggle.models.model_proxy_api_client.get_model_proxy_quotas(ApiGetModelProxyQuotasRequest())
+            except HTTPError as e:
+                self._translate_model_proxy_error(e)
+
+    def benchmarks_quota_cli(self, csv_display=False, output_format=None):
+        """A client wrapper for benchmarks_quota.
+
+        Args:
+            csv_display: If True, print comma-separated values instead of a table.
+            output_format: The output format to use.
+        """
+        response = self.benchmarks_quota()
+        rows = []
+        for balance in response.quota_balances or []:
+            used = balance.quota_used
+            total = balance.total_quota_allowed
+            rows.append(
+                SimpleNamespace(
+                    period=self._format_refill_period(balance.refill_period),
+                    used=f"${used:.2f}",
+                    remaining=f"${max(0.0, total - used):.2f}",
+                    total=f"${total:.2f}",
+                    refill_at=balance.refill_time.isoformat() if balance.refill_time else "",
+                )
+            )
+        if not rows:
+            print("No quota information available")
+            return
+        fields = ["period", "used", "remaining", "total", "refillAt"]
+        self.print_results(
+            rows,
+            fields,
+            csv_display=csv_display,
+            output_format=output_format,
+        )
+
+    @staticmethod
+    def _format_refill_period(refill_period):
+        """Renders a ModelProxyQuotaRefillPeriod as a display label."""
+        labels = {
+            ModelProxyQuotaRefillPeriod.DAILY: "Daily",
+            ModelProxyQuotaRefillPeriod.MONTHLY: "Monthly",
+        }
+        return labels.get(refill_period, "Unknown")
 
     def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
         print("Initializing Kaggle Benchmarks environment")

@@ -1977,6 +1977,7 @@ def parse_benchmarks(subparsers) -> None:
     parse_benchmark_tasks(subparsers_benchmarks)
     parse_benchmarks_auth(subparsers_benchmarks)
     parse_benchmarks_init(subparsers_benchmarks)
+    parse_benchmarks_quota(subparsers_benchmarks)
     parse_benchmarks_leaderboard(subparsers_benchmarks)
 
     shared_topics = _get_shared_topics_parser()
@@ -2064,6 +2065,14 @@ def parse_benchmarks_init(subparsers) -> None:
     )
     parser_init._action_groups.append(parser_init_optional)
     parser_init.set_defaults(func=api.benchmarks_init_cli)
+
+
+def parse_benchmarks_quota(subparsers) -> None:
+    parser_quota = subparsers.add_parser(
+        "quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_quota
+    )
+    _add_output_format_args(parser_quota)
+    parser_quota.set_defaults(func=api.benchmarks_quota_cli)
 
 
 def parse_benchmarks_leaderboard(subparsers) -> None:
@@ -2589,7 +2598,7 @@ class Help(object):
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
-    benchmarks_choices = ["tasks", "t", "auth", "init", "topics", "leaderboard"]
+    benchmarks_choices = ["tasks", "t", "auth", "init", "quota", "topics", "leaderboard"]
     benchmarks_tasks_choices = [
         "push",
         "run",
@@ -2752,6 +2761,7 @@ class Help(object):
     command_benchmarks_init = (
         "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
     )
+    command_benchmarks_quota = "Show the current user's Model Proxy (AI inference) spend quota, in USD"
     command_benchmarks_tasks_push = "Create or update a task from a Python source file"
     command_benchmarks_tasks_run = "Run a task against model(s)"
 

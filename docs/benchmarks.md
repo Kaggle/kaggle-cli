@@ -6,6 +6,7 @@ The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has the 
 
 *   **`auth`** — Fetch Model Proxy credentials.
 *   **`init`** — Fetch credentials and default environment variables for local development.
+*   **`quota`** — Show your Model Proxy (AI inference) spend quota.
 *   **`leaderboard`** — Get benchmark leaderboard information.
 *   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, log, models, delete, publish).
 *   **`topics`** — Browse discussion topics for a benchmark.
@@ -88,6 +89,37 @@ In addition to the three credential variables written by `auth`, `init` also wri
 *   **`kaggle_benchmarks_reference.md`** — A syntax reference document for the `kaggle-benchmarks` task API.
 
 If either file already exists, it is skipped without overwriting.
+
+---
+
+## `kaggle benchmarks quota`
+
+Shows your current Model Proxy (AI inference) spend quota, one row per refill period.
+
+**Usage:**
+
+```bash
+kaggle benchmarks quota [options]
+```
+
+**Options:**
+
+*   `-v, --csv`: Print results in CSV format.
+*   `--format <FORMAT>`: Print results in the selected format (`csv`, `table`, `json`).
+
+**Example:**
+
+```bash
+$ kaggle b quota
+period   used    remaining  total    refillAt
+-------  ------  ---------  -------  -------------------------
+Daily    $1.20   $3.80      $5.00    2026-08-08T00:00:00+00:00
+Monthly  $14.50  $85.50     $100.00  2026-09-01T00:00:00+00:00
+```
+
+**Purpose:**
+
+Amounts are in USD and reflect inference spend through the Model Proxy — this is separate from the top-level `kaggle quota` command, which reports weekly GPU and TPU accelerator *hours*. `remaining` is derived as `total - used` and is clamped at `$0.00`, so an overage shows as zero remaining rather than a negative balance.
 
 ---
 
