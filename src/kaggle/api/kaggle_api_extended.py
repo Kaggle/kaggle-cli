@@ -31,6 +31,7 @@ from pathlib import Path
 
 import re  # Needed by mypy.
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
@@ -575,9 +576,16 @@ class ResumableUploadContext(object):
     the state of each file upload within the context.
     """
 
+    # Upload state holds the signed upload url and the blob token, so it must not be
+    # readable (or replaceable) by other users of the machine. The state has to survive
+    # across CLI invocations for a resume to work, so it cannot live in a fresh
+    # mkdtemp() per process like DirectoryArchive does; it uses a stable per-user path
+    # created with owner-only permissions instead.
+    UPLOAD_STATE_DIR_MODE = 0o700
+
     def __init__(self, no_resume: bool = False) -> None:
         self.no_resume = no_resume
-        self._temp_dir = os.path.join(tempfile.gettempdir(), ".kaggle/uploads")
+        self._temp_dir = os.path.join(tempfile.gettempdir(), self._upload_state_dir_name())
         self._file_uploads: List["ResumableFileUpload"] = []
 
     def __enter__(self) -> "ResumableUploadContext":
@@ -615,11 +623,49 @@ class ResumableUploadContext(object):
         file_upload.load()
         return file_upload
 
+    @staticmethod
+    def _upload_state_dir_name() -> str:
+        """Name of the upload state directory, scoped to the current user.
+
+        The system temp directory is shared by every user on POSIX, so a single
+        well-known name would let one user pre-create (and therefore control, or
+        simply lock out) another user's state directory.
+        """
+        geteuid = getattr(os, "geteuid", None)
+        if geteuid is None:  # Windows: the temp directory is already per-user.
+            return ".kaggle-uploads"
+        return ".kaggle-uploads-%d" % geteuid()
+
     def _create_temp_dir(self) -> None:
-        try:
-            os.makedirs(self._temp_dir)
-        except FileExistsError:
-            pass
+        os.makedirs(self._temp_dir, mode=self.UPLOAD_STATE_DIR_MODE, exist_ok=True)
+        self._verify_temp_dir_is_private()
+
+    def _verify_temp_dir_is_private(self) -> None:
+        """Refuse to use an upload state directory that another user could control.
+
+        ``makedirs`` happily accepts a directory (or a symlink to one) that was
+        pre-created by somebody else, so the directory we ended up with is checked
+        rather than assumed.
+        """
+        info = os.lstat(self._temp_dir)
+        if stat.S_ISLNK(info.st_mode):
+            raise ValueError(
+                "Refusing to use upload state directory %s because it is a symlink. "
+                "Remove it and try again." % self._temp_dir
+            )
+        geteuid = getattr(os, "geteuid", None)
+        if geteuid is None:  # Windows: no meaningful owner/permission bits to check.
+            return
+        if info.st_uid != geteuid():
+            raise ValueError(
+                "Refusing to use upload state directory %s because it is owned by "
+                "another user. Remove it and try again." % self._temp_dir
+            )
+        if info.st_mode & 0o077:
+            raise ValueError(
+                "Refusing to use upload state directory %s because it is accessible to "
+                "other users. Remove it and try again." % self._temp_dir
+            )
 
 
 class ResumableFileUpload(object):
