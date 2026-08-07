@@ -36,6 +36,25 @@ def test_benchmarks_init_parser_with_flags_succeeds(parser):
     assert kwargs["example_file"] == "my_example.py"
 
 
+def test_benchmarks_quota_parser_default_succeeds(parser):
+    func, kwargs = parser.dispatch(["benchmarks", "quota"])
+    assert func.__name__ == "benchmarks_quota_cli"
+    assert kwargs.get("csv_display") is False
+    assert kwargs.get("output_format") is None
+
+
+def test_benchmarks_quota_parser_with_format_succeeds(parser):
+    func, kwargs = parser.dispatch(["benchmarks", "quota", "--format", "json"])
+    assert func.__name__ == "benchmarks_quota_cli"
+    assert kwargs["output_format"] == "json"
+
+
+def test_benchmarks_quota_parser_csv_succeeds(parser):
+    func, kwargs = parser.dispatch(["benchmarks", "quota", "-v"])
+    assert func.__name__ == "benchmarks_quota_cli"
+    assert kwargs["csv_display"] is True
+
+
 def test_benchmarks_leaderboard_parser_missing_benchmark_fails(parser):
     with pytest.raises(SystemExit):
         parser.dispatch(["benchmarks", "leaderboard"])
