@@ -2795,7 +2795,8 @@ class Help(object):
     )
     param_csv = "Print results in CSV format (if not set print in table format)"
     param_format = (
-        "Print results in selected format (csv, table, json). For details on "
+        "Print results in selected format (csv, table, json, rich). 'rich' requires "
+        "the optional 'rich' package (pip install kaggle[rich]). For details on "
         "advanced options, see\n"
         "https://github.com/Kaggle/kaggle-cli/blob/main/docs/output_format.md"
     )

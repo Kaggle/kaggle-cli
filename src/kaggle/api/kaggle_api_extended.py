@@ -469,6 +469,7 @@ class OutputFormat(Enum):
     CSV = "csv"
     TABLE = "table"
     JSON = "json"
+    RICH = "rich"
 
     def __str__(self):
         return self.value
@@ -1219,7 +1220,21 @@ class KaggleApi:
                 return OutputFormat(format_name)
             except ValueError:
                 return OutputFormat.TABLE
-        return OutputFormat.TABLE
+        return self._get_default_output_format()
+
+    def _get_default_output_format(self) -> OutputFormat:
+        """Returns the output format to use when none was given on the command line.
+
+        Honors the ``KAGGLE_OUTPUT_FORMAT`` environment variable so users can opt
+        into a different default; unrecognized values fall back to ``TABLE``.
+        """
+        env_format = (os.environ.get("KAGGLE_OUTPUT_FORMAT") or "").strip().lower()
+        if not env_format:
+            return OutputFormat.TABLE
+        try:
+            return OutputFormat(env_format)
+        except ValueError:
+            return OutputFormat.TABLE
 
     def _resolve_projection(self, output_format, fields, labels=None):
         """Resolves projection fields from --format option.
@@ -8784,17 +8799,6 @@ class KaggleApi:
         """
         if labels is None:
             labels = fields
-            
-        try:
-            from kaggle.ui import print_rich_table, RICH_AVAILABLE
-            if RICH_AVAILABLE:
-                def attr_getter(i, f):
-                    return getattr(i, self.camel_to_snake(f))
-                if print_rich_table(items, fields, labels, string_formatter=self.string, attr_getter=attr_getter):
-                    return
-        except ImportError:
-            pass
-
         formats = []
         borders = []
         if len(items) == 0:
@@ -8818,6 +8822,27 @@ class KaggleApi:
                 print(row_format.format(*i_fields))
             except UnicodeEncodeError:
                 print(row_format.format(*i_fields).encode("utf-8"))
+
+    def print_rich(self, items, fields, labels=None):
+        """Prints a table of items using the optional `rich` dependency.
+
+        Falls back to `print_table` (after a warning on stderr) when `rich` is
+        not installed, so the command still produces usable output.
+
+        Args:
+            items: A list of items to print.
+            fields: A list of fields to select from the items.
+            labels: The labels for the fields (defaults to fields).
+        """
+        from kaggle import ui
+
+        if not ui.is_available():
+            print(ui.INSTALL_HINT, file=sys.stderr)
+            self.print_table(items, fields, labels)
+            return
+        if len(items) == 0:
+            return
+        ui.print_rich_table(items, fields, labels, value_getter=lambda i, f: getattr(i, self.camel_to_snake(f)))
 
     def print_csv(self, items, fields, labels=None):
         """Prints a set of fields from a set of items using a CSV writer.
@@ -8888,6 +8913,8 @@ class KaggleApi:
             self.print_csv(items, resolved_fields, resolved_labels)
         elif output_fmt == OutputFormat.JSON:
             self.print_json(items, resolved_fields, resolved_labels)
+        elif output_fmt == OutputFormat.RICH:
+            self.print_rich(items, resolved_fields, resolved_labels)
         else:
             self.print_table(items, resolved_fields, resolved_labels)
 

@@ -22,13 +22,42 @@ It accepts the following values:
 *   `csv`: Display output as comma-separated values.
 *   `table`: Display output as a formatted table (default).
 *   `json`: Display output as JSON.
+*   `rich`: Display output as a bordered, colorized table (opt-in, see below).
 
 Example:
 ```sh
 kaggle competitions list --format csv
 kaggle competitions list --format table
 kaggle competitions list --format json
+kaggle competitions list --format rich
 ```
+
+### `rich` format
+
+The `rich` format renders tables with borders and colors using the
+[`rich`](https://github.com/Textualize/rich) library. It is **opt-in** and never
+applies unless you request it, so the default `table` output is byte-for-byte
+unchanged and existing scripts keep working.
+
+`rich` is an optional dependency. Install it with:
+```sh
+pip install kaggle[rich]
+```
+If you request `--format rich` without the package installed, the CLI prints an
+install hint to stderr and falls back to the default `table` output.
+
+### Setting a default format
+
+The `KAGGLE_OUTPUT_FORMAT` environment variable sets the format to use when no
+`--csv` or `--format` option is given. This lets you opt into `rich` output for
+your interactive shell without changing any command:
+
+```sh
+export KAGGLE_OUTPUT_FORMAT=rich
+```
+
+An explicit `--csv` or `--format` on the command line always takes precedence,
+and unrecognized values fall back to `table`.
 
 For most commands, the JSON output is a list of objects representing the rows, with keys corresponding to the column headers. For detailed commands like `topics show`, it returns a structured object:
 ```json
