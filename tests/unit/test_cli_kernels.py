@@ -247,6 +247,13 @@ def test_kernels_status_parser_with_option_kernel_succeeds(parser):
     assert kwargs["kernel_opt"] == "owner/kernel-name"
 
 
+def test_kernels_cancel_parser_uses_an_explicit_session_id(parser):
+    func, kwargs = parser.dispatch(["kernels", "cancel", "--session-id", "123"])
+
+    assert func.__name__ == "kernels_cancel_cli"
+    assert kwargs["session_id"] == 123
+
+
 def test_kernels_logs_parser_default_succeeds(parser):
     func, kwargs = parser.dispatch(["kernels", "logs"])
     assert func.__name__ == "kernels_logs_cli"
