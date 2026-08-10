@@ -299,6 +299,30 @@ kaggle kernels status kerneler/sqlite-global-default
 
 This command tells you whether the latest run of your kernel is still running, completed successfully, or failed.
 
+## `kaggle kernels cancel`
+
+Requests cancellation of one active kernel session.
+
+**Usage:**
+
+```bash
+kaggle kernels cancel <SESSION_ID>
+```
+
+**Arguments:**
+
+*   `<SESSION_ID>`: The numeric version number printed after `kaggle kernels push` succeeds.
+
+**Example:**
+
+```bash
+kaggle kernels cancel 341475263
+```
+
+**Purpose:**
+
+Use this command to stop a queued or running session without deleting the kernel or its version history.
+
 ## `kaggle kernels delete`
 
 Deletes a kernel from Kaggle.

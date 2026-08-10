@@ -1,4 +1,6 @@
 # coding=utf-8
+from unittest.mock import MagicMock
+
 import pytest
 
 
@@ -245,6 +247,20 @@ def test_kernels_status_parser_with_option_kernel_succeeds(parser):
     assert func.__name__ == "kernels_status_cli"
     assert kwargs.get("kernel") is None
     assert kwargs["kernel_opt"] == "owner/kernel-name"
+
+
+def test_kernels_cancel_parser_succeeds(parser):
+    func, kwargs = parser.dispatch(["kernels", "cancel", "341475263"])
+    assert func.__name__ == "kernels_cancel_cli"
+    assert kwargs["kernel_session_id"] == 341475263
+
+
+def test_kernels_cancel_cli_delegates_to_api(api, capsys):
+    api.kernels_cancel = MagicMock()
+    api.kernels_cancel_cli(341475263)
+
+    api.kernels_cancel.assert_called_once_with(341475263)
+    assert capsys.readouterr().out == "Kernel session 341475263 cancellation requested\n"
 
 
 def test_kernels_logs_parser_default_succeeds(parser):

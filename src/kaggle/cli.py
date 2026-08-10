@@ -1437,6 +1437,15 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_status._action_groups.append(parser_kernels_status_optional)
     parser_kernels_status.set_defaults(func=api.kernels_status_cli)
 
+    # Kernels cancel
+    parser_kernels_cancel = subparsers_kernels.add_parser(
+        "cancel", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_cancel
+    )
+    parser_kernels_cancel_optional = parser_kernels_cancel._action_groups.pop()
+    parser_kernels_cancel_optional.add_argument("kernel_session_id", type=int, help=Help.param_kernel_session_id)
+    parser_kernels_cancel._action_groups.append(parser_kernels_cancel_optional)
+    parser_kernels_cancel.set_defaults(func=api.kernels_cancel_cli)
+
     # Kernels logs
     parser_kernels_logs = subparsers_kernels.add_parser(
         "logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_logs
@@ -2548,6 +2557,7 @@ class Help(object):
         "pull",
         "output",
         "status",
+        "cancel",
         "logs",
         "update",
         "delete",
@@ -2710,6 +2720,7 @@ class Help(object):
     command_kernels_pull = "Pull down code from a kernel"
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
+    command_kernels_cancel = "Cancel an active kernel session"
     command_kernels_logs = "Print the execution logs from the latest kernel run"
     command_kernels_delete = "Delete a kernel"
     command_kernels_topics = "List discussion topics for a kernel"
@@ -2958,6 +2969,7 @@ class Help(object):
     )
     param_kernel_logs_follow = "Stream live execution logs from the running session (like tail -f)"
     param_kernel_logs_interval = argparse.SUPPRESS  # Deprecated; live streaming is push-based.
+    param_kernel_session_id = "Numeric session id emitted as the kernel version number by 'kaggle kernels push'"
 
     # Models params
     param_model = "Model URL suffix in format <owner>/<model-name>"
