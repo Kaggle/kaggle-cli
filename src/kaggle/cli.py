@@ -110,8 +110,8 @@ def main() -> None:
             raise
         print(f"{type(e).__name__}: {e}", file=sys.stderr)
         print(
-            "\nThis looks like a bug in the Kaggle CLI. Re-run with --debug to see the full\n"
-            f"traceback, and please report it at {ISSUE_TRACKER_URL}",
+            "\nIf this is unexpected, you can re-run with `kaggle --debug [command]` to see the full\n"
+            f"traceback. If you think this is a bug, please report it at {ISSUE_TRACKER_URL}",
             file=sys.stderr,
         )
         out = None

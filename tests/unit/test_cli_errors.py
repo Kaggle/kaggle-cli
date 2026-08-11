@@ -125,7 +125,7 @@ class TestMainErrorHandling(unittest.TestCase):
 
         self.assertEqual(1, exit_code)
         self.assertIn("bad input", stderr)
-        self.assertNotIn("bug in the Kaggle CLI", stderr)
+        self.assertNotIn("If you think this is a bug", stderr)
 
 
 class TestHelpExamples(unittest.TestCase):
