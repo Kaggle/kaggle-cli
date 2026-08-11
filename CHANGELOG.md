@@ -4,6 +4,7 @@ Changelog
 ### Next
 
 * Add `kaggle competitions host-add <comp> -u <user>` to grant host access on a competition to a Kaggle user
+* Suggest a next step on 403/404/429/5xx API errors, report unexpected errors as bugs instead of a traceback (with a new `--debug` flag), and list common examples in `kaggle --help`
 * Add `kaggle benchmarks quota` to show Model Proxy (AI inference) spend quota, and bump `kagglesdk` to `>= 0.1.37`
 * Add `kaggle competitions submission-download <id>` to download the submitted file for a single submission (requires `kagglesdk >= 0.1.36`)
 * Add `deadline` (Competition Deadline) to the competition settings command and bump `kagglesdk` to `>= 0.1.36`

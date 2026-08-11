@@ -31,6 +31,7 @@ from pathlib import Path
 
 import re  # Needed by mypy.
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
@@ -483,6 +484,52 @@ DEFAULT_IGNORE_PATTERNS = [
 ]
 
 
+def _is_within_directory(directory: str, target: str) -> bool:
+    """True if `target` (already realpath'd) resolves inside `directory` (already realpath'd)."""
+    try:
+        return os.path.commonpath([directory, target]) == directory
+    except ValueError:
+        # commonpath raises when the paths don't share a root (e.g. different
+        # drives on Windows) -- that's definitely not "within".
+        return False
+
+
+def safe_extract_tar(t: tarfile.TarFile, path: str) -> None:
+    """Extracts a tar archive into `path`, refusing members that would escape it.
+
+    tarfile.extractall() has never been traversal-safe by default: a crafted
+    member name (e.g. "../../etc/cron.d/x") or a symlink member pointing
+    outside the destination lets an archive write anywhere the extracting
+    user can write. zipfile.extractall() has stripped ".." components and
+    absolute prefixes since 2.7.4, but tarfile only gained the equivalent
+    protection via the filter= argument added by PEP 706 (Python 3.12,
+    backported to 3.11.4, 3.10.12, 3.9.17, 3.8.17). Detect support for it at
+    runtime and use it when available; otherwise (Python 3.11.0-3.11.3, which
+    this project's `requires-python = ">=3.11"` floor does not exclude) fall
+    back to manually vetting every member before extracting, since passing
+    filter= to extractall() on those interpreters raises TypeError.
+    """
+    if hasattr(tarfile, "data_filter"):
+        t.extractall(path, filter="data")
+        return
+
+    base = os.path.realpath(path)
+    safe_members = []
+    for member in t.getmembers():
+        member_path = os.path.realpath(os.path.join(base, member.name))
+        if not _is_within_directory(base, member_path):
+            raise ValueError(f"Refusing to extract '{member.name}': resolves outside destination '{path}'")
+        if member.issym() or member.islnk():
+            link_target = os.path.realpath(os.path.join(base, member.linkname))
+            if not _is_within_directory(base, link_target):
+                raise ValueError(
+                    f"Refusing to extract '{member.name}': link target '{member.linkname}' "
+                    f"resolves outside destination '{path}'"
+                )
+        safe_members.append(member)
+    t.extractall(base, members=safe_members)
+
+
 def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
     """Helper to check if a path should be ignored based on patterns."""
     import fnmatch
@@ -584,9 +631,16 @@ class ResumableUploadContext(object):
     the state of each file upload within the context.
     """
 
+    # Upload state holds the signed upload url and the blob token, so it must not be
+    # readable (or replaceable) by other users of the machine. The state has to survive
+    # across CLI invocations for a resume to work, so it cannot live in a fresh
+    # mkdtemp() per process like DirectoryArchive does; it uses a stable per-user path
+    # created with owner-only permissions instead.
+    UPLOAD_STATE_DIR_MODE = 0o700
+
     def __init__(self, no_resume: bool = False) -> None:
         self.no_resume = no_resume
-        self._temp_dir = os.path.join(tempfile.gettempdir(), ".kaggle/uploads")
+        self._temp_dir = os.path.join(tempfile.gettempdir(), self._upload_state_dir_name())
         self._file_uploads: List["ResumableFileUpload"] = []
 
     def __enter__(self) -> "ResumableUploadContext":
@@ -624,11 +678,49 @@ class ResumableUploadContext(object):
         file_upload.load()
         return file_upload
 
+    @staticmethod
+    def _upload_state_dir_name() -> str:
+        """Name of the upload state directory, scoped to the current user.
+
+        The system temp directory is shared by every user on POSIX, so a single
+        well-known name would let one user pre-create (and therefore control, or
+        simply lock out) another user's state directory.
+        """
+        geteuid = getattr(os, "geteuid", None)
+        if geteuid is None:  # Windows: the temp directory is already per-user.
+            return ".kaggle-uploads"
+        return ".kaggle-uploads-%d" % geteuid()
+
     def _create_temp_dir(self) -> None:
-        try:
-            os.makedirs(self._temp_dir)
-        except FileExistsError:
-            pass
+        os.makedirs(self._temp_dir, mode=self.UPLOAD_STATE_DIR_MODE, exist_ok=True)
+        self._verify_temp_dir_is_private()
+
+    def _verify_temp_dir_is_private(self) -> None:
+        """Refuse to use an upload state directory that another user could control.
+
+        ``makedirs`` happily accepts a directory (or a symlink to one) that was
+        pre-created by somebody else, so the directory we ended up with is checked
+        rather than assumed.
+        """
+        info = os.lstat(self._temp_dir)
+        if stat.S_ISLNK(info.st_mode):
+            raise ValueError(
+                "Refusing to use upload state directory %s because it is a symlink. "
+                "Remove it and try again." % self._temp_dir
+            )
+        geteuid = getattr(os, "geteuid", None)
+        if geteuid is None:  # Windows: no meaningful owner/permission bits to check.
+            return
+        if info.st_uid != geteuid():
+            raise ValueError(
+                "Refusing to use upload state directory %s because it is owned by "
+                "another user. Remove it and try again." % self._temp_dir
+            )
+        if info.st_mode & 0o077:
+            raise ValueError(
+                "Refusing to use upload state directory %s because it is accessible to "
+                "other users. Remove it and try again." % self._temp_dir
+            )
 
 
 class ResumableFileUpload(object):
@@ -868,6 +960,34 @@ class FileList(object):
 
     def __repr__(self):
         return ""
+
+
+ISSUE_TRACKER_URL = "https://github.com/Kaggle/kaggle-cli/issues"
+
+# Actionable next steps keyed by HTTP status, shown under the raw error message.
+_HTTP_ERROR_HINTS = {
+    403: (
+        "You don't have access to this resource.\n"
+        "If this is a competition, you may need to accept its rules first at\n"
+        "  https://www.kaggle.com/competitions/<competition>/rules"
+    ),
+    404: (
+        "The resource was not found. Check the spelling of the reference you passed.\n"
+        "References are usually '<owner>/<slug>', which you can find in the resource's URL.\n"
+        "To search for one, try 'kaggle search <query>'."
+    ),
+    429: "You have been rate limited. Wait a little while before retrying.",
+}
+
+
+def format_http_error(error: HTTPError) -> str:
+    """Builds a user-facing message for an HTTP error, with a hint when we have one."""
+    message = str(error)
+    response = error.response
+    hint = _HTTP_ERROR_HINTS.get(response.status_code) if response is not None else None
+    if response is not None and response.status_code >= 500:
+        hint = "This is a problem on Kaggle's side, not with your command. Please try again later."
+    return f"{message}\n\n{hint}" if hint else message
 
 
 def print_auth_help() -> None:
@@ -8557,7 +8677,7 @@ class KaggleApi:
             if untar:
                 try:
                     with tarfile.open(outfile, mode="r:gz") as t:
-                        t.extractall(effective_path)
+                        safe_extract_tar(t, effective_path)
                 except Exception as e:
                     raise ValueError(
                         "Error extracting the tar.gz file, please report on " "www.github.com/kaggle/kaggle-cli", e

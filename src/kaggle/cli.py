@@ -26,14 +26,14 @@ from requests.exceptions import HTTPError
 import kaggle
 from kaggle import KaggleApi
 from kaggle import api
-from kaggle.api.kaggle_api_extended import print_auth_help, OutputFormat
+from kaggle.api.kaggle_api_extended import ISSUE_TRACKER_URL, format_http_error, print_auth_help, OutputFormat
 
 # from rest import ApiException
 ApiException = IOError
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, epilog=Help.examples)
 
     parser.add_argument(
         "-v",
@@ -48,6 +48,12 @@ def main() -> None:
         dest="disable_version_warning",
         action="store_true",
         help="Disable out-of-date API version warning",
+    )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="Print the full traceback when an unexpected error occurs",
     )
 
     subparsers = parser.add_subparsers(title="commands", help=Help.kaggle, dest="command")
@@ -72,6 +78,7 @@ def main() -> None:
     if command_args["disable_version_warning"]:
         KaggleApi.already_printed_version_warning = True
     del command_args["disable_version_warning"]
+    debug = command_args.pop("debug")
     if not api._authenticated:
         api.authenticate()
 
@@ -82,7 +89,7 @@ def main() -> None:
         if e.response is not None and e.response.status_code == 401:
             print_auth_help()
         else:
-            print(e, file=sys.stderr)
+            print(format_http_error(e), file=sys.stderr)
         out = None
         error = True
     except ApiException as e:
@@ -96,6 +103,19 @@ def main() -> None:
     except KeyboardInterrupt:
         print("User cancelled operation")
         out = None
+    except Exception as e:
+        # Anything reaching here is a bug in the CLI rather than user error, so
+        # show a short message instead of a traceback the user cannot act on.
+        if debug:
+            raise
+        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+        print(
+            "\nIf this is unexpected, you can re-run with `kaggle --debug [command]` to see the full\n"
+            f"traceback. If you think this is a bug, please report it at {ISSUE_TRACKER_URL}",
+            file=sys.stderr,
+        )
+        out = None
+        error = True
     if out is not None:
         print(out, end="")
 
@@ -2660,6 +2680,26 @@ class Help(object):
     )
     kaggle += "\nauth {" + ", ".join(auth_choices) + "}"
     kaggle += "\nquota"
+
+    examples = """examples:
+  Log in (opens a browser; only needed once):
+    kaggle auth login
+
+  Find something to work on:
+    kaggle competitions list
+    kaggle datasets list -s "air quality"
+
+  Download competition data into the current directory:
+    kaggle competitions download -c titanic
+
+  Submit to a competition:
+    kaggle competitions submit -c titanic -f submission.csv -m "my first entry"
+
+  Download a dataset and unzip it:
+    kaggle datasets download -d zillow/zecon --unzip
+
+Run 'kaggle <command> --help' (e.g. 'kaggle competitions --help') for the
+options a specific command accepts."""
 
     group_competitions = "Commands related to Kaggle competitions"
     group_datasets = "Commands related to Kaggle datasets"
