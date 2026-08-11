@@ -247,6 +247,17 @@ def test_kernels_status_parser_with_option_kernel_succeeds(parser):
     assert kwargs["kernel_opt"] == "owner/kernel-name"
 
 
+def test_kernels_cancel_parser_missing_session_id_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["kernels", "cancel"])
+
+
+def test_kernels_cancel_parser_succeeds(parser):
+    func, kwargs = parser.dispatch(["kernels", "cancel", "12345"])
+    assert func.__name__ == "kernels_cancel_cli"
+    assert kwargs["session_id"] == 12345
+
+
 def test_kernels_logs_parser_default_succeeds(parser):
     func, kwargs = parser.dispatch(["kernels", "logs"])
     assert func.__name__ == "kernels_logs_cli"

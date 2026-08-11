@@ -7360,6 +7360,26 @@ class KaggleApi:
         else:
             print('%s has status "%s"' % (kernel, status))
 
+    def kernels_cancel(self, session_id: int) -> None:
+        """Cancels an active kernel session.
+
+        Args:
+            session_id: The numeric ID of the kernel session to cancel.
+        """
+        if session_id <= 0:
+            raise ValueError("Session ID must be a positive integer.")
+
+        from kagglesdk.kernels.types.kernels_api_service import ApiCancelKernelSessionRequest
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCancelKernelSessionRequest(kernel_session_id=session_id)
+            kaggle.kernels.kernels_api_client.cancel_kernel_session(request)
+
+    def kernels_cancel_cli(self, session_id: int) -> None:
+        """A client wrapper for kernels_cancel."""
+        self.kernels_cancel(session_id)
+        print(f"Cancellation requested for session {session_id}.")
+
     def kernels_logs(self, kernel: str | None) -> str:
         """Retrieves the execution log for a specified kernel.
 

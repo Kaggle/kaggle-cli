@@ -1457,6 +1457,17 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_status._action_groups.append(parser_kernels_status_optional)
     parser_kernels_status.set_defaults(func=api.kernels_status_cli)
 
+    # Kernels cancel
+    parser_kernels_cancel = subparsers_kernels.add_parser(
+        "cancel", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_cancel
+    )
+    parser_kernels_cancel_optional = parser_kernels_cancel._action_groups.pop()
+    parser_kernels_cancel_optional.add_argument(
+        "session_id", type=int, help=Help.param_kernel_session_id
+    )
+    parser_kernels_cancel._action_groups.append(parser_kernels_cancel_optional)
+    parser_kernels_cancel.set_defaults(func=api.kernels_cancel_cli)
+
     # Kernels logs
     parser_kernels_logs = subparsers_kernels.add_parser(
         "logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_logs
@@ -2750,6 +2761,7 @@ options a specific command accepts."""
     command_kernels_pull = "Pull down code from a kernel"
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
+    command_kernels_cancel = "Cancel an active kernel session"
     command_kernels_logs = "Print the execution logs from the latest kernel run"
     command_kernels_delete = "Delete a kernel"
     command_kernels_topics = "List discussion topics for a kernel"
@@ -2959,6 +2971,7 @@ options a specific command accepts."""
     param_kernel_parent = "Find children of the specified parent kernel"
     param_kernel_competition = "Find kernels for a given competition slug"
     param_kernel_dataset = "Find kernels for a given dataset slug. Format is " "{username/dataset-slug}"
+    param_kernel_session_id = "The numeric ID of the kernel session to cancel"
     param_kernel_timeout = (
         "Limit the run time of a kernel to the given number "
         "of seconds. The global maximum time will not be "
