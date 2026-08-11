@@ -48,6 +48,17 @@ class TestCompetitionAddHost(unittest.TestCase):
         self._add_host_call(mock_kaggle).assert_called_once()
         self.assertTrue(result)
 
+    @patch.object(KaggleApi, "confirmation", return_value=True)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_add_host_prompt_names_user_and_competition(self, mock_client, mock_confirm):
+        """The prompt must name the user being granted access and the competition."""
+        self._patch_client(mock_client)
+
+        self.api.competition_add_host("my-comp", "alice")
+
+        action = mock_confirm.call_args[0][0]
+        self.assertEqual(action, "add 'alice' as a host of competition 'my-comp'")
+
     @patch.object(KaggleApi, "confirmation", return_value=False)
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_add_host_declined_makes_no_request(self, mock_client, mock_confirm):
