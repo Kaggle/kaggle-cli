@@ -7,6 +7,7 @@ public competition-creation API endpoints (kagglesdk 0.1.31+):
 - [`kaggle competitions create`](#kaggle-competitions-create)
 - [`kaggle competitions pages create`](#kaggle-competitions-pages-create)
 - [`kaggle competitions hosts`](#kaggle-competitions-hosts)
+- [`kaggle competitions host-add`](#kaggle-competitions-host-add)
 - [`kaggle competitions settings get`](#kaggle-competitions-settings-get)
 - [`kaggle competitions settings update`](#kaggle-competitions-settings-update)
 - [`kaggle competitions data update`](#kaggle-competitions-data-update)
@@ -355,6 +356,47 @@ kaggle competitions hosts my-comp --format json
 ```
 
 Output columns: `userName`, `displayName`, `id`, `profileUrl`.
+
+---
+
+## `kaggle competitions host-add`
+
+Grants host access on a competition you host to another Kaggle user. Hosts can
+edit settings, upload data, and launch the competition, so you are asked to
+confirm before the change is made.
+
+**Usage:**
+
+```bash
+kaggle competitions host-add <competition> -u <user> [-y]
+```
+
+**Arguments:**
+
+- `<competition>`: The competition slug.
+
+**Options:**
+
+- `-u, --user <USER>`: Kaggle user name (URL slug, e.g. `kerneler`) of the user
+  to add as a host. Required.
+- `-y, --yes`: Skip the confirmation prompt.
+- `-q, --quiet`: Suppress the "Using competition" message.
+
+**Examples:**
+
+```bash
+# Prompts for confirmation before granting access.
+kaggle competitions host-add my-comp -u alice
+
+# Skip the prompt (for scripts).
+kaggle competitions host-add my-comp -u alice -y
+```
+
+Verify the result with `kaggle competitions hosts my-comp`.
+
+> **Note:** This command is named `host-add` rather than `hosts add` because
+> `hosts` takes the competition as a positional argument, and argparse cannot
+> distinguish a competition slug from a subcommand name.
 
 ---
 

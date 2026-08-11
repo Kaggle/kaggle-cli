@@ -685,6 +685,34 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_hosts._action_groups.append(parser_competitions_hosts_optional)
     parser_competitions_hosts.set_defaults(func=api.competition_list_hosts_cli)
 
+    # Competitions host-add (grant host access to a user)
+    # Flat rather than a `hosts add` subcommand: argparse can't disambiguate the
+    # `hosts` parent positional from a subcommand token, which would break the
+    # existing `kaggle competitions hosts <competition>` form.
+    parser_competitions_host_add = subparsers_competitions.add_parser(
+        "host-add",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_host_add,
+    )
+    parser_competitions_host_add_optional = parser_competitions_host_add._action_groups.pop()
+    parser_competitions_host_add_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-u", "--user", dest="user_name", required=True, help=Help.param_competitions_host_add_user
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_host_add._action_groups.append(parser_competitions_host_add_optional)
+    parser_competitions_host_add.set_defaults(func=api.competition_add_host_cli)
+
     # Competitions data (group: update)
     parser_competitions_data = subparsers_competitions.add_parser(
         "data",
@@ -2538,6 +2566,7 @@ class Help(object):
         "logs",
         "pages",
         "hosts",
+        "host-add",
         "data",
         "settings",
         "solution",
@@ -2711,6 +2740,7 @@ options a specific command accepts."""
     command_competitions_pages_update = "Update fields on an existing competition page"
     command_competitions_pages_delete = "Delete a page from a competition you host"
     command_competitions_hosts = "List hosts (users with host access) for a competition"
+    command_competitions_host_add = "Grant host access on a competition you host to a Kaggle user"
     command_competitions_data = "Manage a competition's data files"
     command_competitions_data_update = "Update (version) the data files for a competition you host"
     command_competitions_settings = "Manage settings for a competition you host"
@@ -2877,6 +2907,7 @@ options a specific command accepts."""
         "to show options)\nIf empty, the default competition "
         'will be used (use "kaggle config set competition")"'
     )
+    param_competitions_host_add_user = "Kaggle user name (URL slug, e.g. 'kerneler') of the user to add as a host"
     param_competition_nonempty = 'Competition URL suffix (use "kaggle competitions list" to show ' "options)"
     param_competition_leaderboard_view = "Show the top of the leaderboard"
     param_competition_leaderboard_download = "Download entire leaderboard"
