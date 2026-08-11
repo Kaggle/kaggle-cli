@@ -961,6 +961,34 @@ class FileList(object):
         return ""
 
 
+ISSUE_TRACKER_URL = "https://github.com/Kaggle/kaggle-cli/issues"
+
+# Actionable next steps keyed by HTTP status, shown under the raw error message.
+_HTTP_ERROR_HINTS = {
+    403: (
+        "You don't have access to this resource.\n"
+        "If this is a competition, you may need to accept its rules first at\n"
+        "  https://www.kaggle.com/competitions/<competition>/rules"
+    ),
+    404: (
+        "The resource was not found. Check the spelling of the reference you passed.\n"
+        "References are usually '<owner>/<slug>', which you can find in the resource's URL.\n"
+        "To search for one, try 'kaggle search <query>'."
+    ),
+    429: "You have been rate limited. Wait a little while before retrying.",
+}
+
+
+def format_http_error(error: HTTPError) -> str:
+    """Builds a user-facing message for an HTTP error, with a hint when we have one."""
+    message = str(error)
+    response = error.response
+    hint = _HTTP_ERROR_HINTS.get(response.status_code) if response is not None else None
+    if response is not None and response.status_code >= 500:
+        hint = "This is a problem on Kaggle's side, not with your command. Please try again later."
+    return f"{message}\n\n{hint}" if hint else message
+
+
 def print_auth_help() -> None:
     """Print friendly instructions for setting up Kaggle authentication."""
     print(
