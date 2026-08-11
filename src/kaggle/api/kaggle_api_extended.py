@@ -482,6 +482,52 @@ DEFAULT_IGNORE_PATTERNS = [
 ]
 
 
+def _is_within_directory(directory: str, target: str) -> bool:
+    """True if `target` (already realpath'd) resolves inside `directory` (already realpath'd)."""
+    try:
+        return os.path.commonpath([directory, target]) == directory
+    except ValueError:
+        # commonpath raises when the paths don't share a root (e.g. different
+        # drives on Windows) -- that's definitely not "within".
+        return False
+
+
+def safe_extract_tar(t: tarfile.TarFile, path: str) -> None:
+    """Extracts a tar archive into `path`, refusing members that would escape it.
+
+    tarfile.extractall() has never been traversal-safe by default: a crafted
+    member name (e.g. "../../etc/cron.d/x") or a symlink member pointing
+    outside the destination lets an archive write anywhere the extracting
+    user can write. zipfile.extractall() has stripped ".." components and
+    absolute prefixes since 2.7.4, but tarfile only gained the equivalent
+    protection via the filter= argument added by PEP 706 (Python 3.12,
+    backported to 3.11.4, 3.10.12, 3.9.17, 3.8.17). Detect support for it at
+    runtime and use it when available; otherwise (Python 3.11.0-3.11.3, which
+    this project's `requires-python = ">=3.11"` floor does not exclude) fall
+    back to manually vetting every member before extracting, since passing
+    filter= to extractall() on those interpreters raises TypeError.
+    """
+    if hasattr(tarfile, "data_filter"):
+        t.extractall(path, filter="data")
+        return
+
+    base = os.path.realpath(path)
+    safe_members = []
+    for member in t.getmembers():
+        member_path = os.path.realpath(os.path.join(base, member.name))
+        if not _is_within_directory(base, member_path):
+            raise ValueError(f"Refusing to extract '{member.name}': resolves outside destination '{path}'")
+        if member.issym() or member.islnk():
+            link_target = os.path.realpath(os.path.join(base, member.linkname))
+            if not _is_within_directory(base, link_target):
+                raise ValueError(
+                    f"Refusing to extract '{member.name}': link target '{member.linkname}' "
+                    f"resolves outside destination '{path}'"
+                )
+        safe_members.append(member)
+    t.extractall(base, members=safe_members)
+
+
 def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
     """Helper to check if a path should be ignored based on patterns."""
     import fnmatch
@@ -8505,7 +8551,7 @@ class KaggleApi:
             if untar:
                 try:
                     with tarfile.open(outfile, mode="r:gz") as t:
-                        t.extractall(effective_path)
+                        safe_extract_tar(t, effective_path)
                 except Exception as e:
                     raise ValueError(
                         "Error extracting the tar.gz file, please report on " "www.github.com/kaggle/kaggle-cli", e
