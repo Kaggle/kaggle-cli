@@ -1422,6 +1422,49 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_push._action_groups.append(parser_kernels_push_optional)
     parser_kernels_push.set_defaults(func=api.kernels_push_cli)
 
+    # Kernels run
+    parser_kernels_run = subparsers_kernels.add_parser(
+        "run", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_run
+    )
+    parser_kernels_run_optional = parser_kernels_run._action_groups.pop()
+    parser_kernels_run_optional.add_argument(
+        "-p", "--path", dest="folder", required=False, help=Help.param_kernel_upfile
+    )
+    parser_kernels_run_optional.add_argument(
+        "-t", "--timeout", type=int, dest="timeout", help=Help.param_kernel_timeout
+    )
+    parser_kernels_run_optional.add_argument("--accelerator", dest="acc", help=Help.param_kernel_acc)
+    parser_kernels_run_optional.add_argument(
+        "--wait-timeout",
+        dest="wait_timeout",
+        type=int,
+        default=None,
+        required=False,
+        help=Help.param_kernel_run_wait_timeout,
+    )
+    parser_kernels_run_optional.add_argument(
+        "--poll-interval",
+        dest="poll_interval",
+        type=int,
+        default=30,
+        required=False,
+        help=Help.param_kernel_run_poll_interval,
+    )
+    parser_kernels_run_optional.add_argument(
+        "--output", dest="output_path", required=False, help=Help.param_kernel_run_output
+    )
+    parser_kernels_run_optional.add_argument(
+        "--file-pattern", dest="file_pattern", required=False, help=Help.param_kernel_output_file_pattern
+    )
+    parser_kernels_run_optional.add_argument(
+        "--force", dest="force", action="store_true", required=False, help=Help.param_force
+    )
+    parser_kernels_run_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", required=False, help=Help.param_quiet
+    )
+    parser_kernels_run._action_groups.append(parser_kernels_run_optional)
+    parser_kernels_run.set_defaults(func=api.kernels_run_cli)
+
     # Kernels pull
     parser_kernels_pull = subparsers_kernels.add_parser(
         "pull",
@@ -2594,6 +2637,7 @@ class Help(object):
         "get",
         "init",
         "push",
+        "run",
         "pull",
         "output",
         "status",
@@ -2777,6 +2821,7 @@ options a specific command accepts."""
     command_kernels_files = "List kernel output files"
     command_kernels_init = "Initialize metadata file for a kernel"
     command_kernels_push = "Push new code to a kernel and run the kernel"
+    command_kernels_run = "Push new code to a kernel and wait for the run to finish"
     command_kernels_pull = "Pull down code from a kernel"
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
@@ -2994,6 +3039,18 @@ options a specific command accepts."""
         "Limit the run time of a kernel to the given number "
         "of seconds. The global maximum time will not be "
         "exceeded."
+    )
+    param_kernel_run_wait_timeout = (
+        "Maximum seconds to wait for the kernel run to finish "
+        "(0 or omit = wait up to 12 hours, the maximum notebook runtime)"
+    )
+    param_kernel_run_poll_interval = (
+        "Maximum seconds between status polls while waiting (default: 30, minimum: 5). "
+        "Polling starts at 5s and increases automatically"
+    )
+    param_kernel_run_output = (
+        "Download the run's output files to this directory after it "
+        "completes. When omitted, outputs are not downloaded"
     )
     param_kernel_user = "Find kernels created by a given username"
     # TODO(b/129357583): Pull these from the same spot as the api impl

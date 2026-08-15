@@ -19,6 +19,7 @@ kaggle kernels (alias: kaggle k)
 ├── files
 ├── init
 ├── push | update
+├── run
 ├── pull | get
 ├── output
 ├── status
@@ -140,6 +141,47 @@ Kaggle image, whose PyTorch build (cu128) omits Pascal (`sm_60`) kernels:
 `torch.cuda.is_available()` returns `True`, but the first CUDA operation fails
 with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` or
 install a Pascal-compatible torch build.
+
+## `kaggle kernels run`
+
+Pushes code to a kernel (like `push`), waits for the run to finish, and
+optionally downloads its outputs. Exits 0 when the run completes, 1 when it
+fails, is cancelled, or the wait times out.
+
+**Usage:**
+
+```bash
+kaggle kernels run [options]
+```
+
+**Options:**
+
+- `-p, --path <FOLDER>`: Folder containing files and `kernel-metadata.json`.
+- `-t, --timeout <SECONDS>`: Server-side run time limit (as for `push`).
+- `--accelerator <ACCELERATOR>`: Accelerator type (as for `push`).
+- `--wait-timeout <SECONDS>`: Client-side wait cap; defaults to 12 hours.
+- `--poll-interval <SECONDS>`: Max seconds between status polls (default 30).
+- `--output <FOLDER>`: Download the run's outputs here after completion.
+- `--file-pattern <REGEX>`: Only download matching outputs (needs `--output`).
+- `--force`: Overwrite existing output files (needs `--output`).
+- `-q, --quiet`: Suppress progress output.
+
+**Examples:**
+
+```bash
+kaggle kernels run -p my-kernel --output results
+kaggle kernels run -p . --wait-timeout 7200 --file-pattern 'submission\.csv' --output artifacts -q
+```
+
+**Purpose:** Synchronous version of `push` for scripting and CI: push, poll
+the run to a terminal state, surface the failure message on error, fetch
+outputs, and gate on the exit code.
+
+**Notes:** The API reports only the kernel's latest session, so do not push
+another version of the same kernel while a run is being waited on. On timeout
+or Ctrl+C the run keeps executing on Kaggle; the command prints the
+`kernels status` / `kernels output` commands to check on it later. Use
+`kaggle kernels logs <KERNEL> --follow` in another terminal to watch logs live.
 
 ## `kaggle kernels pull`
 

@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Add `kaggle kernels run` to push a kernel and wait for the run to finish, with optional output download (`--output`, `--file-pattern`), `--wait-timeout`/`--poll-interval` controls, and CI-friendly exit codes (0 on completion, 1 on failure/cancellation/timeout)
 * Add `kaggle competitions host-add <comp> -u <user>` to grant host access on a competition to a Kaggle user
 * Suggest a next step on 403/404/429/5xx API errors, report unexpected errors as bugs instead of a traceback (with a new `--debug` flag), and list common examples in `kaggle --help`
 * Add `kaggle benchmarks quota` to show Model Proxy (AI inference) spend quota, and bump `kagglesdk` to `>= 0.1.37`

@@ -320,3 +320,52 @@ def test_kernels_topics_show_two_args_succeeds(parser):
     assert func.__name__ == "forums_topic_show_cli"
     assert kwargs["topic_ref"] == "owner/kernel-name"
     assert kwargs["topic_id_arg"] == 12345
+
+
+def test_kernels_run_parser_defaults_succeeds(parser):
+    func, kwargs = parser.dispatch(["kernels", "run"])
+    assert func.__name__ == "kernels_run_cli"
+    assert kwargs.get("folder") is None
+    assert kwargs.get("timeout") is None
+    assert kwargs.get("acc") is None
+    assert kwargs.get("wait_timeout") is None
+    assert kwargs.get("poll_interval") == 30
+    assert kwargs.get("output_path") is None
+    assert kwargs.get("file_pattern") is None
+    assert kwargs.get("force") is False
+    assert kwargs.get("quiet") is False
+
+
+def test_kernels_run_parser_with_flags_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        [
+            "kernels",
+            "run",
+            "-p",
+            "my-folder",
+            "--timeout",
+            "3600",
+            "--accelerator",
+            "NvidiaTeslaT4",
+            "--wait-timeout",
+            "7200",
+            "--poll-interval",
+            "45",
+            "--output",
+            "results-dir",
+            "--file-pattern",
+            "submission\\.csv",
+            "--force",
+            "--quiet",
+        ]
+    )
+    assert func.__name__ == "kernels_run_cli"
+    assert kwargs["folder"] == "my-folder"
+    assert kwargs["timeout"] == 3600
+    assert kwargs["acc"] == "NvidiaTeslaT4"
+    assert kwargs["wait_timeout"] == 7200
+    assert kwargs["poll_interval"] == 45
+    assert kwargs["output_path"] == "results-dir"
+    assert kwargs["file_pattern"] == "submission\\.csv"
+    assert kwargs["force"] is True
+    assert kwargs["quiet"] is True

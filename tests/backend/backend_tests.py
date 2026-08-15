@@ -328,6 +328,26 @@ class TestKaggleApi(unittest.TestCase):
         finally:
             shutil.rmtree(fs)
 
+    def test_kernels_ga_run(self):
+        if self.kernel_metadata_path == "":
+            self.test_kernels_b_initialize()
+        output_files: list[str] = []
+        try:
+            update_kernel_metadata_file(self.kernel_metadata_path, kernel_name)
+            result = api.kernels_run(kernel_directory, wait_timeout=600, poll_interval=5, output_path="kernel/tmp")
+            self.assertEqual(KernelWorkerStatus.COMPLETE, result.status)
+            self.assertTrue(isinstance(result.version_number, int))
+            self.assertIsInstance(result.output_files, list)
+            output_files = result.output_files
+        except ApiException as e:
+            self.fail(f"kernels_run failed: {e}")
+        finally:
+            for file in output_files:
+                if os.path.exists(file):
+                    os.remove(file)
+            if os.path.exists("kernel/tmp"):
+                os.rmdir("kernel/tmp")
+
     # Competitions
 
     def test_competition_a_list(self):
