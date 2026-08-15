@@ -7394,6 +7394,10 @@ class KaggleApi:
             outfile = os.path.join(target_dir, item.file_name)
             outfiles.append(outfile)
             download_response = requests.get(item.url, stream=True)
+            # A failed fetch (e.g. an expired signed URL) still has a body, so
+            # writing it would save the error page as the output file and still
+            # report success. Fail loudly instead, like every other download.
+            download_response.raise_for_status()
             if force or self.download_needed(download_response, outfile, quiet):
                 os.makedirs(os.path.split(outfile)[0], exist_ok=True)
                 with open(outfile, "wb") as out:
