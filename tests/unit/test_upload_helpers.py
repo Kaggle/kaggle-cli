@@ -869,5 +869,95 @@ class TestResumableFileUpload(unittest.TestCase):
             self.assertTrue(file_upload.can_resume)
 
 
+class TestResumableUploadStateDir(unittest.TestCase):
+    """Tests that the upload state directory cannot be read or planted by another user.
+
+    The state files hold the signed upload url and the blob token, so a directory that
+    somebody else owns (or a symlink they left behind) must not be reused.
+    """
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        from kagglesdk.blobs.types.blob_api_service import ApiStartBlobUploadRequest
+
+        self.req = ApiStartBlobUploadRequest()
+        self.req.name = "test.bin"
+        self.req.type = ApiBlobType.INBOX
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @unittest.skipIf(not hasattr(os, "geteuid"), "POSIX-only permission semantics")
+    @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
+    def test_state_dir_is_owner_only(self, mock_tempdir):
+        mock_tempdir.return_value = self.temp_dir
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        with ResumableUploadContext(no_resume=False) as context:
+            mode = os.stat(context._temp_dir).st_mode
+            self.assertEqual(mode & 0o777, 0o700)
+
+    @unittest.skipIf(not hasattr(os, "geteuid"), "POSIX-only permission semantics")
+    @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
+    def test_state_dir_is_scoped_to_current_user(self, mock_tempdir):
+        mock_tempdir.return_value = self.temp_dir
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        context = ResumableUploadContext(no_resume=False)
+        self.assertIn(str(os.geteuid()), os.path.basename(context._temp_dir))
+
+    @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
+    def test_symlinked_state_dir_is_rejected(self, mock_tempdir):
+        mock_tempdir.return_value = self.temp_dir
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        planted = os.path.join(self.temp_dir, "planted")
+        os.makedirs(planted)
+        state_dir = ResumableUploadContext(no_resume=False)._temp_dir
+        os.makedirs(os.path.dirname(state_dir), exist_ok=True)
+        os.symlink(planted, state_dir)
+
+        with self.assertRaises(ValueError) as cm:
+            with ResumableUploadContext(no_resume=False):
+                pass
+
+        self.assertIn("symlink", str(cm.exception))
+
+    @unittest.skipIf(not hasattr(os, "geteuid"), "POSIX-only permission semantics")
+    @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
+    def test_group_or_world_accessible_state_dir_is_rejected(self, mock_tempdir):
+        mock_tempdir.return_value = self.temp_dir
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        state_dir = ResumableUploadContext(no_resume=False)._temp_dir
+        os.makedirs(state_dir)
+        os.chmod(state_dir, 0o777)
+
+        with self.assertRaises(ValueError) as cm:
+            with ResumableUploadContext(no_resume=False):
+                pass
+
+        self.assertIn("accessible to other users", str(cm.exception))
+
+    @patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir")
+    def test_state_survives_across_contexts(self, mock_tempdir):
+        """A resume still works when a later invocation builds a fresh context."""
+        mock_tempdir.return_value = self.temp_dir
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext, ResumableFileUpload
+
+        with ResumableUploadContext(no_resume=False) as first:
+            started = ResumableFileUpload("path.bin", self.req, first)
+            response = ApiStartBlobUploadResponse()
+            response.token = "valid-token"
+            response.create_url = "http://valid-url"
+            started.upload_initiated(response)
+
+        with ResumableUploadContext(no_resume=False) as second:
+            resumed = ResumableFileUpload("path.bin", self.req, second)
+            resumed.load()
+            self.assertTrue(resumed.can_resume)
+            self.assertEqual(resumed.start_blob_upload_response.token, "valid-token")
+
+
 if __name__ == "__main__":
     unittest.main()

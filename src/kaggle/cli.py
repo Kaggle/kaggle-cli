@@ -26,14 +26,14 @@ from requests.exceptions import HTTPError
 import kaggle
 from kaggle import KaggleApi
 from kaggle import api
-from kaggle.api.kaggle_api_extended import print_auth_help, OutputFormat
+from kaggle.api.kaggle_api_extended import ISSUE_TRACKER_URL, format_http_error, print_auth_help, OutputFormat
 
 # from rest import ApiException
 ApiException = IOError
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, epilog=Help.examples)
 
     parser.add_argument(
         "-v",
@@ -48,6 +48,12 @@ def main() -> None:
         dest="disable_version_warning",
         action="store_true",
         help="Disable out-of-date API version warning",
+    )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="Print the full traceback when an unexpected error occurs",
     )
 
     subparsers = parser.add_subparsers(title="commands", help=Help.kaggle, dest="command")
@@ -72,6 +78,7 @@ def main() -> None:
     if command_args["disable_version_warning"]:
         KaggleApi.already_printed_version_warning = True
     del command_args["disable_version_warning"]
+    debug = command_args.pop("debug")
     if not api._authenticated:
         api.authenticate()
 
@@ -82,7 +89,7 @@ def main() -> None:
         if e.response is not None and e.response.status_code == 401:
             print_auth_help()
         else:
-            print(e, file=sys.stderr)
+            print(format_http_error(e), file=sys.stderr)
         out = None
         error = True
     except ApiException as e:
@@ -96,6 +103,19 @@ def main() -> None:
     except KeyboardInterrupt:
         print("User cancelled operation")
         out = None
+    except Exception as e:
+        # Anything reaching here is a bug in the CLI rather than user error, so
+        # show a short message instead of a traceback the user cannot act on.
+        if debug:
+            raise
+        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+        print(
+            "\nIf this is unexpected, you can re-run with `kaggle --debug [command]` to see the full\n"
+            f"traceback. If you think this is a bug, please report it at {ISSUE_TRACKER_URL}",
+            file=sys.stderr,
+        )
+        out = None
+        error = True
     if out is not None:
         print(out, end="")
 
@@ -664,6 +684,34 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_hosts._action_groups.append(parser_competitions_hosts_optional)
     parser_competitions_hosts.set_defaults(func=api.competition_list_hosts_cli)
+
+    # Competitions host-add (grant host access to a user)
+    # Flat rather than a `hosts add` subcommand: argparse can't disambiguate the
+    # `hosts` parent positional from a subcommand token, which would break the
+    # existing `kaggle competitions hosts <competition>` form.
+    parser_competitions_host_add = subparsers_competitions.add_parser(
+        "host-add",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_host_add,
+    )
+    parser_competitions_host_add_optional = parser_competitions_host_add._action_groups.pop()
+    parser_competitions_host_add_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-u", "--user", dest="user_name", required=True, help=Help.param_competitions_host_add_user
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_host_add._action_groups.append(parser_competitions_host_add_optional)
+    parser_competitions_host_add.set_defaults(func=api.competition_add_host_cli)
 
     # Competitions data (group: update)
     parser_competitions_data = subparsers_competitions.add_parser(
@@ -2518,6 +2566,7 @@ class Help(object):
         "logs",
         "pages",
         "hosts",
+        "host-add",
         "data",
         "settings",
         "solution",
@@ -2632,6 +2681,26 @@ class Help(object):
     kaggle += "\nauth {" + ", ".join(auth_choices) + "}"
     kaggle += "\nquota"
 
+    examples = """examples:
+  Log in (opens a browser; only needed once):
+    kaggle auth login
+
+  Find something to work on:
+    kaggle competitions list
+    kaggle datasets list -s "air quality"
+
+  Download competition data into the current directory:
+    kaggle competitions download -c titanic
+
+  Submit to a competition:
+    kaggle competitions submit -c titanic -f submission.csv -m "my first entry"
+
+  Download a dataset and unzip it:
+    kaggle datasets download -d zillow/zecon --unzip
+
+Run 'kaggle <command> --help' (e.g. 'kaggle competitions --help') for the
+options a specific command accepts."""
+
     group_competitions = "Commands related to Kaggle competitions"
     group_datasets = "Commands related to Kaggle datasets"
     group_kernels = "Commands related to Kaggle kernels"
@@ -2671,6 +2740,7 @@ class Help(object):
     command_competitions_pages_update = "Update fields on an existing competition page"
     command_competitions_pages_delete = "Delete a page from a competition you host"
     command_competitions_hosts = "List hosts (users with host access) for a competition"
+    command_competitions_host_add = "Grant host access on a competition you host to a Kaggle user"
     command_competitions_data = "Manage a competition's data files"
     command_competitions_data_update = "Update (version) the data files for a competition you host"
     command_competitions_settings = "Manage settings for a competition you host"
@@ -2838,6 +2908,7 @@ class Help(object):
         "to show options)\nIf empty, the default competition "
         'will be used (use "kaggle config set competition")"'
     )
+    param_competitions_host_add_user = "Kaggle user name (URL slug, e.g. 'kerneler') of the user to add as a host"
     param_competition_nonempty = 'Competition URL suffix (use "kaggle competitions list" to show ' "options)"
     param_competition_leaderboard_view = "Show the top of the leaderboard"
     param_competition_leaderboard_download = "Download entire leaderboard"

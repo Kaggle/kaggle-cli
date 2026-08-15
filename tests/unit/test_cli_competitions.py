@@ -387,6 +387,28 @@ def test_competitions_hosts_positional_succeeds(parser):
     assert kwargs["competition"] == "my-comp"
 
 
+def test_competitions_host_add_missing_user_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["competitions", "host-add", "my-comp"])
+
+
+def test_competitions_host_add_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "host-add", "my-comp", "-u", "alice"])
+    assert func.__name__ == "competition_add_host_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["user_name"] == "alice"
+    assert kwargs["no_confirm"] is False
+
+
+def test_competitions_host_add_dash_c_and_yes_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "host-add", "-c", "my-comp", "--user", "alice", "-y"])
+    assert func.__name__ == "competition_add_host_cli"
+    assert kwargs.get("competition") is None
+    assert kwargs["competition_opt"] == "my-comp"
+    assert kwargs["user_name"] == "alice"
+    assert kwargs["no_confirm"] is True
+
+
 def test_competitions_data_update_missing_args_fails(parser):
     with pytest.raises(SystemExit):
         parser.dispatch(["competitions", "data", "update", "my-comp"])
