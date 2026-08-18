@@ -6285,8 +6285,8 @@ class KaggleApi:
                         size_read = 0
                         open_mode = "wb"
                         self._write_resume_marker(outfile, resume_validator, size)
-                    else:
-                        # e.g. 416 Range Not Satisfiable (local file >= remote size).
+                    elif response.status_code == 416:
+                        # Range Not Satisfiable (local file >= remote size).
                         # Discard the stale bytes and re-request the full object.
                         response.close()
                         response = requests.request(
@@ -6296,9 +6296,20 @@ class KaggleApi:
                             stream=True,
                             timeout=timeout,
                         )
+                        response.raise_for_status()
                         size_read = 0
                         open_mode = "wb"
                         self._write_resume_marker(outfile, resume_validator, size)
+                    else:
+                        # Any other status (e.g. 403 once the signed URL has expired,
+                        # or a 5xx) carries an error body rather than file content.
+                        # Raise instead of overwriting, so the partial file and its
+                        # resume marker survive for a later attempt.
+                        response.raise_for_status()
+                        raise requests.exceptions.HTTPError(
+                            f"Unexpected status code {response.status_code} when resuming download",
+                            response=response,
+                        )
                 else:
                     size_read = 0
                     open_mode = "wb"
