@@ -6030,7 +6030,7 @@ class KaggleApi:
             resp = ApiCreateDatasetResponse()
             resp.status = "error"
             resp.error = (
-                f'The requested slug "{dataset_slug}" is already in use by a dataset. Please choose another slug.'
+                f'The requested slug "{dataset_slug}" is already in use ' "by a dataset. Please choose another slug."
             )
             return resp
 
