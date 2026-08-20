@@ -37,6 +37,7 @@ import tarfile
 import tempfile
 import time
 import zipfile
+from urllib.parse import urlparse
 from dateutil.relativedelta import relativedelta
 from os.path import expanduser
 from random import random
@@ -216,7 +217,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiDeleteKernelRequest,
     ApiGetAcceleratorQuotaStatisticsRequest,
 )
-from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType
+from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType, KernelWorkerStatus
 from kagglesdk.models.types.model_api_service import (
     ApiListModelsRequest,
     ApiCreateModelRequest,
@@ -960,6 +961,25 @@ class FileList(object):
 
     def __repr__(self):
         return ""
+
+
+class KernelRunResult:
+    """The outcome of a synchronous kernel run (see KaggleApi.kernels_run)."""
+
+    def __init__(self, status, version_number, url, ref=None, output_files=None, elapsed_seconds=None):
+        self.status = status
+        self.version_number = version_number
+        self.url = url
+        self.ref = ref  # 'owner/slug' of the kernel that was run
+        self.output_files = output_files if output_files is not None else []
+        self.elapsed_seconds = elapsed_seconds
+
+    def __repr__(self):
+        return "KernelRunResult(status=%s, version_number=%s, url=%s)" % (
+            getattr(self.status, "name", self.status),
+            self.version_number,
+            self.url,
+        )
 
 
 ISSUE_TRACKER_URL = "https://github.com/Kaggle/kaggle-cli/issues"
@@ -7507,6 +7527,287 @@ class KaggleApi:
             print('Failure message: "%s"' % message)
         else:
             print('%s has status "%s"' % (kernel, status))
+
+    # How long a just-pushed kernel may keep reporting the previous session's
+    # terminal status before we trust what we see. In practice the push
+    # creates and enqueues the new session synchronously (verified against the
+    # live API), so this is a defensive bound, not an expected wait.
+    _SESSION_START_GRACE_SECONDS = 60
+
+    def _poll_kernel_session(self, kernel, wait, poll_interval, quiet=False, baseline_status=None):
+        """Polls a kernel's latest session until it finishes or the wait times out.
+
+        Reuses the shared adaptive-backoff (``_adaptive_sleep``) infrastructure,
+        mirroring ``_poll_submission``. A transient 404 (e.g. a brand-new kernel
+        whose session is not visible yet) is treated as pending while still
+        inside the wait window rather than being surfaced as an error.
+
+        The Kaggle API only reports the status of a kernel's *latest* session,
+        so callers that just pushed should pass the pre-push status as
+        ``baseline_status``: an identical terminal status observed before any
+        active status is then treated as possibly stale for a short grace
+        period instead of being accepted as this run's result.
+
+        Args:
+            kernel: The kernel in 'owner/slug' form.
+            wait: 0 waits indefinitely; a positive value is a timeout in seconds.
+            poll_interval: Maximum seconds between polls (adaptive up to this cap).
+            quiet: Suppress per-poll status output (default is False).
+            baseline_status: The kernel's status before the push, if any.
+
+        Returns:
+            ApiGetKernelSessionStatusResponse: The response once the session
+            reaches COMPLETE.
+
+        Raises:
+            ValueError: If the session finishes in ERROR, is cancelled, or the
+                wait times out.
+        """
+        start_time = time.time()
+        current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
+        seen_active = baseline_status is None
+        try:
+            while True:
+                try:
+                    response = self.kernels_status(kernel)
+                    status = response.status
+                except HTTPError as e:
+                    # A freshly pushed kernel may not be visible yet; keep
+                    # waiting rather than failing.
+                    if e.response is not None and e.response.status_code == 404:
+                        response = None
+                        status = None
+                    else:
+                        raise
+
+                if status in (
+                    KernelWorkerStatus.QUEUED,
+                    KernelWorkerStatus.RUNNING,
+                    KernelWorkerStatus.NEW_SCRIPT,
+                    KernelWorkerStatus.CANCEL_REQUESTED,
+                ):
+                    # The new session is visible; any terminal status from here
+                    # on belongs to this run.
+                    seen_active = True
+
+                possibly_stale = (
+                    not seen_active
+                    and status == baseline_status
+                    and (time.time() - start_time) < self._SESSION_START_GRACE_SECONDS
+                )
+
+                if not possibly_stale:
+                    if status == KernelWorkerStatus.COMPLETE:
+                        return response
+                    if status == KernelWorkerStatus.ERROR:
+                        message = (response.failure_message or "").strip() or "No error message provided."
+                        raise ValueError("Kernel run %s failed.\n  Error: %s" % (kernel, message))
+                    if status == KernelWorkerStatus.CANCEL_ACKNOWLEDGED:
+                        raise ValueError("Kernel run %s was cancelled on kaggle.com." % kernel)
+
+                if not quiet:
+                    print("Session status: %s..." % (status.name if status else "PENDING"))
+
+                if wait > 0 and (time.time() - start_time) > wait:
+                    raise ValueError(
+                        "Timed out after %ss waiting for the kernel run %s to finish.\n"
+                        "The session keeps running on Kaggle.\n"
+                        "Check status with: kaggle kernels status %s\n"
+                        "Fetch outputs with: kaggle kernels output %s" % (wait, kernel, kernel, kernel)
+                    )
+
+                current_interval = self._adaptive_sleep(current_interval, poll_interval)
+        except KeyboardInterrupt:
+            print(
+                "\nStopped waiting for the kernel run %s. The session keeps running on Kaggle.\n"
+                "Check status with: kaggle kernels status %s\n"
+                "Fetch outputs with: kaggle kernels output %s" % (kernel, kernel, kernel)
+            )
+            raise
+
+    def _kernel_ref_from_folder(self, folder):
+        """Resolves (owner_slug, kernel_slug) from a kernel folder's metadata.
+
+        Returns None when the metadata file is missing, has no 'id', or still
+        carries the init placeholder.
+        """
+        meta_file = os.path.join(folder, self.KERNEL_METADATA_FILE)
+        if not os.path.isfile(meta_file):
+            return None
+        with open(meta_file, encoding="utf-8") as f:
+            meta_data = json.load(f)
+        slug = meta_data.get("id")
+        if not slug or "INSERT_KERNEL_SLUG_HERE" in slug:
+            return None
+        owner_slug, kernel_slug, _ = self.parse_kernel_string(slug)
+        return owner_slug, kernel_slug
+
+    def _kernel_ref_from_push(self, folder, response):
+        """Resolves (owner_slug, kernel_slug) for a just-pushed kernel.
+
+        Prefers the metadata file's 'id'; falls back to the URL in the push
+        response for metadata that only carries a numeric 'id_no'.
+
+        Args:
+            folder: The folder that was pushed (contains the metadata file).
+            response (ApiSaveKernelResponse): The push response.
+
+        Returns:
+            Tuple[str, str]: The owner slug and kernel slug.
+        """
+        ref = self._kernel_ref_from_folder(folder)
+        if ref is not None:
+            return ref
+        url_path = urlparse(response.url).path if response.url else ""
+        parts = [part for part in url_path.split("/") if part and part != "code"]
+        if len(parts) >= 2:
+            return parts[0], parts[1]
+        raise ValueError(
+            "Could not determine the kernel's owner/slug from the metadata or "
+            "the push response. Add an 'id' (\"owner/kernel-slug\") to %s" % self.KERNEL_METADATA_FILE
+        )
+
+    def kernels_run(
+        self,
+        folder: str,
+        timeout: Optional[str] = None,
+        acc: Optional[str] = None,
+        wait_timeout: Optional[int] = None,
+        poll_interval: int = 30,
+        output_path: Optional[str] = None,
+        file_pattern: Optional[str] = None,
+        force: bool = False,
+        quiet: bool = False,
+    ) -> KernelRunResult:
+        """Pushes a kernel and waits for the resulting session to finish.
+
+        The Kaggle API only reports the status and outputs of a kernel's
+        *latest* session, so this method observes that session, guarding
+        against reading the previous session's terminal status right after the
+        push. Pushing another version of the same kernel while a run is being
+        waited on is not supported: the wait would attach to the newest
+        session.
+
+        Args:
+            folder (str): The path to the kernel folder (with a metadata file).
+            timeout (Optional[str]): Server-side maximum run time in seconds
+                (same as ``kernels push --timeout``).
+            acc (Optional[str]): The accelerator to use (same as
+                ``kernels push --accelerator``).
+            wait_timeout (Optional[int]): Client-side wait cap in seconds.
+                None or 0 waits up to 12 hours, the maximum notebook runtime.
+            poll_interval (int): Maximum seconds between status polls
+                (default is 30, adaptive from 5s up to this cap).
+            output_path (Optional[str]): If set, download the session's output
+                files to this directory after it completes.
+            file_pattern (Optional[str]): Optional regex filter for the output
+                download; requires output_path.
+            force (bool): Force-overwrite existing output files (default is
+                False); requires output_path.
+            quiet (bool): Suppress progress output (default is False).
+
+        Returns:
+            KernelRunResult: The terminal status, version number, kernel URL,
+            downloaded output files, and elapsed seconds.
+
+        Raises:
+            ValueError: If the push is rejected, the session fails or is
+                cancelled, the wait times out, or an output download fails.
+        """
+        if file_pattern is not None and output_path is None:
+            raise ValueError("--file-pattern requires --output")
+        if force and output_path is None:
+            raise ValueError("--force requires --output")
+        if poll_interval < self._MIN_POLL_INTERVAL:
+            raise ValueError(
+                "--poll-interval must be at least %ss to avoid overloading Kaggle's servers." % self._MIN_POLL_INTERVAL
+            )
+        if wait_timeout is not None and wait_timeout < 0:
+            raise ValueError("--wait-timeout cannot be negative.")
+        # "Wait indefinitely" (None or 0) is capped at the 12h maximum notebook
+        # runtime, mirroring `competitions submit --wait`.
+        if not wait_timeout:
+            wait_timeout = self._DEFAULT_WAIT_TIMEOUT
+
+        start_time = time.time()
+
+        # The status endpoint only reports the latest session, so read the
+        # pre-push status: if the first post-push polls still show the same
+        # terminal status, _poll_kernel_session holds off accepting it as this
+        # run's result for a short grace period.
+        baseline_status = None
+        ref = self._kernel_ref_from_folder(folder)
+        if ref is not None:
+            try:
+                baseline_status = self.kernels_status("%s/%s" % ref).status
+            except (HTTPError, ValueError):
+                baseline_status = None  # Never run or not visible: nothing to confuse with.
+
+        response = self.kernels_push(folder, timeout, acc)
+        if response.error:
+            raise ValueError("Kernel push error: " + response.error)
+        version_number = response.version_number
+
+        if ref is None:
+            ref = self._kernel_ref_from_push(folder, response)
+        kernel_ref = "%s/%s" % ref
+        if not quiet:
+            print("Kernel version %s pushed: %s" % (version_number or "?", response.url))
+
+        session = self._poll_kernel_session(
+            kernel_ref, wait_timeout, poll_interval, quiet, baseline_status=baseline_status
+        )
+
+        elapsed = time.time() - start_time
+        if not quiet:
+            minutes, seconds = divmod(int(elapsed), 60)
+            print("Session for version %s complete in %dm%02ds." % (version_number or "?", minutes, seconds))
+
+        output_files: List[str] = []
+        if output_path:
+            output_files, _ = self.kernels_output(
+                kernel_ref, output_path, file_pattern=file_pattern, force=force, quiet=quiet
+            )
+
+        return KernelRunResult(
+            status=session.status,
+            version_number=version_number,
+            url=response.url,
+            ref=kernel_ref,
+            output_files=output_files,
+            elapsed_seconds=elapsed,
+        )
+
+    def kernels_run_cli(
+        self,
+        folder=None,
+        timeout=None,
+        acc=None,
+        wait_timeout=None,
+        poll_interval=30,
+        output_path=None,
+        file_pattern=None,
+        force=False,
+        quiet=False,
+    ):
+        """A client wrapper for kernels_run.
+
+        Please see the kernels_run function for a description of the arguments.
+        """
+        folder = folder or os.getcwd()
+        result = self.kernels_run(
+            folder,
+            timeout,
+            acc,
+            wait_timeout,
+            poll_interval,
+            output_path,
+            file_pattern,
+            force,
+            quiet,
+        )
+        if not quiet and output_path is None:
+            print("Fetch outputs with: kaggle kernels output %s" % result.ref)
 
     def kernels_logs(self, kernel: str | None) -> str:
         """Retrieves the execution log for a specified kernel.

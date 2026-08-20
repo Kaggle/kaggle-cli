@@ -170,6 +170,53 @@ Some of these are only available to participants of specific competitions, and s
 > [!WARNING]
 > `NvidiaTeslaP100` is not usable for GPU compute with the default Kaggle image. Its PyTorch build (cu128) does not include Pascal (`sm_60`) kernels, so `torch.cuda.is_available()` returns `True` but the first CUDA operation fails with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` instead, or install a Pascal-compatible torch build if you require a P100.
 
+## `kaggle kernels run`
+
+Pushes new code/notebook and metadata to a kernel (exactly like `kaggle kernels push`), then waits for the resulting run to finish. Optionally downloads the run's output files, and exits with code 0 when the run completes or 1 when it fails, is cancelled, or the wait times out — so scripts and CI pipelines can gate on the result.
+
+**Usage:**
+
+```bash
+kaggle kernels run [-p <FOLDER_PATH>] [options]
+```
+
+**Options:**
+
+*   `-p, --path <FOLDER_PATH>`: Path to the folder containing the kernel file and the `kernel-metadata.json` file (defaults to the current directory).
+*   `-t, --timeout <SECONDS>`: Maximum run time in seconds (server-side session limit, as for `push`).
+*   `--accelerator <ACCELERATOR_ID>`: Accelerator to use during the run (as for `push`).
+*   `--wait-timeout <SECONDS>`: Maximum seconds to wait for the run to finish. Defaults to 12 hours, the maximum notebook runtime. On timeout the run keeps executing on Kaggle and the command tells you how to check on it later.
+*   `--poll-interval <SECONDS>`: Maximum seconds between status polls (default 30; polling starts at 5s and backs off adaptively up to this cap).
+*   `--output <FOLDER>`: Download the run's output files to this directory after it completes. When omitted, outputs are not downloaded.
+*   `--file-pattern <REGEX>`: Only download output files matching this regex (requires `--output`).
+*   `--force`: Overwrite existing files when downloading outputs (requires `--output`).
+*   `-q, --quiet`: Suppress progress output.
+
+**Example:**
+
+Run a notebook and collect its outputs, failing the shell command if the notebook raises:
+
+```bash
+kaggle kernels run -p . --output ./results
+echo $?   # 0 when the run completed, 1 when it failed
+```
+
+Typical CI usage with a bounded wait:
+
+```bash
+kaggle kernels run -p . --wait-timeout 7200 --poll-interval 30 \
+    --output ./artifacts --file-pattern 'submission\.csv' --quiet
+```
+
+**Purpose:**
+
+`kaggle kernels push` is fire-and-forget: it starts a run and returns immediately. `kaggle kernels run` is the synchronous version — push, wait for the session to reach a terminal state, surface the failure message if the run errored, and optionally fetch the outputs — replacing hand-written loops around `kaggle kernels status`.
+
+> [!NOTE]
+> The Kaggle API reports the status and outputs of a kernel's *latest* session only. `kaggle kernels run` guards against reading the previous session's status right after a push, but pushing another version of the same kernel while a run is being waited on is not supported — the wait would attach to the newest session.
+
+To watch the run's log output while it executes, use `kaggle kernels logs <KERNEL> --follow` in another terminal.
+
 ## `kaggle kernels pull`
 
 Pulls down the code/notebook and metadata for a kernel.
