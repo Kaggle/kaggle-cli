@@ -171,8 +171,8 @@ class TestDatasetCreate(unittest.TestCase):
             self._write_metadata(tmpdir, metadata)
             response = self.api.dataset_create_new(tmpdir)
             self.assertEqual(response.status, "error")
-            self.assertIn('already in use by a dataset', response.error)
-            self.assertIn('test-dataset', response.error)
+            self.assertIn("already in use by a dataset", response.error)
+            self.assertIn("test-dataset", response.error)
             self.assertNotIn("Completely Unrelated Title", response.error)
             mock_status.assert_called_once_with("testuser/test-dataset")
 
