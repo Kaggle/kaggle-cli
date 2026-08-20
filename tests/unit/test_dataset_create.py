@@ -163,14 +163,17 @@ class TestDatasetCreate(unittest.TestCase):
             self.assertIn("Subtitle length must be between 20 and 80 characters", str(context.exception))
 
     @patch.object(KaggleApi, "dataset_status")
-    def test_dataset_create_new_duplicate_title_fails(self, mock_status):
+    def test_dataset_create_new_duplicate_slug_fails(self, mock_status):
         mock_status.return_value = MagicMock()
         metadata = self._get_valid_metadata()
+        metadata["title"] = "Completely Unrelated Title"
         with tempfile.TemporaryDirectory() as tmpdir:
             self._write_metadata(tmpdir, metadata)
             response = self.api.dataset_create_new(tmpdir)
             self.assertEqual(response.status, "error")
-            self.assertIn("already in use by a dataset", response.error)
+            self.assertIn('already in use by a dataset', response.error)
+            self.assertIn('test-dataset', response.error)
+            self.assertNotIn("Completely Unrelated Title", response.error)
             mock_status.assert_called_once_with("testuser/test-dataset")
 
     @patch.object(KaggleApi, "dataset_status")
