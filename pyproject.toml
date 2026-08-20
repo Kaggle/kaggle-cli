@@ -36,6 +36,11 @@ dependencies = [
     "python-dotenv",
 ]
 
+[project.optional-dependencies]
+rich = [
+    "rich >= 13.0.0",
+]
+
 [project.scripts]
 kaggle = "kaggle.cli:main"
 
@@ -50,6 +55,7 @@ path = "src/kaggle/__init__.py"
 packages = ["src/kaggle"]
 
 [tool.hatch.envs.test]
+features = ["rich"]
 dependencies = [
     "pytest",
     "pytest-cov"
