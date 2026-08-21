@@ -36,6 +36,7 @@ class _Origin:
         self.last_modified = last_modified
         self.range_requests = 0  # how many GETs carried a Range header
         self.if_range_seen = []  # If-Range values observed
+        self.deny_status = None  # when set, every GET fails with this status
 
 
 def _make_handler(origin):
@@ -50,6 +51,15 @@ def _make_handler(origin):
             self.send_header("Last-Modified", origin.last_modified)
 
         def do_GET(self):
+            if origin.deny_status is not None:
+                body = b"<?xml version='1.0' encoding='UTF-8'?><Error><Code>SignatureDoesNotMatch</Code></Error>"
+                self.send_response(origin.deny_status)
+                self.send_header("Content-Type", "application/xml; charset=UTF-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
             blob = origin.blob
             total = len(blob)
             rng = self.headers.get("Range")
@@ -129,6 +139,7 @@ class DownloadResumeTest(unittest.TestCase):
         # reset shared origin counters
         self.origin.range_requests = 0
         self.origin.if_range_seen = []
+        self.origin.deny_status = None
 
     @property
     def url(self):
@@ -216,6 +227,33 @@ class DownloadResumeTest(unittest.TestCase):
             result = f.read()
         self.assertEqual(result, b"C" * 150)  # overwritten, not "BBB...CCC"
         self.assertFalse(self._marker_exists())
+
+    def test_http_error_on_resume_preserves_partial(self):
+        """An HTTP error during the Range resume (e.g. 403 once the signed URL
+        has expired) must not overwrite the partial file with the error body,
+        and must leave resume state usable for a later attempt."""
+        blob = b"B" * 2000
+        self._set_remote(blob, etag='"v1"')
+        self._seed_file(blob[:600])
+        self._seed_marker('"v1"', 2000)
+
+        resp = requests.get(self.url, stream=True)  # valid initial response
+        self.origin.deny_status = 403  # signed URL expires before the resume
+
+        with self.assertRaises(requests.exceptions.HTTPError):
+            self.api.download_file(resp, self.outfile, http_client=None, quiet=True, resume=True, max_retries=0)
+
+        # The partial bytes survive untouched...
+        with open(self.outfile, "rb") as f:
+            self.assertEqual(f.read(), blob[:600])
+        # ...and the marker still describes the real object, not the error body.
+        self.assertTrue(self._marker_exists())
+        with open(self.api._resume_marker_path(self.outfile)) as f:
+            self.assertEqual(json.load(f), {"validator": '"v1"', "size": 2000})
+
+        # A later run against a working URL therefore resumes to correct content.
+        self.origin.deny_status = None
+        self.assertEqual(self._run(), blob)
 
     def test_fresh_download_writes_and_clears_marker(self):
         self._set_remote(b"B" * 120)
