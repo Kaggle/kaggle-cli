@@ -2084,22 +2084,25 @@ class KaggleApi:
 
         if kernel is None:
             raise ValueError("No kernel specified")
-        else:
-            with self.build_kaggle_client() as kaggle:
-                items = kernel.split("/")
-                if len(items) != 2:
-                    raise ValueError("The kernel must be specified as <owner>/<notebook>")
-                submit_request = ApiCreateCodeSubmissionRequest()
-                submit_request.file_name = file_name
-                submit_request.competition_name = competition
-                submit_request._kernel_owner = items[0]
-                submit_request.kernel_slug = items[1]
-                if kernel_version:
-                    submit_request.kernel_version = int(kernel_version)
-                if message:
-                    submit_request.submission_description = message
-                submit_response = kaggle.competitions.competition_api_client.create_code_submission(submit_request)
-                return submit_response
+
+        if file_name is None:
+            raise ValueError("No file specified")
+
+        with self.build_kaggle_client() as kaggle:
+            items = kernel.split("/")
+            if len(items) != 2:
+                raise ValueError("The kernel must be specified as <owner>/<notebook>")
+            submit_request = ApiCreateCodeSubmissionRequest()
+            submit_request.file_name = file_name
+            submit_request.competition_name = competition
+            submit_request._kernel_owner = items[0]
+            submit_request.kernel_slug = items[1]
+            if kernel_version:
+                submit_request.kernel_version = int(kernel_version)
+            if message:
+                submit_request.submission_description = message
+            submit_response = kaggle.competitions.competition_api_client.create_code_submission(submit_request)
+            return submit_response
 
     def competition_submit(
         self,
@@ -2197,11 +2200,7 @@ class KaggleApi:
             str:
         """
         if kernel and not version or version and not kernel:
-            raise ValueError(
-                "Code competition submissions require both the kernel name and the version number"
-            )
-        if kernel and not file_name:
-            raise ValueError("No file specified")
+            raise ValueError("Code competition submissions require both the kernel name and the version number")
         if wait is not None:
             if poll_interval < self._MIN_POLL_INTERVAL:
                 raise ValueError(

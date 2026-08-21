@@ -222,6 +222,18 @@ class TestCompetitionSubmit(unittest.TestCase):
 
         self.assertIn("Using competition: config-comp", f.getvalue())
 
+    def test_competition_submit_code_requires_file(self):
+        with self.assertRaises(ValueError) as context:
+            self.api.competition_submit_code(
+                None,
+                "message",
+                "comp",
+                "owner/notebook",
+                1,
+            )
+
+        self.assertIn("No file specified", str(context.exception))
+
 
 class TestCompetitionSubmitCli(unittest.TestCase):
     """Tests for competition_submit_cli argument validation."""
