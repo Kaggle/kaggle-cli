@@ -99,7 +99,7 @@ kaggle competitions download <COMPETITION> [options]
 
 **Options:**
 
-*   `-f, --file <FILE_NAME>`: Specific file to download (downloads all if not specified).
+*   `-f, --file <FILE_NAME>`: Specific file to download (downloads all if not specified). A file inside a folder, such as `train/labels.csv`, keeps that folder under the download path.
 *   `-p, --path <PATH>`: Folder to download files to (defaults to current directory).
 *   `-w, --wp`: Download files to the current working path (equivalent to `-p .`).
 *   `-o, --force`: Force download, overwriting existing files.
@@ -117,6 +117,12 @@ kaggle competitions download <COMPETITION> [options]
 
     ```bash
     kaggle competitions download titanic -f test.csv -p tost
+    ```
+
+3.  Download a file that lives in a folder inside the competition data. The file is written to `data/kaggle_evaluation/rsna_gateway.py`:
+
+    ```bash
+    kaggle competitions download rsna-intracranial-aneurysm-detection -f kaggle_evaluation/rsna_gateway.py -p data
     ```
 
 **Purpose:**
