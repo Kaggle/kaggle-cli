@@ -105,7 +105,7 @@ kaggle datasets download [DATASET] [options]
 
 **Options:**
 
-- `-f, --file <NAME>`: Download one file. Downloads all files when omitted.
+- `-f, --file <NAME>`: Download one file. Downloads all files when omitted. A file inside a folder, such as `train/labels.csv`, keeps that folder under `--path`.
 - `-p, --path <PATH>`: Download directory.
 - `-w, --wp`: Download to current working path.
 - `--unzip`: Unzip the downloaded archive and delete the zip.
@@ -117,6 +117,7 @@ kaggle datasets download [DATASET] [options]
 ```bash
 kaggle datasets download kaggle/titanic
 kaggle d download kaggle/titanic -f train.csv -p data --unzip
+kaggle datasets download jpmiller/publicassistance -f WICAgencies2014ytd/Food_Costs.csv -p data
 ```
 
 **Purpose:** Retrieve dataset files for local work.

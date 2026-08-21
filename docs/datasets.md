@@ -99,7 +99,7 @@ kaggle datasets download <DATASET> [options]
 
 **Options:**
 
-*   `-f, --file <FILE_NAME>`: Specific file to download (downloads all if not specified).
+*   `-f, --file <FILE_NAME>`: Specific file to download (downloads all if not specified). A file inside a folder, such as `train/labels.csv`, keeps that folder under the download path.
 *   `-p, --path <PATH>`: Folder to download files to (defaults to current directory).
 *   `-w, --wp`: Download files to the current working path.
 *   `--unzip`: Unzip the downloaded file (deletes the .zip file afterwards).
@@ -124,6 +124,12 @@ kaggle datasets download <DATASET> [options]
 
     ```bash
     kaggle datasets download goefft/public-datasets-with-file-types-and-columns -f dataset_results.csv -w -q -o
+    ```
+
+4.  Download a file that lives in a folder inside the dataset. The file is written to `data/WICAgencies2014ytd/Food_Costs.csv`:
+
+    ```bash
+    kaggle datasets download jpmiller/publicassistance -f WICAgencies2014ytd/Food_Costs.csv -p data
     ```
 
 **Purpose:**

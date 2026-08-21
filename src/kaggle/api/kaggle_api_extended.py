@@ -530,6 +530,25 @@ def safe_extract_tar(t: tarfile.TarFile, path: str) -> None:
     t.extractall(base, members=safe_members)
 
 
+def _resolve_download_path(destination: str, file_name: str, url: str) -> str:
+    """Builds the local path for a single file download under `destination`.
+
+    The directory comes from the requested `file_name`, so a nested request keeps its
+    layout instead of collapsing into `destination` and colliding with same-named files
+    from other directories. The base name comes from the download URL, because large
+    files are served compressed (a request for `foo.csv` arrives as `foo.csv.zip`) and
+    only the URL records that.
+
+    Raises ValueError if the resolved path would land outside `destination`.
+    """
+    base_name = url.split("?")[0].split("/")[-1]
+    parts = [part for part in (file_name or "").replace("\\", "/").split("/") if part not in ("", ".")]
+    outfile = os.path.join(destination, *parts[:-1], base_name)
+    if not _is_within_directory(os.path.realpath(destination), os.path.realpath(outfile)):
+        raise ValueError(f"Refusing to download '{file_name}': resolves outside destination '{destination}'")
+    return outfile
+
+
 def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
     """Helper to check if a path should be ignored based on patterns."""
     import fnmatch
@@ -2626,7 +2645,7 @@ class KaggleApi:
             request.file_name = file_name
             response = kaggle.competitions.competition_api_client.download_data_file(request)
         url = response.request.url
-        outfile = cast(str, os.path.join(effective_path, url.split("?")[0].split("/")[-1]))
+        outfile = _resolve_download_path(effective_path, file_name, url)
 
         if force or self.download_needed(response, outfile, quiet):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
@@ -5524,7 +5543,7 @@ class KaggleApi:
             request.file_name = file_name
             response = kaggle.datasets.dataset_api_client.download_dataset(request)
         url = response.request.url
-        outfile = os.path.join(effective_path, url.split("?")[0].split("/")[-1])
+        outfile = _resolve_download_path(effective_path, file_name, url)
 
         if force or self.download_needed(response, outfile, quiet):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)

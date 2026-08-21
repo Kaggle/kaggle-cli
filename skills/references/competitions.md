@@ -116,7 +116,7 @@ kaggle competitions download [COMPETITION] [options]
 
 **Options:**
 
-- `-f, --file <NAME>`: Download one file. Downloads all files when omitted.
+- `-f, --file <NAME>`: Download one file. Downloads all files when omitted. A file inside a folder, such as `train/labels.csv`, keeps that folder under `--path`.
 - `-p, --path <PATH>`: Download directory.
 - `-w, --wp`: Download to current working path.
 - `-o, --force`: Force download even if local file looks current.
@@ -127,6 +127,7 @@ kaggle competitions download [COMPETITION] [options]
 ```bash
 kaggle competitions download titanic
 kaggle competitions download titanic -f train.csv -p data
+kaggle competitions download rsna-intracranial-aneurysm-detection -f kaggle_evaluation/rsna_gateway.py -p data
 kaggle c download -w -o -q
 ```
 
