@@ -1,6 +1,8 @@
 # coding=utf-8
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -64,6 +66,30 @@ class TestResolveDownloadPath(unittest.TestCase):
 
     def test_leading_separator_stays_inside_the_destination(self):
         self.assertEqual(self._resolve("/train/y.csv", base_name="y.csv"), os.path.normpath("dest/train/y.csv"))
+
+    def test_interior_parent_segment_is_collapsed(self):
+        # Asserted on the raw return value: normalizing it here would hide the bug.
+        outfile = _resolve_download_path("dest", "foo/../bar/y.csv", _signed_url("y.csv"))
+        self.assertEqual(outfile, os.path.join("dest", "bar", "y.csv"))
+
+    def test_creating_parent_directories_leaves_no_stray_directory(self):
+        # download_file() creates the parent directories, and an unnormalized "foo/.."
+        # makes it create an empty "foo" when the destination does not already exist.
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        destination = os.path.join(root, "new-download-dir")
+
+        outfile = _resolve_download_path(destination, "foo/../bar/y.csv", _signed_url("y.csv"))
+        parent = os.path.dirname(outfile)
+        if not os.path.exists(parent):
+            os.makedirs(parent)
+
+        self.assertEqual(sorted(os.listdir(destination)), ["bar"])
+
+    def test_destination_is_left_exactly_as_passed(self):
+        # Normalizing the whole path would rewrite the caller's own -p value.
+        outfile = _resolve_download_path("/tmp/download", "a/b/y.csv", _signed_url("y.csv"))
+        self.assertEqual(outfile, os.path.join("/tmp/download", "a", "b", "y.csv"))
 
     def test_rejects_parent_traversal(self):
         with self.assertRaises(ValueError):

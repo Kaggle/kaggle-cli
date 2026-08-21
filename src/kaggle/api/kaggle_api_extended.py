@@ -539,11 +539,15 @@ def _resolve_download_path(destination: str, file_name: str, url: str) -> str:
     files are served compressed (a request for `foo.csv` arrives as `foo.csv.zip`) and
     only the URL records that.
 
+    Only the relative part is normalized, so an interior `..` cannot survive into the
+    result and leave a stray directory behind when the parent directories are created,
+    while `destination` stays exactly as the caller passed it.
+
     Raises ValueError if the resolved path would land outside `destination`.
     """
     base_name = url.split("?")[0].split("/")[-1]
     parts = [part for part in (file_name or "").replace("\\", "/").split("/") if part not in ("", ".")]
-    outfile = os.path.join(destination, *parts[:-1], base_name)
+    outfile = os.path.join(destination, os.path.normpath(os.path.join(*parts[:-1], base_name)))
     if not _is_within_directory(os.path.realpath(destination), os.path.realpath(outfile)):
         raise ValueError(f"Refusing to download '{file_name}': resolves outside destination '{destination}'")
     return outfile
