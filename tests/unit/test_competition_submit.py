@@ -223,6 +223,51 @@ class TestCompetitionSubmit(unittest.TestCase):
         self.assertIn("Using competition: config-comp", f.getvalue())
 
 
+class TestCompetitionSubmitCli(unittest.TestCase):
+    """Tests for competition_submit_cli argument validation."""
+
+    def setUp(self):
+        self.api = KaggleApi.__new__(KaggleApi)
+        self.api.config_values = {"username": "testuser"}
+        self.api.already_printed_version_warning = True
+
+    def test_cli_code_submission_requires_kernel_and_version_together(self):
+        with self.assertRaises(ValueError) as context:
+            self.api.competition_submit_cli(
+                file_name="output.csv",
+                message="message",
+                competition="comp-name",
+                version="1",
+            )
+        self.assertIn(
+            "Code competition submissions require both the kernel name and the version number",
+            str(context.exception),
+        )
+
+        with self.assertRaises(ValueError) as context:
+            self.api.competition_submit_cli(
+                file_name="output.csv",
+                message="message",
+                competition="comp-name",
+                kernel="owner/notebook",
+            )
+        self.assertIn(
+            "Code competition submissions require both the kernel name and the version number",
+            str(context.exception),
+        )
+
+    def test_cli_code_submission_requires_file(self):
+        with self.assertRaises(ValueError) as context:
+            self.api.competition_submit_cli(
+                file_name=None,
+                message="message",
+                competition="comp-name",
+                kernel="owner/notebook",
+                version="1",
+            )
+        self.assertIn("No file specified", str(context.exception))
+
+
 class TestCompetitionSubmitCliLimits(unittest.TestCase):
     """After a successful submit, the CLI wrapper should print the remaining
     submission allowance for the day. Limits errors must not fail the submit."""

@@ -2197,7 +2197,11 @@ class KaggleApi:
             str:
         """
         if kernel and not version or version and not kernel:
-            raise ValueError("Code competition submissions require both the output file name and the version number")
+            raise ValueError(
+                "Code competition submissions require both the kernel name and the version number"
+            )
+        if kernel and not file_name:
+            raise ValueError("No file specified")
         if wait is not None:
             if poll_interval < self._MIN_POLL_INTERVAL:
                 raise ValueError(
