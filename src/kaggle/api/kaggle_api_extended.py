@@ -1024,15 +1024,26 @@ def format_http_error(error: HTTPError) -> str:
     return f"{message}\n\n{hint}" if hint else message
 
 
-def _extract_and_remove_zip(archive: str, destination: str) -> None:
+def _extract_and_remove_zip(archive: str, destination: str, unwrap_to: Optional[str] = None) -> None:
     """Extracts `archive` into `destination` and then deletes the archive.
 
-    zipfile.extractall() drops '..' segments and absolute prefixes from member names,
-    so extraction cannot escape `destination`.
+    `unwrap_to` is the path a server side single file wrapper should produce. The one
+    member is written there rather than to the name recorded inside the archive, so the
+    result does not depend on whether the server stores the file under its base name or
+    under the path that was requested. An archive holding any other number of members is
+    treated as a bundle.
+
+    Bundles go through zipfile.extractall(), which drops '..' segments and absolute
+    prefixes from member names, so extraction cannot escape `destination`.
     """
     try:
         with zipfile.ZipFile(archive) as z:
-            z.extractall(destination)
+            members = z.namelist()
+            if unwrap_to is not None and len(members) == 1:
+                with z.open(members[0]) as source, open(unwrap_to, "wb") as target:
+                    shutil.copyfileobj(source, target)
+            else:
+                z.extractall(destination)
     except zipfile.BadZipFile:
         raise ValueError(
             f"The file {archive} is corrupted or not a valid zip file. "
@@ -2702,7 +2713,7 @@ class KaggleApi:
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
         if unzip and _is_auto_compressed(outfile, file_name):
-            _extract_and_remove_zip(outfile, os.path.dirname(outfile))
+            _extract_and_remove_zip(outfile, os.path.dirname(outfile), unwrap_to=outfile[: -len(".zip")])
 
     def competition_download_files(
         self,
@@ -5618,7 +5629,7 @@ class KaggleApi:
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
         if unzip and _is_auto_compressed(outfile, file_name):
-            _extract_and_remove_zip(outfile, os.path.dirname(outfile))
+            _extract_and_remove_zip(outfile, os.path.dirname(outfile), unwrap_to=outfile[: -len(".zip")])
 
         return downloaded
 

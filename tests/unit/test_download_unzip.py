@@ -89,6 +89,39 @@ class TestExtractAndRemoveZip(unittest.TestCase):
 
         self.assertEqual(sorted(os.listdir(self.root)), ["dest"])
 
+    def test_unwrap_to_writes_the_single_member_to_the_named_path(self):
+        archive = os.path.join(self.destination, "big.csv.zip")
+        _write_zip(archive, {"big.csv": b"payload"})
+        target = os.path.join(self.destination, "big.csv")
+
+        _extract_and_remove_zip(archive, self.destination, unwrap_to=target)
+
+        self.assertEqual(sorted(os.listdir(self.destination)), ["big.csv"])
+        with open(target, "rb") as unwrapped:
+            self.assertEqual(unwrapped.read(), b"payload")
+
+    def test_unwrap_to_ignores_the_name_recorded_inside_the_archive(self):
+        # The server records the base name today, but the result must not depend on it.
+        nested = os.path.join(self.destination, "WICAgencies2014ytd")
+        os.makedirs(nested)
+        archive = os.path.join(nested, "Food_Costs.csv.zip")
+        _write_zip(archive, {"WICAgencies2014ytd/Food_Costs.csv": b"payload"})
+        target = os.path.join(nested, "Food_Costs.csv")
+
+        _extract_and_remove_zip(archive, nested, unwrap_to=target)
+
+        self.assertEqual(sorted(os.listdir(nested)), ["Food_Costs.csv"])
+        with open(target, "rb") as unwrapped:
+            self.assertEqual(unwrapped.read(), b"payload")
+
+    def test_unwrap_to_falls_back_to_a_bundle_when_there_are_several_members(self):
+        archive = os.path.join(self.destination, "big.csv.zip")
+        _write_zip(archive, {"one.csv": b"a", "two.csv": b"b"})
+
+        _extract_and_remove_zip(archive, self.destination, unwrap_to=os.path.join(self.destination, "big.csv"))
+
+        self.assertEqual(sorted(os.listdir(self.destination)), ["one.csv", "two.csv"])
+
     def test_corrupted_archive_raises_value_error(self):
         archive = os.path.join(self.destination, "bundle.zip")
         with open(archive, "wb") as broken:
@@ -212,6 +245,22 @@ class TestDatasetDownloadFileUnzip(_DownloadTestCase):
 
         self.assertTrue(os.path.isfile(self._paths("WICAgencies2014ytd", "Food_Costs.csv")))
         self.assertFalse(os.path.exists(self._paths("WICAgencies2014ytd", "Food_Costs.csv.zip")))
+
+    @patch.object(KaggleApi, "download_needed", return_value=True)
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_nested_request_does_not_repeat_the_directory(self, mock_client, mock_download_file, mock_needed):
+        # An archive that stored the full requested path must not produce
+        # WICAgencies2014ytd/WICAgencies2014ytd/Food_Costs.csv.
+        self._mock_client(mock_client, "Food_Costs.csv.zip")
+        mock_download_file.side_effect = self._writes_zip({"WICAgencies2014ytd/Food_Costs.csv": b"x"})
+
+        self.api.dataset_download_file(
+            "owner/ds", "WICAgencies2014ytd/Food_Costs.csv", path=self.destination, unzip=True
+        )
+
+        self.assertTrue(os.path.isfile(self._paths("WICAgencies2014ytd", "Food_Costs.csv")))
+        self.assertFalse(os.path.exists(self._paths("WICAgencies2014ytd", "WICAgencies2014ytd")))
 
     @patch.object(KaggleApi, "download_needed", return_value=False)
     @patch.object(KaggleApi, "download_file")
