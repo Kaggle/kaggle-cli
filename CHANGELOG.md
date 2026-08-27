@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Honor `--unzip` when downloading a single file with `kaggle datasets download -f`, which extracts the file from the zip archive the server wraps large files in, and add `--unzip` to `kaggle competitions download`
 * Keep the requested folder when downloading a single file with `kaggle datasets download -f` or `kaggle competitions download -f`, instead of writing it to the download root
 * Add `kaggle competitions host-add <comp> -u <user>` to grant host access on a competition to a Kaggle user
 * Suggest a next step on 403/404/429/5xx API errors, report unexpected errors as bugs instead of a traceback (with a new `--debug` flag), and list common examples in `kaggle --help`

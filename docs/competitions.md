@@ -102,6 +102,7 @@ kaggle competitions download <COMPETITION> [options]
 *   `-f, --file <FILE_NAME>`: Specific file to download (downloads all if not specified). A file inside a folder, such as `train/labels.csv`, keeps that folder under the download path.
 *   `-p, --path <PATH>`: Folder to download files to (defaults to current directory).
 *   `-w, --wp`: Download files to the current working path (equivalent to `-p .`).
+*   `--unzip`: Unzip the downloaded file (deletes the .zip file afterwards).
 *   `-o, --force`: Force download, overwriting existing files.
 *   `-q, --quiet`: Suppress verbose output.
 
@@ -123,6 +124,12 @@ kaggle competitions download <COMPETITION> [options]
 
     ```bash
     kaggle competitions download rsna-intracranial-aneurysm-detection -f kaggle_evaluation/rsna_gateway.py -p data
+    ```
+
+4.  Download all files for the "titanic" competition into `data` and extract them, leaving no zip behind:
+
+    ```bash
+    kaggle competitions download titanic -p data --unzip
     ```
 
 **Purpose:**

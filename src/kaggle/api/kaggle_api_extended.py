@@ -553,6 +553,17 @@ def _resolve_download_path(destination: str, file_name: str, url: str) -> str:
     return outfile
 
 
+def _is_auto_compressed(outfile: str, file_name: str) -> bool:
+    """True when the server wrapped the requested file in a zip archive of the same name.
+
+    Large files are served compressed, so a request for `foo.csv` arrives as `foo.csv.zip`.
+    Requiring the exact `<requested>.zip` name leaves a file that is genuinely a `.zip`
+    inside the dataset alone, since its download is not renamed.
+    """
+    requested = os.path.basename((file_name or "").replace("\\", "/").rstrip("/"))
+    return bool(requested) and os.path.basename(outfile) == requested + ".zip"
+
+
 def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
     """Helper to check if a path should be ignored based on patterns."""
     import fnmatch
@@ -1011,6 +1022,31 @@ def format_http_error(error: HTTPError) -> str:
     if response is not None and response.status_code >= 500:
         hint = "This is a problem on Kaggle's side, not with your command. Please try again later."
     return f"{message}\n\n{hint}" if hint else message
+
+
+def _extract_and_remove_zip(archive: str, destination: str) -> None:
+    """Extracts `archive` into `destination` and then deletes the archive.
+
+    zipfile.extractall() drops '..' segments and absolute prefixes from member names,
+    so extraction cannot escape `destination`.
+    """
+    try:
+        with zipfile.ZipFile(archive) as z:
+            z.extractall(destination)
+    except zipfile.BadZipFile:
+        raise ValueError(
+            f"The file {archive} is corrupted or not a valid zip file. "
+            f"Please report this issue at {ISSUE_TRACKER_URL}"
+        )
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The file {archive} was not found. Please report this issue at {ISSUE_TRACKER_URL}")
+    except Exception as e:
+        raise RuntimeError(f"An unexpected error occurred: {e}. Please report this issue at {ISSUE_TRACKER_URL}")
+
+    try:
+        os.remove(archive)
+    except OSError as e:
+        print("Could not delete zip file, got %s" % e)
 
 
 def print_auth_help() -> None:
@@ -2627,7 +2663,13 @@ class KaggleApi:
                 print("No files found")
 
     def competition_download_file(
-        self, competition: str, file_name: str, path: Optional[str] = None, force: bool = False, quiet: bool = False
+        self,
+        competition: str,
+        file_name: str,
+        path: Optional[str] = None,
+        force: bool = False,
+        quiet: bool = False,
+        unzip: bool = False,
     ) -> None:
         """Downloads a competition file.
 
@@ -2637,6 +2679,8 @@ class KaggleApi:
             path (Optional[str]): A path to download the file to.
             force (bool): Force the download if the file already exists (default False).
             quiet (bool): Suppress verbose output (default is False).
+            unzip (bool): If True, extract the file from the zip archive the server wraps
+                large files in, and delete the archive (default is False).
 
         Returns:
             None:
@@ -2657,8 +2701,16 @@ class KaggleApi:
         if force or self.download_needed(response, outfile, quiet):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
+        if unzip and _is_auto_compressed(outfile, file_name):
+            _extract_and_remove_zip(outfile, os.path.dirname(outfile))
+
     def competition_download_files(
-        self, competition: str, path: Optional[str] = None, force: bool = False, quiet: bool = True
+        self,
+        competition: str,
+        path: Optional[str] = None,
+        force: bool = False,
+        quiet: bool = True,
+        unzip: bool = False,
     ) -> None:
         """Downloads all competition files.
 
@@ -2667,6 +2719,9 @@ class KaggleApi:
             path (Optional[str]): A path to download the file to.
             force (bool): Force the download if the file already exists (default False).
             quiet (bool): Suppress verbose output (default is True).
+            unzip (bool): If True, extract the downloaded archive and delete it. Competition
+                data is served as a zip; a bundle served in any other format is left as is
+                (default is False).
 
         Returns:
             None:
@@ -2686,8 +2741,11 @@ class KaggleApi:
             if force or self.download_needed(response, outfile, quiet):
                 self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
+        if unzip and outfile.endswith(".zip"):
+            _extract_and_remove_zip(outfile, effective_path)
+
     def competition_download_cli(
-        self, competition, competition_opt=None, file_name=None, path=None, force=False, quiet=False
+        self, competition, competition_opt=None, file_name=None, path=None, force=False, quiet=False, unzip=False
     ):
         """Downloads competition files.
 
@@ -2698,6 +2756,7 @@ class KaggleApi:
             path: A path to download the file to.
             force: Force the download if the file already exists (default False).
             quiet: Suppress verbose output (default is False).
+            unzip: Extract the downloaded archive and delete it (default is False).
         """
         competition = competition or competition_opt
         if competition is None:
@@ -2709,9 +2768,9 @@ class KaggleApi:
             raise ValueError("No competition specified")
         else:
             if file_name is None:
-                self.competition_download_files(competition, path, force, quiet)
+                self.competition_download_files(competition, path, force, quiet, unzip)
             else:
-                self.competition_download_file(competition, file_name, path, force, quiet)
+                self.competition_download_file(competition, file_name, path, force, quiet, unzip)
 
     def competition_leaderboard_download(self, competition: str, path: str, quiet: bool = True) -> None:
         """Downloads a competition leaderboard.
@@ -5516,7 +5575,7 @@ class KaggleApi:
         dataset = dataset or dataset_opt
         return self.dataset_status(dataset, format=format)
 
-    def dataset_download_file(self, dataset, file_name, path=None, force=False, quiet=True, licenses=[]):
+    def dataset_download_file(self, dataset, file_name, path=None, force=False, quiet=True, licenses=[], unzip=False):
         """Download a single file for a dataset.
 
         Args:
@@ -5526,6 +5585,8 @@ class KaggleApi:
             force: force the download if the file already exists (default False)
             quiet: suppress verbose output (default is True)
             licenses: a list of license names, e.g. ['CC0-1.0']
+            unzip: if True, extract the file from the zip archive the server wraps large
+                files in, and delete the archive (default is False)
         """
         if "/" in dataset:
             self.validate_dataset_string(dataset)
@@ -5552,11 +5613,14 @@ class KaggleApi:
         url = response.request.url
         outfile = _resolve_download_path(effective_path, file_name, url)
 
-        if force or self.download_needed(response, outfile, quiet):
+        downloaded = force or self.download_needed(response, outfile, quiet)
+        if downloaded:
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
-            return True
-        else:
-            return False
+
+        if unzip and _is_auto_compressed(outfile, file_name):
+            _extract_and_remove_zip(outfile, os.path.dirname(outfile))
+
+        return downloaded
 
     def dataset_download_files(self, dataset, path=None, force=False, quiet=True, unzip=False, licenses=[]):
         """Downloads all files for a dataset.
@@ -5589,36 +5653,9 @@ class KaggleApi:
         outfile = os.path.join(effective_path, dataset_slug + ".zip")
         if force or self.download_needed(response, outfile, quiet):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
-            downloaded = True
-        else:
-            downloaded = False
 
-        if downloaded or unzip:
-            outfile = os.path.join(effective_path, dataset_slug + ".zip")
-            if unzip:
-                try:
-                    with zipfile.ZipFile(outfile) as z:
-                        z.extractall(effective_path)
-                except zipfile.BadZipFile as e:
-                    raise ValueError(
-                        f"The file {outfile} is corrupted or not a valid zip file. "
-                        "Please report this issue at https://www.github.com/kaggle/kaggle-cli/issues"
-                    )
-                except FileNotFoundError:
-                    raise FileNotFoundError(
-                        f"The file {outfile} was not found. "
-                        "Please report this issue at https://www.github.com/kaggle/kaggle-cli"
-                    )
-                except Exception as e:
-                    raise RuntimeError(
-                        f"An unexpected error occurred: {e}. "
-                        "Please report this issue at https://www.github.com/kaggle/kaggle-cli"
-                    )
-
-                try:
-                    os.remove(outfile)
-                except OSError as e:
-                    print("Could not delete zip file, got %s" % e)
+        if unzip:
+            _extract_and_remove_zip(outfile, effective_path)
 
     def _print_dataset_url_and_license(self, owner_slug, dataset_slug, dataset_version_number, licenses):
         if dataset_version_number is None:
@@ -5671,7 +5708,9 @@ class KaggleApi:
         if file_name is None:
             self.dataset_download_files(dataset, path=path, unzip=unzip, force=force, quiet=quiet, licenses=licenses)
         else:
-            self.dataset_download_file(dataset, file_name, path=path, force=force, quiet=quiet, licenses=licenses)
+            self.dataset_download_file(
+                dataset, file_name, path=path, force=force, quiet=quiet, licenses=licenses, unzip=unzip
+            )
 
     def _upload_blob(
         self,
