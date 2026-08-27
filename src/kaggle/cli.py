@@ -245,6 +245,9 @@ def parse_competitions(subparsers) -> None:
         "-w", "--wp", dest="path", action="store_const", const=".", required=False, help=Help.param_wp
     )
     parser_competitions_download_optional.add_argument(
+        "--unzip", dest="unzip", action="store_true", help=Help.param_unzip
+    )
+    parser_competitions_download_optional.add_argument(
         "-o", "--force", dest="force", action="store_true", help=Help.param_force
     )
     parser_competitions_download_optional.add_argument(
