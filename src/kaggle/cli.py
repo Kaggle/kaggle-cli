@@ -1419,6 +1419,9 @@ def parse_kernels(subparsers) -> None:
         "-t", "--timeout", type=int, dest="timeout", help=Help.param_kernel_timeout
     )
     parser_kernels_push_optional.add_argument("--accelerator", dest="acc", help=Help.param_kernel_acc)
+    parser_kernels_push_optional.add_argument(
+        "--no-run", dest="no_run", action="store_true", help=Help.param_kernel_no_run
+    )
     parser_kernels_push._action_groups.append(parser_kernels_push_optional)
     parser_kernels_push.set_defaults(func=api.kernels_push_cli)
 
@@ -3021,6 +3024,11 @@ options a specific command accepts."""
     param_kernel_pull_metadata = "Generate metadata when pulling kernel"
     param_kernel_output_file_pattern = (
         "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
+    )
+    param_kernel_no_run = (
+        "Save a new version without running the notebook, the equivalent of Quick Save in the web UI.\n"
+        "The version is created but no cell is executed. Use this when only prose, metadata or\n"
+        "sources changed."
     )
     param_kernel_acc = (
         "Specify the type of accelerator to use for the kernel run. Note: 'NvidiaTeslaP100' is not usable for GPU "

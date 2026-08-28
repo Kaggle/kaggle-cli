@@ -112,7 +112,7 @@ kaggle kernels init -p my-kernel
 
 ## `kaggle kernels push`
 
-Pushes code to a kernel and runs it.
+Pushes code to a kernel and runs it, or saves a version without running when `--no-run` is passed.
 
 **Usage:**
 
@@ -125,12 +125,14 @@ kaggle kernels push [options]
 - `-p, --path <FOLDER>`: Folder containing files and `kernel-metadata.json`.
 - `-t, --timeout <SECONDS>`: Limit run time, bounded by Kaggle's maximum.
 - `--accelerator <ACCELERATOR>`: Accelerator type for the kernel run.
+- `--no-run`: Save a new version without executing the notebook, the equivalent of Quick Save in the web UI.
 
 **Examples:**
 
 ```bash
 kaggle kernels push -p my-kernel --timeout 3600 --accelerator gpu
 kaggle kernels update -p my-kernel
+kaggle kernels push -p my-kernel --no-run
 ```
 
 **Purpose:** Upload local notebook/script code and create a new kernel version.

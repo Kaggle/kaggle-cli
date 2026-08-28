@@ -216,7 +216,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiDeleteKernelRequest,
     ApiGetAcceleratorQuotaStatisticsRequest,
 )
-from kagglesdk.kernels.types.kernels_enums import KernelsListSortType, KernelsListViewType
+from kagglesdk.kernels.types.kernels_enums import KernelExecutionType, KernelsListSortType, KernelsListViewType
 from kagglesdk.models.types.model_api_service import (
     ApiListModelsRequest,
     ApiCreateModelRequest,
@@ -7035,7 +7035,7 @@ class KaggleApi:
         print("Kernel metadata template written to: " + meta_file)
 
     def kernels_push(
-        self, folder: str, timeout: Optional[str] = None, acc: Optional[str] = None
+        self, folder: str, timeout: Optional[str] = None, acc: Optional[str] = None, no_run: bool = False
     ) -> ApiSaveKernelResponse:
         """Pushes a kernel to Kaggle.
 
@@ -7050,6 +7050,8 @@ class KaggleApi:
                 with the default Kaggle image, whose PyTorch build (cu128) omits Pascal (sm_60) kernels, so the first
                 CUDA operation fails with cudaErrorNoKernelImageForDevice even though torch.cuda.is_available() returns
                 True. Use "NvidiaTeslaT4" or install a Pascal-compatible torch build.
+            no_run (bool): Save a new version without executing the notebook, the equivalent of Quick Save in
+                the web UI. The default is to save and run.
 
         Returns:
             ApiSaveKernelResponse: An ApiSaveKernelResponse object.
@@ -7169,20 +7171,23 @@ class KaggleApi:
                 request.session_timeout_seconds = int(timeout)
             # The allowed names are in an enum that is not currently included in kagglesdk.
             request.machine_shape = acc if acc else self.get_or_default(meta_data, "machine_shape", None)
+            if no_run:
+                request.kernel_execution_type = KernelExecutionType.QUICK_SAVE
             # Without the type hint, mypy thinks save_kernel() has type Any when checking warn_return_any.
             response: ApiSaveKernelResponse = kaggle.kernels.kernels_api_client.save_kernel(request)
             return response
 
-    def kernels_push_cli(self, folder, timeout, acc):
+    def kernels_push_cli(self, folder, timeout, acc, no_run=False):
         """A client wrapper for kernels_push.
 
         Args:
             folder: The path to the folder.
             timeout: The maximum run time in seconds.
             acc: The accelerator to use.
+            no_run: Save a new version without running the notebook.
         """
         folder = folder or os.getcwd()
-        result = self.kernels_push(folder, timeout, acc)
+        result = self.kernels_push(folder, timeout, acc, no_run)
 
         if result is None:
             print("Kernel push error: see previous output")
@@ -7208,14 +7213,17 @@ class KaggleApi:
                     "be added to the kernel: " + str(result.invalidKernelSources)
                 )
 
+            # A quick save never starts the notebook, so pointing at run progress would be wrong.
+            if no_run:
+                outcome, where = "saved without running", "See"
+            else:
+                outcome, where = "pushed", "Please check progress at"
+
             if result.versionNumber:
-                print(
-                    "Kernel version %s successfully pushed.  Please check "
-                    "progress at %s" % (result.versionNumber, result.url)
-                )
+                print("Kernel version %s successfully %s.  %s %s" % (result.versionNumber, outcome, where, result.url))
             else:
                 # Shouldn't happen but didn't test exhaustively
-                print("Kernel version successfully pushed.  Please check " "progress at %s" % result.url)
+                print("Kernel version successfully %s.  %s %s" % (outcome, where, result.url))
         else:
             print("Kernel push error: " + result.error)
 

@@ -124,7 +124,7 @@ This command creates a template `kernel-metadata.json` file. You need to edit th
 
 ## `kaggle kernels push`
 
-Pushes new code/notebook and metadata to a kernel, then runs the kernel.
+Pushes new code/notebook and metadata to a kernel, then runs the kernel. Pass `--no-run` to save a new version without running it.
 
 **Usage:**
 
@@ -137,6 +137,7 @@ kaggle kernels push -p <FOLDER_PATH> [options]
 *   `--accelerator <ACCELERATOR_ID>`: ID name of the accelerator to use during the run. E.g. "NvidiaTeslaP100" (aka default GPU), "NvidiaTeslaT4", "TpuV6E8".
 *   `-p, --path <FOLDER_PATH>`: Path to the folder containing the kernel file (e.g., `.ipynb`, `.Rmd`, `.py`) and the `kernel-metadata.json` file (defaults to the current directory).
 *   `-t, --timeout <SECONDS>`: Maximum run time in seconds.
+*   `--no-run`: Save a new version without executing the notebook, the equivalent of Quick Save in the web UI. The version is created but no cell runs.
 
 **Example:**
 
@@ -144,6 +145,12 @@ Push the kernel from the `tests/kernel` folder (assuming it contains the kernel 
 
 ```bash
 kaggle kernels push -p tests/kernel
+```
+
+Save a new version without running it, for example after editing only a markdown cell:
+
+```bash
+kaggle kernels push -p tests/kernel --no-run
 ```
 
 **Purpose:**
