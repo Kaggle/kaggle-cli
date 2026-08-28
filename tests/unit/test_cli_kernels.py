@@ -136,6 +136,14 @@ def test_kernels_push_parser_default_succeeds(parser):
     assert kwargs.get("folder") is None
     assert kwargs.get("timeout") is None
     assert kwargs.get("acc") is None
+    assert kwargs.get("no_run") is False
+
+
+def test_kernels_push_parser_no_run_flag_succeeds(parser):
+    func, kwargs = parser.dispatch(["kernels", "push", "-p", "/path/to/kernel", "--no-run"])
+    assert func.__name__ == "kernels_push_cli"
+    assert kwargs["folder"] == "/path/to/kernel"
+    assert kwargs["no_run"] is True
 
 
 def test_kernels_push_parser_with_flags_succeeds(parser):
