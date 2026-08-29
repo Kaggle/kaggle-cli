@@ -5429,7 +5429,10 @@ class KaggleApi:
             else:
                 next_page_token = result.next_page_token
                 if next_page_token:
-                    print("Next Page Token = {}".format(next_page_token))
+                    print(
+                        "Next Page Token = {}".format(next_page_token),
+                        file=sys.stderr if output_format else sys.stdout,
+                    )
                 fields = ["name", "size", "creationDate"]
                 ApiDatasetFile.size = ApiDatasetFile.total_bytes  # type: ignore[attr-defined]
                 self.print_results(
