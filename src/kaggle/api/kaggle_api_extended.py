@@ -7426,11 +7426,18 @@ class KaggleApi:
             token = response.next_page_token
 
         outfiles = []
+        target_root = os.path.realpath(target_dir)
         for item in response.files or []:
             if compiled_pattern and not compiled_pattern.search(item.file_name):
                 continue
 
             outfile = os.path.join(target_dir, item.file_name)
+            # The name is relayed from the notebook's own output listing, so it is
+            # not trusted: a "../" or absolute name must not escape the target directory.
+            if not _is_within_directory(target_root, os.path.realpath(outfile)):
+                raise ValueError(
+                    f"Refusing to download '{item.file_name}': resolves outside destination '{target_dir}'"
+                )
             outfiles.append(outfile)
             download_response = requests.get(item.url, stream=True)
             # A failed fetch (e.g. an expired signed URL) still has a body, so
