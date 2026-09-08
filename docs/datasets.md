@@ -102,7 +102,7 @@ kaggle datasets download <DATASET> [options]
 *   `-f, --file <FILE_NAME>`: Specific file to download (downloads all if not specified). A file inside a folder, such as `train/labels.csv`, keeps that folder under the download path.
 *   `-p, --path <PATH>`: Folder to download files to (defaults to current directory).
 *   `-w, --wp`: Download files to the current working path.
-*   `--unzip`: Unzip the downloaded file (deletes the .zip file afterwards).
+*   `--unzip`: Unzip the downloaded file (deletes the .zip file afterwards). With `-f`, large files are served inside a zip archive of the same name, and this extracts the file from it.
 *   `-o, --force`: Force download, overwriting existing files.
 *   `-q, --quiet`: Suppress verbose output.
 
@@ -130,6 +130,12 @@ kaggle datasets download <DATASET> [options]
 
     ```bash
     kaggle datasets download jpmiller/publicassistance -f WICAgencies2014ytd/Food_Costs.csv -p data
+    ```
+
+5.  Download a single large file and extract it. `creditcard.csv` is served as `creditcard.csv.zip`, so without `--unzip` the archive is what lands on disk:
+
+    ```bash
+    kaggle datasets download mlg-ulb/creditcardfraud -f creditcard.csv -p data --unzip
     ```
 
 **Purpose:**

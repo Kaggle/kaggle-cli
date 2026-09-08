@@ -95,6 +95,7 @@ def test_competitions_download_parser_default_succeeds(parser):
     assert kwargs.get("competition") is None
     assert kwargs.get("file_name") is None
     assert kwargs.get("path") is None
+    assert kwargs.get("unzip") is False
     assert kwargs.get("force") is False
     assert kwargs.get("quiet") is False
 
@@ -109,6 +110,7 @@ def test_competitions_download_parser_with_flags_succeeds(parser):
             "file.csv",
             "-p",
             "/tmp/download",
+            "--unzip",
             "--force",
             "--quiet",
         ]
@@ -117,6 +119,7 @@ def test_competitions_download_parser_with_flags_succeeds(parser):
     assert kwargs["competition"] == "my-competition"
     assert kwargs["file_name"] == "file.csv"
     assert kwargs["path"] == "/tmp/download"
+    assert kwargs["unzip"] is True
     assert kwargs["force"] is True
     assert kwargs["quiet"] is True
 

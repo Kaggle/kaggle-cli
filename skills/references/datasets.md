@@ -108,7 +108,7 @@ kaggle datasets download [DATASET] [options]
 - `-f, --file <NAME>`: Download one file. Downloads all files when omitted. A file inside a folder, such as `train/labels.csv`, keeps that folder under `--path`.
 - `-p, --path <PATH>`: Download directory.
 - `-w, --wp`: Download to current working path.
-- `--unzip`: Unzip the downloaded archive and delete the zip.
+- `--unzip`: Unzip the downloaded archive and delete the zip. With `-f`, extracts the file from the zip archive the server wraps large files in.
 - `-o, --force`: Force download even if local file looks current.
 - `-q, --quiet`: Suppress progress output.
 
