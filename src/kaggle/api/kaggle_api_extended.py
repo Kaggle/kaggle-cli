@@ -483,6 +483,29 @@ DEFAULT_IGNORE_PATTERNS = [
     ".huggingface/",
 ]
 
+_RETIRED_ACCELERATORS = {
+    "nvidiateslap100": "Sessions run on the default GPU (NvidiaTeslaT4) instead.",
+    "tpuv38": "Sessions run on the default TPU (TpuV5E8) instead.",
+    "tpu1vmv38": "Sessions run on the default TPU (TpuV5E8) instead.",
+    "tpuv232": "Sessions run on CPU instead, with no accelerator at all.",
+    "tpuv2256": "Sessions run on CPU instead, with no accelerator at all.",
+}
+
+
+def _warn_if_retired_accelerator(machine_shape: Optional[str]) -> None:
+    """Warns that a retired accelerator will be substituted, without changing the request.
+
+    The server decides what a session actually runs on and silently falls back for a retired shape, so this
+    is advisory only: the push still goes through with the requested value.
+    """
+    shape = (machine_shape or "").strip()
+    detail = _RETIRED_ACCELERATORS.get(shape.lower())
+    if not detail:
+        return
+    msg1 = KaggleApi._warn(f"⚠ Warning: {shape!r} is retired.")
+    msg2 = KaggleApi._warn_detail(f"  {detail}")
+    print(f"{msg1}\n{msg2}", file=sys.stderr)
+
 
 def _is_within_directory(directory: str, target: str) -> bool:
     """True if `target` (already realpath'd) resolves inside `directory` (already realpath'd)."""
@@ -7084,28 +7107,6 @@ class KaggleApi:
         meta_file = self.kernels_initialize(folder)
         print("Kernel metadata template written to: " + meta_file)
 
-    RETIRED_ACCELERATORS = {
-        "nvidiateslap100": "Starting September 14, 2026, sessions run on the default GPU (NvidiaTeslaT4) instead.",
-        "tpuv38": "Sessions run on the default TPU (TpuV5E8) instead.",
-        "tpu1vmv38": "Sessions run on the default TPU (TpuV5E8) instead.",
-        "tpuv232": "Sessions run on CPU instead, with no accelerator at all.",
-        "tpuv2256": "Sessions run on CPU instead, with no accelerator at all.",
-    }
-
-    @classmethod
-    def _warn_if_retired_accelerator(cls, machine_shape: Optional[str]) -> None:
-        """Warns that a retired accelerator will be substituted, without changing the request.
-
-        The server decides what a session actually runs on and silently falls back for a retired shape, so
-        this is advisory only: the push still goes through with the requested value.
-        """
-        detail = cls.RETIRED_ACCELERATORS.get((machine_shape or "").strip().lower())
-        if not detail:
-            return
-        msg1 = cls._warn(f"Warning: {machine_shape!r} is retired.")
-        msg2 = cls._warn_detail(f"  {detail}")
-        print(f"{msg1}\n{msg2}", file=sys.stderr)
-
     def kernels_push(
         self, folder: str, timeout: Optional[str] = None, acc: Optional[str] = None, no_run: bool = False
     ) -> ApiSaveKernelResponse:
@@ -7241,7 +7242,7 @@ class KaggleApi:
                 request.session_timeout_seconds = int(timeout)
             # The allowed names are in an enum that is not currently included in kagglesdk.
             request.machine_shape = acc if acc else self.get_or_default(meta_data, "machine_shape", None)
-            self._warn_if_retired_accelerator(request.machine_shape)
+            _warn_if_retired_accelerator(request.machine_shape)
             if no_run:
                 request.kernel_execution_type = KernelExecutionType.QUICK_SAVE
             # Without the type hint, mypy thinks save_kernel() has type Any when checking warn_return_any.

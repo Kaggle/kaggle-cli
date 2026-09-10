@@ -77,7 +77,6 @@ class TestKernelsPushRetiredAccelerator(unittest.TestCase):
         _, stderr = self._push(mock_client, acc="NvidiaTeslaP100")
 
         self.assertIn("is retired", stderr)
-        self.assertIn("September 14, 2026", stderr)
         self.assertIn("NvidiaTeslaT4", stderr)
 
     @patch.object(KaggleApi, "build_kaggle_client")
@@ -95,8 +94,28 @@ class TestKernelsPushRetiredAccelerator(unittest.TestCase):
         self.assertIn("is retired", stderr)
 
     @patch.object(KaggleApi, "build_kaggle_client")
+    def test_surrounding_whitespace_is_matched_and_not_displayed(self, mock_client):
+        # Stray whitespace in kernel-metadata.json still matches, and quoting the raw value would show it.
+        _, stderr = self._push(mock_client, machine_shape="  NvidiaTeslaP100  ")
+
+        self.assertIn("'NvidiaTeslaP100' is retired", stderr)
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_warning_carries_the_shared_icon_prefix(self, mock_client):
+        # Other warnings in the CLI lead with this, so the visual style should match.
+        _, stderr = self._push(mock_client, acc="NvidiaTeslaP100")
+
+        self.assertIn("⚠ Warning:", stderr)
+
+    @patch.object(KaggleApi, "build_kaggle_client")
     def test_each_retired_shape_names_its_replacement(self, mock_client):
-        for acc, replacement in (("TpuV38", "TpuV5E8"), ("Tpu1VmV38", "TpuV5E8"), ("TpuV232", "CPU")):
+        for acc, replacement in (
+            ("NvidiaTeslaP100", "NvidiaTeslaT4"),
+            ("TpuV38", "TpuV5E8"),
+            ("Tpu1VmV38", "TpuV5E8"),
+            ("TpuV232", "CPU"),
+            ("TpuV2256", "CPU"),
+        ):
             with self.subTest(acc=acc):
                 _, stderr = self._push(mock_client, acc=acc)
                 self.assertIn("is retired", stderr)
