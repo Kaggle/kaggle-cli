@@ -12,7 +12,7 @@ Changelog
 * Add `kaggle benchmarks quota` to show Model Proxy (AI inference) spend quota, and bump `kagglesdk` to `>= 0.1.37`
 * Add `kaggle competitions submission-download <id>` to download the submitted file for a single submission (requires `kagglesdk >= 0.1.36`)
 * Add `deadline` (Competition Deadline) to the competition settings command and bump `kagglesdk` to `>= 0.1.36`
-* Document that `NvidiaTeslaP100` is unusable for GPU compute with the default Kaggle image (PyTorch cu128 omits Pascal `sm_60` kernels)
+* Warn when `kaggle kernels push` requests a retired accelerator (`NvidiaTeslaP100`, `TpuV38`, `Tpu1VmV38`, `TpuV232` or `TpuV2256`), since the server runs the session on a replacement instead. Drop the retired shapes from the docs
 * Add unified `kaggle search` command across competitions, datasets, notebooks, models, users, and discussions
 * Add `--wait`/`--poll-interval` to `kaggle competitions submit` to wait for scoring, and add `kaggle competitions submission <ref>` to look up a single submission's status and score
 

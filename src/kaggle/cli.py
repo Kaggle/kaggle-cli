@@ -3034,9 +3034,8 @@ options a specific command accepts."""
         "sources changed."
     )
     param_kernel_acc = (
-        "Specify the type of accelerator to use for the kernel run. Note: 'NvidiaTeslaP100' is not usable for GPU "
-        "compute with the default Kaggle image, whose PyTorch build (cu128) omits Pascal (sm_60) kernels; use "
-        "'NvidiaTeslaT4' instead."
+        "Specify the type of accelerator to use for the kernel run. Retired accelerators such as "
+        "'NvidiaTeslaP100' are accepted but warn, since the session runs on a replacement instead."
     )
     param_kernel_logs_follow = "Stream live execution logs from the running session (like tail -f)"
     param_kernel_logs_interval = argparse.SUPPRESS  # Deprecated; live streaming is push-based.

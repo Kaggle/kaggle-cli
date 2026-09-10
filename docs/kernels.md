@@ -134,7 +134,7 @@ kaggle kernels push -p <FOLDER_PATH> [options]
 
 **Options:**
 
-*   `--accelerator <ACCELERATOR_ID>`: ID name of the accelerator to use during the run. E.g. "NvidiaTeslaP100" (aka default GPU), "NvidiaTeslaT4", "TpuV6E8".
+*   `--accelerator <ACCELERATOR_ID>`: ID name of the accelerator to use during the run. E.g. "NvidiaTeslaT4" (aka default GPU), "NvidiaL4", "TpuV6E8".
 *   `-p, --path <FOLDER_PATH>`: Path to the folder containing the kernel file (e.g., `.ipynb`, `.Rmd`, `.py`) and the `kernel-metadata.json` file (defaults to the current directory).
 *   `-t, --timeout <SECONDS>`: Maximum run time in seconds.
 *   `--no-run`: Save a new version without executing the notebook, the equivalent of Quick Save in the web UI. The version is created but no cell runs.
@@ -157,13 +157,10 @@ kaggle kernels push -p tests/kernel --no-run
 
 This command uploads your local kernel file and its metadata to Kaggle. If the kernel specified in the metadata exists under your account, it will be updated. Otherwise, a new kernel will be created. After uploading, Kaggle will attempt to run the kernel.
 
-Accelerators available as of Feb 2026:
+Accelerators available as of Sep 2026:
 
-* NvidiaTeslaP100
-* TpuV38
 * NvidiaTeslaT4
 * NvidiaTeslaT4Highmem
-* Tpu1VmV38
 * NvidiaTeslaA100
 * NvidiaL4
 * TpuV5E8
@@ -173,9 +170,6 @@ Accelerators available as of Feb 2026:
 * NvidiaRtxPro6000
 
 Some of these are only available to participants of specific competitions, and some are only available to Kaggle admins.
-
-> [!WARNING]
-> `NvidiaTeslaP100` is not usable for GPU compute with the default Kaggle image. Its PyTorch build (cu128) does not include Pascal (`sm_60`) kernels, so `torch.cuda.is_available()` returns `True` but the first CUDA operation fails with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` instead, or install a Pascal-compatible torch build if you require a P100.
 
 ## `kaggle kernels pull`
 

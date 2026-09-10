@@ -137,11 +137,12 @@ kaggle kernels push -p my-kernel --no-run
 
 **Purpose:** Upload local notebook/script code and create a new kernel version.
 
-**Notes:** `NvidiaTeslaP100` is not usable for GPU compute with the default
-Kaggle image, whose PyTorch build (cu128) omits Pascal (`sm_60`) kernels:
-`torch.cuda.is_available()` returns `True`, but the first CUDA operation fails
-with `cudaErrorNoKernelImageForDevice`. Use `NvidiaTeslaT4` or
-install a Pascal-compatible torch build.
+**Notes:** The CLI warns when you request a retired accelerator. Pushing still
+succeeds — the server decides what a session actually runs on.
+
+- `NvidiaTeslaP100` runs on the default GPU (`NvidiaTeslaT4`) instead.
+- `TpuV38` and `Tpu1VmV38` run on the default TPU (`TpuV5E8`) instead.
+- `TpuV232` and `TpuV2256` run on CPU, with no accelerator at all.
 
 ## `kaggle kernels pull`
 
