@@ -59,6 +59,53 @@ class TestDatasetDelete(unittest.TestCase):
         # Verify success message was printed
         mock_print.assert_any_call('Dataset "owner/dataset-slug" deleted successfully.')
 
+    def test_dataset_delete_cli_with_version_raises_error(self):
+        """When a version is included in the dataset identifier, raise ValueError to prevent unintended deletion."""
+        with self.assertRaises(ValueError) as ctx:
+            self.api.dataset_delete_cli("owner/dataset-slug/3")
+        self.assertIn("version", str(ctx.exception).lower())
+        self.assertIn("owner/dataset-slug", str(ctx.exception))
+
+    def test_dataset_delete_cli_with_version_no_confirm_raises_error(self):
+        """Even with no_confirm=True (-y), versioned dataset identifier must raise ValueError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.api.dataset_delete_cli("owner/dataset-slug/3", no_confirm=True)
+        self.assertIn("version", str(ctx.exception).lower())
+
+    @patch("builtins.print")
+    @patch.object(KaggleApi, "confirmation", return_value=True)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_delete_cli_trailing_slash_accepted(self, mock_build, mock_confirmation, mock_print):
+        """A trailing slash without a version number should not be treated as a version specification."""
+        mock_kaggle = MagicMock()
+        mock_build.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_build.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.dataset_delete_cli("owner/dataset-slug/")
+
+        mock_confirmation.assert_called_once_with("delete the dataset: owner/dataset-slug")
+        mock_kaggle.datasets.dataset_api_client.delete_dataset.assert_called_once()
+
+    @patch("builtins.print")
+    @patch.object(KaggleApi, "confirmation", return_value=True)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_dataset_delete_cli_slug_only_succeeds(self, mock_build, mock_confirmation, mock_print):
+        """When dataset string has no owner slash, uses configured user and succeeds."""
+        mock_kaggle = MagicMock()
+        mock_build.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_build.return_value.__exit__ = MagicMock(return_value=False)
+
+        self.api.dataset_delete_cli("dataset-slug")
+
+        mock_confirmation.assert_called_once_with("delete the dataset: owner/dataset-slug")
+        mock_kaggle.datasets.dataset_api_client.delete_dataset.assert_called_once()
+        mock_print.assert_any_call('Dataset "dataset-slug" deleted successfully.')
+
+    def test_dataset_delete_cli_none_raises_error(self):
+        """When dataset is None, raises ValueError."""
+        with self.assertRaises(ValueError):
+            self.api.dataset_delete_cli(None)
+
 
 if __name__ == "__main__":
     unittest.main()

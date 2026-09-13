@@ -6024,7 +6024,13 @@ class KaggleApi:
         """
         if dataset is None:
             raise ValueError("A dataset must be specified")
-        owner_slug, dataset_slug, _ = self.split_dataset_string(dataset)
+        owner_slug, dataset_slug, dataset_version = self.split_dataset_string(dataset)
+        if dataset_version is not None and dataset_version.strip() != "":
+            target_slug = f"{owner_slug}/{dataset_slug}" if owner_slug else dataset_slug
+            raise ValueError(
+                f"Deleting individual dataset versions is not supported (specified version: '{dataset_version}'). "
+                f"To delete the entire dataset, run: kaggle datasets delete {target_slug}"
+            )
 
         if self.dataset_delete(owner_slug, dataset_slug, no_confirm):
             print(f'Dataset "{dataset}" deleted successfully.')
