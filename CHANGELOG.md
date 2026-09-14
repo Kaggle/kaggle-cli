@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Show why a submission failed in `kaggle competitions submission <ref>`, which already comes back in the API response but was not displayed
 * Honor `-k/--kernel` in `kaggle kernels pull`, which was ignored when the positional kernel argument was omitted, causing the CLI to fall back to the local `kernel-metadata.json` and pull a different kernel
 * Refuse to write a `kaggle kernels output` file whose server-supplied name resolves outside the requested `--path` directory
 * Add `--no-run` to `kaggle kernels push` to save a new version without executing the notebook, the equivalent of Quick Save in the web UI

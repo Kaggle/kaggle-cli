@@ -2454,6 +2454,11 @@ class KaggleApi:
         rows = [
             ("Submission Ref", submission.ref),
             ("Status", status),
+        ]
+        error = (submission.error_description or "").strip()
+        if error:
+            rows.append(("Error", error))
+        rows += [
             ("Public Score", submission.public_score),
             ("Private Score", submission.private_score),
             ("Description", submission.description),
@@ -2462,6 +2467,8 @@ class KaggleApi:
         width = max(len(label) for label, _ in rows)
         for label, value in rows:
             display = "" if value is None else self.string(value)
+            # A scoring error can span several lines; keep the rest aligned under the first.
+            display = display.replace("\n", "\n" + " " * (width + 2))
             print("%-*s %s" % (width + 1, label + ":", display))
 
     def competition_download_submission(

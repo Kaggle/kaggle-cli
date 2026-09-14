@@ -195,7 +195,7 @@ Use this command to upload your predictions or code to a competition for scoring
 
 ## `kaggle competitions submission`
 
-Shows the status and score of a single submission by its numeric ref (as printed by `kaggle competitions submit`).
+Shows the status and score of a single submission by its numeric ref (as printed by `kaggle competitions submit`). When a submission failed to score, the reason is shown as well.
 
 **Usage:**
 
@@ -219,6 +219,18 @@ Output:
 Submission Ref:  12345678
 Status:          COMPLETE
 Public Score:    0.98765
+Private Score:
+Description:     Test message
+Submission Date: 2026-07-19 12:00:00
+```
+
+A submission that failed to score also reports why:
+
+```
+Submission Ref:  12345679
+Status:          ERROR
+Error:           Evaluation Exception: Submission must have 418 rows
+Public Score:
 Private Score:
 Description:     Test message
 Submission Date: 2026-07-19 12:00:00
