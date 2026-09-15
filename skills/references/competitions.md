@@ -172,7 +172,7 @@ hosts/admins. Code competition submission uses `-k`, `-f`, and optional `-v`.
 
 ## `kaggle competitions submission`
 
-Shows the status and score of a single submission by its numeric ref.
+Shows the status and score of a single submission by its numeric ref, and the reason when it failed to score.
 
 **Usage:**
 
@@ -187,7 +187,8 @@ kaggle competitions submission 12345678
 ```
 
 **Purpose:** Check whether a submission has finished scoring and read its public
-score (e.g. after submitting without `--wait`, or when polling from a script).
+score (e.g. after submitting without `--wait`, or when polling from a script), or
+find out why it failed.
 
 ## `kaggle competitions submissions`
 

@@ -296,6 +296,72 @@ def test_submission_cli_displays_fields():
     api.get_submission.assert_called_once_with("12345")
 
 
+def test_submission_cli_shows_the_scoring_error():
+    api = _api()
+    api.get_submission = MagicMock(
+        return_value=_submission(
+            SubmissionStatus.ERROR,
+            public=None,
+            private=None,
+            error="Evaluation Exception: Submission must have 418 rows",
+        )
+    )
+
+    out = io.StringIO()
+    with redirect_stdout(out):
+        api.competition_submission_cli("12345")
+
+    printed = out.getvalue()
+    assert "Error:" in printed
+    assert "Evaluation Exception: Submission must have 418 rows" in printed
+
+
+def test_submission_cli_aligns_a_multi_line_scoring_error():
+    api = _api()
+    error = (
+        "ERROR: Unexpected Column:  'NotAnId' (Line 1, Column 1)\n"
+        "ERROR: Required column 'PassengerId' could not be found"
+    )
+    api.get_submission = MagicMock(
+        return_value=_submission(SubmissionStatus.ERROR, public=None, private=None, error=error)
+    )
+
+    out = io.StringIO()
+    with redirect_stdout(out):
+        api.competition_submission_cli("12345")
+
+    lines = out.getvalue().splitlines()
+    first = next(i for i, line in enumerate(lines) if line.startswith("Error:"))
+    indent = lines[first].index("ERROR: Unexpected")
+    # The continuation line starts in the same column as the first, not at the margin.
+    assert lines[first + 1].startswith(" " * indent)
+    assert lines[first + 1].strip() == "ERROR: Required column 'PassengerId' could not be found"
+
+
+def test_submission_cli_omits_the_error_row_when_there_is_none():
+    api = _api()
+    api.get_submission = MagicMock(return_value=_submission(SubmissionStatus.COMPLETE))
+
+    out = io.StringIO()
+    with redirect_stdout(out):
+        api.competition_submission_cli("12345")
+
+    printed = out.getvalue()
+    assert "Error:" not in printed
+    assert "COMPLETE" in printed
+
+
+def test_submission_cli_ignores_a_blank_error_description():
+    api = _api()
+    api.get_submission = MagicMock(return_value=_submission(SubmissionStatus.ERROR, error="   "))
+
+    out = io.StringIO()
+    with redirect_stdout(out):
+        api.competition_submission_cli("12345")
+
+    assert "Error:" not in out.getvalue()
+
+
 def test_submission_cli_missing_ref_fails():
     api = _api()
     with pytest.raises(ValueError) as ctx:
