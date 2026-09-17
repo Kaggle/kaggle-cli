@@ -124,7 +124,7 @@ kaggle kernels push [options]
 
 - `-p, --path <FOLDER>`: Folder containing files and `kernel-metadata.json`.
 - `-t, --timeout <SECONDS>`: Limit run time, bounded by Kaggle's maximum.
-- `--accelerator <ACCELERATOR>`: Accelerator type for the kernel run (e.g. `NvidiaTeslaT4`, `NvidiaTeslaT4Highmem` for GPU T4 ×2, `TpuV5E8` for TPU v5e-8).
+- `--accelerator <ACCELERATOR>`: Accelerator type for the kernel run (e.g. `NvidiaTeslaT4` for GPU T4 ×2, `TpuV5E8` for TPU v5e-8).
 - `--no-run`: Save a new version without executing the notebook, the equivalent of Quick Save in the web UI.
 
 **Examples:**
