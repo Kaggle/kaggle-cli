@@ -35,7 +35,7 @@ We currently support the following metadata fields for kernels.
 * `is_private`: Whether or not the kernel should be private. If not specified, will be `true`.
 * `enable_gpu`: Whether or not the kernel should run on a GPU. If not specified, will be `false`.
 * `enable_internet`: Whether or not the kernel should be able to access the internet. If not specified, will be `false`.
-* `machine_shape`: The accelerator/GPU type to use (e.g., `NvidiaTeslaT4`, `NvidiaL4`, or `TpuV5E8`).
+* `machine_shape`: The accelerator/GPU type to use (e.g., `NvidiaTeslaT4` for GPU T4, `NvidiaTeslaT4Highmem` for GPU T4 ×2, `NvidiaL4`, or `TpuV5E8` for TPU v5e-8).
 * `dataset_sources`: A list of dataset sources, specified as `"username/dataset-slug"`
 * `competition_sources`: A list of competition sources, specified as `"competition-slug"`
 * `kernel_sources`: A list of kernel sources, specified as `"username/kernel-slug"`

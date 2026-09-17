@@ -3036,7 +3036,8 @@ options a specific command accepts."""
         "sources changed."
     )
     param_kernel_acc = (
-        "Specify the type of accelerator to use for the kernel run. Retired accelerators such as "
+        "Specify the type of accelerator to use for the kernel run (e.g. 'NvidiaTeslaT4', "
+        "'NvidiaTeslaT4Highmem' for GPU T4 x2, or 'TpuV5E8' for TPU v5e-8). Retired accelerators such as "
         "'NvidiaTeslaP100' are accepted but warn, since the session runs on a replacement instead."
     )
     param_kernel_logs_follow = "Stream live execution logs from the running session (like tail -f)"

@@ -128,7 +128,7 @@ class TestKernelsPushRetiredAccelerator(unittest.TestCase):
         # status and competition allowlists decide that and the client cannot see any of it. Category names
         # such as "Gpu" ask for a kind of accelerator rather than a specific chip, so whatever the server
         # picks is what was requested; `--accelerator gpu` is a documented spelling.
-        for acc in ("NvidiaTeslaT4", "TpuV5E8", "NvidiaTeslaA100", "Gpu", "gpu"):
+        for acc in ("NvidiaTeslaT4", "NvidiaTeslaT4Highmem", "TpuV5E8", "NvidiaTeslaA100", "Gpu", "gpu"):
             with self.subTest(acc=acc):
                 _, stderr = self._push(mock_client, acc=acc)
                 self.assertEqual(stderr, "")
@@ -140,6 +140,13 @@ class TestKernelsPushRetiredAccelerator(unittest.TestCase):
         request, _ = self._push(mock_client, acc="NvidiaTeslaP100")
 
         self.assertEqual(request.machine_shape, "NvidiaTeslaP100")
+
+    def test_cli_accelerator_help_documents_t4_x2_and_tpu(self):
+        from kaggle.cli import Help
+
+        self.assertIn("NvidiaTeslaT4Highmem", Help.param_kernel_acc)
+        self.assertIn("GPU T4 x2", Help.param_kernel_acc)
+        self.assertIn("TpuV5E8", Help.param_kernel_acc)
 
 
 if __name__ == "__main__":

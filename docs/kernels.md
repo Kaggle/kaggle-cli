@@ -134,7 +134,7 @@ kaggle kernels push -p <FOLDER_PATH> [options]
 
 **Options:**
 
-*   `--accelerator <ACCELERATOR_ID>`: ID name of the accelerator to use during the run. E.g. "NvidiaTeslaT4" (aka default GPU), "NvidiaL4", "TpuV6E8".
+*   `--accelerator <ACCELERATOR_ID>`: ID name of the accelerator to use during the run. E.g. "NvidiaTeslaT4" (GPU T4, default GPU), "NvidiaTeslaT4Highmem" (GPU T4 ×2), "NvidiaL4", "TpuV5E8" (TPU v5e-8), "TpuV6E8".
 *   `-p, --path <FOLDER_PATH>`: Path to the folder containing the kernel file (e.g., `.ipynb`, `.Rmd`, `.py`) and the `kernel-metadata.json` file (defaults to the current directory).
 *   `-t, --timeout <SECONDS>`: Maximum run time in seconds.
 *   `--no-run`: Save a new version without executing the notebook, the equivalent of Quick Save in the web UI. The version is created but no cell runs.
@@ -159,11 +159,11 @@ This command uploads your local kernel file and its metadata to Kaggle. If the k
 
 Accelerators available as of Sep 2026:
 
-* NvidiaTeslaT4
-* NvidiaTeslaT4Highmem
+* NvidiaTeslaT4 (GPU T4)
+* NvidiaTeslaT4Highmem (GPU T4 ×2)
 * NvidiaTeslaA100
 * NvidiaL4
-* TpuV5E8
+* TpuV5E8 (TPU v5e-8)
 * NvidiaL4X1
 * TpuV6E8
 * NvidiaH100
