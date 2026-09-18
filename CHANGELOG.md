@@ -18,6 +18,7 @@ Changelog
 * Warn when `kaggle kernels push` requests a retired accelerator (`NvidiaTeslaP100`, `TpuV38`, `Tpu1VmV38`, `TpuV232` or `TpuV2256`), since the server runs the session on a replacement instead. Drop the retired shapes from the docs
 * Add unified `kaggle search` command across competitions, datasets, notebooks, models, users, and discussions
 * Add `--wait`/`--poll-interval` to `kaggle competitions submit` to wait for scoring, and add `kaggle competitions submission <ref>` to look up a single submission's status and score
+* Show `N/A` instead of `Fail` in `kaggle benchmarks leaderboard` for a task result the server returned without a pass/fail or numeric score, which was reported as a failed task
 
 ### 2.2.4
 

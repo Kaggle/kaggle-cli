@@ -11356,7 +11356,10 @@ class KaggleApi:
                 if result.result:
                     if result.result.numeric_result:
                         score = str(result.result.numeric_result.value)
-                    elif result.result.boolean_result is not None:
+                    # `boolean_result` coerces unset to False, so it can never be None here;
+                    # `in` is KaggleObject's presence check (the field is declared optional),
+                    # which keeps an unscored result at "N/A" instead of reporting it as "Fail".
+                    elif "boolean_result" in result.result:
                         score = "Pass" if result.result.boolean_result else "Fail"
                 setattr(row_view, field_name, score)
             items.append(row_view)
