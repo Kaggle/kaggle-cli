@@ -1,4 +1,5 @@
 import argparse
+import json
 from unittest.mock import MagicMock, patch
 import pytest
 import os
@@ -40,9 +41,6 @@ def _make_leaderboard_response(rows_data):
             if "score" in t_data:
                 res.numeric_result.value = t_data["score"]
                 res.boolean_result = None
-            elif "pass" in t_data:
-                res.numeric_result = None
-                res.boolean_result = t_data["pass"]
             else:
                 res.numeric_result = None
                 res.boolean_result = None
@@ -282,3 +280,72 @@ class TestCliArgParsing:
         args = self._parse(cmd)
         for k, v in expected.items():
             assert getattr(args, k) == v
+
+
+def _leaderboard_from_server_json(task_results):
+    """Build a real ApiBenchmarkLeaderboard from server-shaped JSON.
+
+    Uses the SDK deserializer rather than MagicMock so the generated getters
+    behave as they do against the live API: ``boolean_result`` coerces an unset
+    field to ``False`` and never yields ``None``.
+    """
+    return ApiBenchmarkLeaderboard.from_json(
+        json.dumps({"rows": [{"modelVersionName": "Model A", "taskResults": task_results}]})
+    )
+
+
+class TestBenchmarksLeaderboardScoreRendering:
+    """Regression tests for how a task result is rendered as a score cell."""
+
+    @pytest.mark.parametrize(
+        "result_json, expected",
+        [
+            # A result the server never scored must not read as a failure.
+            pytest.param({"numericResultPublic": {"value": 0.87}}, "N/A", id="public-score-only"),
+            pytest.param({"numericResultPrivate": {"value": 0.87}}, "N/A", id="private-score-only"),
+            pytest.param({}, "N/A", id="empty-result"),
+            # Genuinely scored results keep rendering exactly as before.
+            pytest.param({"booleanResult": False}, "Fail", id="boolean-false"),
+            pytest.param({"booleanResult": True}, "Pass", id="boolean-true"),
+            pytest.param({"numericResult": {"value": 0.85}}, "0.85", id="numeric"),
+            pytest.param({"numericResult": {"value": 0.0}}, "0.0", id="numeric-zero"),
+        ],
+    )
+    def test_score_cell(self, api, capsys, result_json, expected):
+        # Arrange
+        api._mock_benchmarks.get_benchmark_leaderboard.return_value = _leaderboard_from_server_json(
+            [{"benchmarkTaskName": "Task 1", "benchmarkTaskSlug": "task-1", "result": result_json}]
+        )
+
+        # Act
+        api.benchmark_leaderboard_cli("owner/benchmark-slug", view=True, output_format="json")
+
+        # Assert
+        rows = json.loads(capsys.readouterr().out)
+        assert rows[0]["Task 1"] == expected
+
+    def test_unscored_result_is_not_reported_as_failure(self, api, capsys):
+        """A row mixing a scored and an unscored task keeps them distinct."""
+        # Arrange
+        api._mock_benchmarks.get_benchmark_leaderboard.return_value = _leaderboard_from_server_json(
+            [
+                {
+                    "benchmarkTaskName": "Task 1",
+                    "benchmarkTaskSlug": "task-1",
+                    "result": {"booleanResult": False},
+                },
+                {
+                    "benchmarkTaskName": "Task 2",
+                    "benchmarkTaskSlug": "task-2",
+                    "result": {"numericResultPublic": {"value": 0.9}},
+                },
+            ]
+        )
+
+        # Act
+        api.benchmark_leaderboard_cli("owner/benchmark-slug", view=True, output_format="json")
+
+        # Assert
+        row = json.loads(capsys.readouterr().out)[0]
+        assert row["Task 1"] == "Fail"
+        assert row["Task 2"] == "N/A"
