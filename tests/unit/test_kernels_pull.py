@@ -71,11 +71,12 @@ class TestKernelsPull(unittest.TestCase):
         # Call method with version
         self.api.kernels_pull("owner/my-slug/3", path=os.path.join("/tmp", "dummy"))
 
-        # Verify request has version in slug
+        # The version goes in version_label as v<N>; appended to the slug, the API returns 403.
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
-        self.assertEqual(request.kernel_slug, "my-slug/3")
+        self.assertEqual(request.kernel_slug, "my-slug")
+        self.assertEqual(request.version_label, "v3")
 
         # Verify file write (path should still use clean slug)
         expected_path = os.path.join("/tmp", "dummy", "my-slug.py")
@@ -123,11 +124,12 @@ class TestKernelsPull(unittest.TestCase):
         # Call method with metadata=True
         self.api.kernels_pull("owner/my-slug/3", path=os.path.join("/tmp", "dummy"), metadata=True)
 
-        # Verify request has version in slug
+        # The version goes in version_label as v<N>; appended to the slug, the API returns 403.
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
-        self.assertEqual(request.kernel_slug, "my-slug/3")
+        self.assertEqual(request.kernel_slug, "my-slug")
+        self.assertEqual(request.version_label, "v3")
 
         # Verify open was called twice (one for script, one for metadata)
         self.assertEqual(mock_open_file.call_count, 2)

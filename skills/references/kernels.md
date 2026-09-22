@@ -174,7 +174,7 @@ kaggle k pull owner/kernel-slug/3 -w -m
 
 ## `kaggle kernels output`
 
-Downloads output from the latest kernel run.
+Downloads output from a kernel run, the latest one unless a version is given.
 
 **Usage:**
 
@@ -196,6 +196,7 @@ kaggle kernels output [KERNEL] [options]
 
 ```bash
 kaggle kernels output owner/kernel-slug -p output
+kaggle kernels output owner/kernel-slug/2 -p output
 kaggle k output owner/kernel-slug --file-pattern ".*\\.png$"
 ```
 

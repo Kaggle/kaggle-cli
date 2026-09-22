@@ -7032,6 +7032,8 @@ class KaggleApi:
             request = ApiListKernelFilesRequest()
             request.kernel_slug = kernel_slug
             request.user_name = user_name
+            if kernel_version_number:
+                request.version_label = self._kernel_version_label(kernel_version_number)
             self._set_paging(request, page_size, page_token)
             return kaggle.kernels.kernels_api_client.list_kernel_files(request)
 
@@ -7352,7 +7354,9 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiGetKernelRequest()
             request.user_name = owner_slug
-            request.kernel_slug = f"{kernel_slug}/{version}" if version else kernel_slug
+            request.kernel_slug = kernel_slug
+            if version:
+                request.version_label = self._kernel_version_label(version)
 
             response = kaggle.kernels.kernels_api_client.get_kernel(request)
 
@@ -7503,6 +7507,8 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
+            if version:
+                request.version_label = self._kernel_version_label(version)
             self._set_paging(request, page_size, token)
             try:
                 response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
@@ -7617,6 +7623,8 @@ class KaggleApi:
             request = ApiGetKernelSessionStatusRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
+            if version:
+                request.version_label = self._kernel_version_label(version)
             try:
                 return kaggle.kernels.kernels_api_client.get_kernel_session_status(request)
             except HTTPError as e:
@@ -7654,7 +7662,8 @@ class KaggleApi:
             kernel (str): The kernel identifier in the format owner/kernel-slug.
 
         Returns:
-            str: The log content from the kernel's latest session.
+            str: The log content from the requested version's session, or the latest session
+                when no version is given.
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
@@ -7664,6 +7673,8 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
+            if version:
+                request.version_label = self._kernel_version_label(version)
             try:
                 response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
             except HTTPError as e:
@@ -7675,17 +7686,6 @@ class KaggleApi:
                     )
                 raise
         return response.log or ""
-
-    def _split_kernel(self, kernel: str | None) -> Tuple[str, str]:
-        """Split a kernel identifier into (owner_slug, kernel_slug)."""
-        if kernel is None:
-            raise ValueError("A kernel must be specified")
-        if "/" in kernel:
-            self.validate_kernel_string(kernel)
-            owner_slug, kernel_slug = kernel.split("/", 1)
-            return owner_slug, kernel_slug
-        owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
-        return owner_slug, kernel
 
     # Sentinel value emitted by the streaming endpoint to signal end-of-stream.
     _LOG_STREAM_END_SENTINEL = "END_OF_LOG"
@@ -7707,7 +7707,11 @@ class KaggleApi:
         Yields:
             Dict[str, str]: Parsed event payloads.
         """
-        owner_slug, kernel_slug = self._split_kernel(kernel)
+        if kernel is None:
+            raise ValueError("A kernel must be specified")
+        owner_slug, kernel_slug, version = self.parse_kernel_string(kernel)
+        # This endpoint takes the version as a query parameter; putting it in the path returns 404.
+        params = {"versionLabel": self._kernel_version_label(version)} if version else None
 
         with self.build_kaggle_client() as kaggle:
             http = kaggle._http_client
@@ -7720,7 +7724,7 @@ class KaggleApi:
             headers.pop("Content-Type", None)
 
             try:
-                response = http._session.get(url, stream=True, headers=headers, auth=http._session.auth)
+                response = http._session.get(url, stream=True, headers=headers, auth=http._session.auth, params=params)
                 response.raise_for_status()
             except HTTPError as e:
                 if e.response is not None and e.response.status_code in (401, 403):
@@ -7789,7 +7793,8 @@ class KaggleApi:
         """Print kernel execution logs to stdout.
 
         In one-shot mode (default) prints the persisted log blob for the
-        kernel's latest session. In `--follow` mode attaches to the midtier
+        requested version's session, or the latest one when no version is
+        given. In `--follow` mode attaches to the midtier
         SSE log stream and prints log lines as they are produced by the
         running session, exiting when the server signals end-of-stream.
         Transient connection drops are retried transparently; the server
@@ -9850,6 +9855,16 @@ class KaggleApi:
         else:
             owner = self.get_config_value(self.CONFIG_NAME_USER) or ""
             return owner, kernel, None
+
+    @staticmethod
+    def _kernel_version_label(version: str) -> str:
+        """Formats a kernel version for the API's `version_label` field.
+
+        `kernels push` reports versions as plain numbers, but the API expects them written as
+        `v<N>` and returns 404 for the bare number. A number is prefixed; anything else, including
+        a value that already reads `v2`, is passed through unchanged.
+        """
+        return f"v{version}" if version.isdigit() else version
 
     def validate_resources(
         self, folder: str, resources: List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]
