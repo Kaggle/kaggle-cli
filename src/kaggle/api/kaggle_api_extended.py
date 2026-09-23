@@ -7020,7 +7020,7 @@ class KaggleApi:
         """Lists files for a kernel.
 
         Args:
-            kernel: The string identifier of the kernel, in the format [owner]/[kernel-name].
+            kernel: The string identifier of the kernel, in the format owner/kernel-slug or owner/kernel-slug/version.
             page_token: The page token for pagination.
             page_size: The number of items per page.
         """
@@ -7043,7 +7043,7 @@ class KaggleApi:
         """A client wrapper for kernel_list_files.
 
         Args:
-            kernel: The string identifier of the kernel, in the format [owner]/[kernel-name].
+            kernel: The string identifier of the kernel, in the format owner/kernel-slug or owner/kernel-slug/version.
             kernel_opt: An alternative option to providing a kernel.
             csv_display: If True, print comma-separated values instead of a table.
             page_token: The page token for pagination.
@@ -7659,7 +7659,7 @@ class KaggleApi:
         """Retrieves the execution log for a specified kernel.
 
         Args:
-            kernel (str): The kernel identifier in the format owner/kernel-slug.
+            kernel (str): The kernel identifier in the format owner/kernel-slug or owner/kernel-slug/version.
 
         Returns:
             str: The log content from the requested version's session, or the latest session
@@ -7702,7 +7702,7 @@ class KaggleApi:
         `{"data": ...}` events either way.
 
         Args:
-            kernel: The kernel identifier in the format owner/kernel-slug.
+            kernel: The kernel identifier in the format owner/kernel-slug or owner/kernel-slug/version.
 
         Yields:
             Dict[str, str]: Parsed event payloads.
