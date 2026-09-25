@@ -5990,10 +5990,14 @@ class KaggleApi:
         """
         if kernel is None:
             raise ValueError("A kernel must be specified")
-        if "/" not in kernel:
-            raise ValueError("Kernel must be in format [owner]/[kernel-name]")
-
-        owner_slug, kernel_slug = kernel.split("/")
+        # Tolerate a trailing slash like datasets delete does ("owner/slug/" == "owner/slug").
+        kernel = kernel[:-1] if kernel.endswith("/") and len(kernel) > 1 else kernel
+        owner_slug, kernel_slug, kernel_version = self.parse_kernel_string(kernel)
+        if kernel_version is not None and kernel_version.strip() != "":
+            raise ValueError(
+                f"Deleting individual kernel versions is not supported (specified version: '{kernel_version}'). "
+                f"To delete the entire kernel, run: kaggle kernels delete {owner_slug}/{kernel_slug}"
+            )
 
         if not no_confirm:
             if not self.confirmation(f"delete the kernel: {kernel}"):
