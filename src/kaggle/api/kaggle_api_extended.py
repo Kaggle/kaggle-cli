@@ -5993,7 +5993,12 @@ class KaggleApi:
         if "/" not in kernel:
             raise ValueError("Kernel must be in format [owner]/[kernel-name]")
 
-        owner_slug, kernel_slug = kernel.split("/")
+        owner_slug, kernel_slug, kernel_version = self.parse_kernel_string(kernel)
+        if kernel_version:
+            raise ValueError(
+                f"Deleting individual kernel versions is not supported (specified version: '{kernel_version}'). "
+                f"To delete the entire kernel, run: kaggle kernels delete {owner_slug}/{kernel_slug}"
+            )
 
         if not no_confirm:
             if not self.confirmation(f"delete the kernel: {kernel}"):

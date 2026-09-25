@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Reject kernel version numbers in `kaggle kernels delete` with a clear error instead of `ValueError: too many values to unpack`, matching `kaggle datasets delete`
 * Honor the version in `<owner>/<kernel>/<version>` for `kaggle kernels pull`, `output`, `status`, `files` and `logs`, which previously returned 403 for `pull` and acted on the latest version for the others
 * Reject dataset version numbers in `kaggle datasets delete` to prevent unintentionally deleting an entire dataset when targeting a single version
 * Show why a submission failed in `kaggle competitions submission <ref>`, which already comes back in the API response but was not displayed
