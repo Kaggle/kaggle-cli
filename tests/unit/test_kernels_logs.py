@@ -55,6 +55,7 @@ class TestKernelsLogs(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
         mock_get.return_value = MagicMock(content=b"png")
         self.api.download_needed = MagicMock(return_value=True)  # type: ignore[method-assign]
+        self.api.download_file = MagicMock()  # type: ignore[method-assign]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
@@ -64,7 +65,7 @@ class TestKernelsLogs(unittest.TestCase):
         self.assertEqual(token, "")
         self.assertEqual(len(outfiles), 1)
         self.assertTrue(outfiles[0].endswith("result.png"))
-        mock_get.assert_called_once_with("https://example.com/result.png", stream=True)
+        mock_get.assert_called_once_with("https://example.com/result.png", stream=True, timeout=300)
         self.assertEqual(mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_count, 2)
         second_request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args_list[1][0][0]
         self.assertEqual(second_request.page_token, "page-2")
@@ -85,6 +86,7 @@ class TestKernelsLogs(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
         mock_get.return_value = MagicMock(content=b"csv")
         self.api.download_needed = MagicMock(return_value=True)  # type: ignore[method-assign]
+        self.api.download_file = MagicMock()  # type: ignore[method-assign]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
