@@ -7538,15 +7538,17 @@ class KaggleApi:
                     f"Refusing to download '{item.file_name}': resolves outside destination '{target_dir}'"
                 )
             outfiles.append(outfile)
-            download_response = requests.get(item.url, stream=True)
+            download_response = requests.get(item.url, stream=True, timeout=300)
             # A failed fetch (e.g. an expired signed URL) still has a body, so
             # writing it would save the error page as the output file and still
             # report success. Fail loudly instead, like every other download.
             download_response.raise_for_status()
             if force or self.download_needed(download_response, outfile, quiet):
-                os.makedirs(os.path.split(outfile)[0], exist_ok=True)
-                with open(outfile, "wb") as out:
-                    out.write(download_response.content)
+                # Same path as dataset and competition files: streamed in chunks
+                # rather than held in memory, checked against Content-Length, and
+                # resumed if the connection drops. download_file does not use the
+                # client, and the one opened above is already closed.
+                self.download_file(download_response, outfile, None, quiet, not force)
                 if not quiet:
                     print("Output file downloaded to %s" % outfile)
 

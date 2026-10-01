@@ -34,12 +34,17 @@ class TestKernelsOutputPaths(unittest.TestCase):
         mock_kaggle = MagicMock()
         mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.return_value = response
 
+        def fake_download_file(api, response, outfile, *args, **kwargs):
+            os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            with open(outfile, "wb") as f:
+                f.write(b"payload")
+
         with (
             patch.object(KaggleApi, "build_kaggle_client") as mock_client,
             patch("kaggle.api.kaggle_api_extended.requests.get") as mock_get,
+            patch.object(KaggleApi, "download_file", autospec=True, side_effect=fake_download_file),
         ):
             self.mock_get = mock_get
-            mock_get.return_value = MagicMock(content=b"payload")
             mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             outfiles, _ = self.api.kernels_output("owner/kernel-slug", target_dir, quiet=True)
