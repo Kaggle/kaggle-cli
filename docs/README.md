@@ -4,15 +4,42 @@ Welcome to the Kaggle CLI documentation. This guide provides detailed informatio
 
 ## Installation
 
-Note: Ensure you have Python 3.11+ and the package manager `pip` installed.
+Note: Ensure you have Python 3.11+.
 
-Install the `kaggle` package with [pip](https://pypi.org/project/pip/):
+Recommended: install with [pipx](https://pipx.pypa.io/) or [uv](https://docs.astral.sh/uv/),
+which installs the CLI in an isolated environment and works on all platforms:
+
+```sh
+pipx install kaggle
+# or
+uv tool install kaggle
+```
+
+### Alternative: pip
+
+You can also install the package with [pip](https://pypi.org/project/pip/):
 
 ```sh
 pip install kaggle
 ```
 
-If you run into a `Command kaggle not found` error, ensure that your Python executable scripts are in your $PATH. For a local user install on Linux, the default location is `~/.local/bin`. On Windows, the default location is `$PYTHON_HOME/Scripts`.
+### Troubleshooting
+
+If you see `error: externally-managed-environment`, your operating system protects its
+system Python (this is the default on recent Debian and Ubuntu releases, among others).
+Use pipx or uv as described above. If that is not an option, you can override the
+protection with `--break-system-packages`:
+
+```sh
+pip install --break-system-packages kaggle
+```
+
+Note: this installs the package into the system Python and may conflict with packages
+managed by your OS.
+
+If you run into a `Command kaggle not found` error, ensure that your Python executable
+scripts are in your $PATH. For a local user install on Linux, the default location is
+`~/.local/bin`. On Windows, the default location is `$PYTHON_HOME/Scripts`.
 
 ## Authentication
 
