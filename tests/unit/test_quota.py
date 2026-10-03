@@ -2,6 +2,7 @@
 import io
 import sys
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -41,6 +42,38 @@ class TestQuota(unittest.TestCase):
 
         result = self.api.quota_view()
         self.assertIs(result, expected)
+
+    @patch.object(KaggleApi, "quota_view")
+    def test_quota_refresh_timezone(self, mock_view):
+        for refresh_time, expected in (
+            (datetime(2026, 10, 3), "2026-10-03T00:00:00+00:00"),
+            (datetime(2026, 10, 3, tzinfo=timezone.utc), "2026-10-03T00:00:00+00:00"),
+            (
+                datetime(2026, 10, 2, 21, tzinfo=timezone(timedelta(hours=-3))),
+                "2026-10-02T21:00:00-03:00",
+            ),
+            (None, ""),
+        ):
+            for options in ({}, {"csv_display": True}, {"output_format": "csv"}, {"output_format": "json"}):
+                with self.subTest(refresh_time=refresh_time, options=options):
+                    mock_view.return_value = _build_response(gpu=_mock_quota(5, 30), refresh_time=refresh_time)
+                    captured = io.StringIO()
+                    with redirect_stdout(captured):
+                        self.api.quota_view_cli(**options)
+                    output = captured.getvalue()
+                    if options.get("output_format") == "json":
+                        import json
+
+                        self.assertEqual(json.loads(output)[0]["refreshAt"], expected)
+                    elif options.get("csv_display") or options.get("output_format") == "csv":
+                        import csv
+
+                        self.assertEqual(next(csv.DictReader(io.StringIO(output)))["refreshAt"], expected)
+                    elif expected:
+                        self.assertIn(expected, output)
+                    else:
+                        self.assertNotIn("None", output)
+                    self.assertIs(mock_view.return_value.quota_refresh_time, refresh_time)
 
     @patch.object(KaggleApi, "quota_view")
     def test_quota_view_cli_table(self, mock_view):
