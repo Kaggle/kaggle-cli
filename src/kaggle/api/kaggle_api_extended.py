@@ -6748,7 +6748,11 @@ class KaggleApi:
             output_format: The output format to use.
         """
         response = self.quota_view()
-        refresh = response.quota_refresh_time.isoformat() if response.quota_refresh_time else ""
+        refresh_time = response.quota_refresh_time
+        if refresh_time is not None and refresh_time.utcoffset() is None:
+            # The SDK returns UTC timestamps without timezone information.
+            refresh_time = refresh_time.replace(tzinfo=timezone.utc)
+        refresh = refresh_time.isoformat() if refresh_time is not None else ""
         rows = []
         for name, quota in (("GPU", response.gpu_quota), ("TPU", response.tpu_quota)):
             if quota is None:
