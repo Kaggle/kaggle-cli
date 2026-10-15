@@ -3,6 +3,8 @@ Changelog
 
 ### Next
 
+* Clear stale CPU/GPU image pins when pushing a TPU notebook pulled from a CPU/GPU session.
+
 * Exit non-zero from `kaggle competitions submit` when the submission file upload fails. It printed "Could not submit to competition" and exited 0, so scripts treated the failed submission as a success
 * Stream `kaggle kernels output` files to disk through the same download path as datasets and competitions, with a read timeout, a size check, and resume after a dropped connection. Each file used to be read into memory whole, so a 512 MiB output took about 1.2 GB of RAM, and a dropped connection failed the command and left an empty file behind
 * Honor the version in `<owner>/<kernel>/<version>` for `kaggle kernels pull`, `output`, `status`, `files` and `logs`, which previously returned 403 for `pull` and acted on the latest version for the others

@@ -7229,6 +7229,7 @@ class KaggleApi:
         with open(code_file, encoding="utf-8") as f:
             script_body = f.read()
 
+        enable_tpu = self.get_bool(meta_data, "enable_tpu", False)
         if kernel_type == "notebook":
             json_body = json.loads(script_body)
             if "cells" in json_body:
@@ -7239,6 +7240,10 @@ class KaggleApi:
                     # but the server expects just one
                     if "source" in cell and isinstance(cell["source"], list):
                         cell["source"] = "".join(cell["source"])
+            if enable_tpu:
+                kaggle_metadata = json_body.get("metadata", {}).get("kaggle", {})
+                if isinstance(kaggle_metadata, dict):
+                    kaggle_metadata.pop("dockerImageVersionId", None)
             script_body = json.dumps(json_body)
 
         with self.build_kaggle_client() as kaggle:
@@ -7251,7 +7256,7 @@ class KaggleApi:
             request.kernel_type = kernel_type
             request.is_private = self.get_bool(meta_data, "is_private", True)
             request.enable_gpu = self.get_bool(meta_data, "enable_gpu", False)
-            request.enable_tpu = self.get_bool(meta_data, "enable_tpu", False)
+            request.enable_tpu = enable_tpu
             request.enable_internet = self.get_bool(meta_data, "enable_internet", True)
             request.dataset_data_sources = dataset_sources
             request.competition_data_sources = self.get_or_default(meta_data, "competition_sources", [])
@@ -7259,7 +7264,9 @@ class KaggleApi:
             request.model_data_sources = model_sources
             request.category_ids = self.get_or_default(meta_data, "keywords", [])
             request.docker_image_pinning_type = docker_pinning_type  # type: ignore[assignment]
-            request.docker_image = self.get_or_default(meta_data, "docker_image", None)
+            request.docker_image = (
+                None if enable_tpu else self.get_or_default(meta_data, "docker_image", None)
+            )
             if timeout:
                 request.session_timeout_seconds = int(timeout)
             # The allowed names are in an enum that is not currently included in kagglesdk.
