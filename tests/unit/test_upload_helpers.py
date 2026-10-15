@@ -959,5 +959,39 @@ class TestResumableUploadStateDir(unittest.TestCase):
             self.assertEqual(resumed.start_blob_upload_response.token, "valid-token")
 
 
+class TestUploadInfoFilePath(unittest.TestCase):
+    """The upload state for a file must be a single file directly inside the state dir."""
+
+    def setUp(self):
+        from kaggle.api.kaggle_api_extended import ResumableUploadContext
+
+        self.context = ResumableUploadContext(no_resume=True)
+
+    def test_paths_are_flattened_to_one_file_name(self):
+        paths = [
+            "C:/Users/me/data/train.csv",  # Windows path with forward slashes (Git Bash, pathlib.as_posix)
+            "C:\\Users\\me\\data\\train.csv",
+            "C:/Users\\me/data\\train.csv",
+            "/home/me/data/train.csv",
+            "data/train.csv",
+        ]
+        for path in paths:
+            with self.subTest(path=path):
+                info = self.context.get_upload_info_file_path(path)
+                self.assertEqual(os.path.dirname(info), self.context._temp_dir)
+                self.assertNotRegex(os.path.basename(info), r"[\\/:]")
+
+    def test_state_file_can_be_written_for_a_forward_slash_windows_path(self):
+        temp_dir = tempfile.mkdtemp()
+        try:
+            self.context._temp_dir = temp_dir
+            info = self.context.get_upload_info_file_path("C:/Users/me/data/train.csv")
+            with open(info, "w") as f:
+                f.write("{}")
+            self.assertTrue(os.path.isfile(info))
+        finally:
+            shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()

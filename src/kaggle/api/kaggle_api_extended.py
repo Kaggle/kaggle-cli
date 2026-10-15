@@ -725,7 +725,10 @@ class ResumableUploadContext(object):
         Returns:
             str: The path to the upload info file.
         """
-        return os.path.join(self._temp_dir, "%s.json" % path.replace(os.path.sep, "_").replace(":", "_"))
+        # Flatten the path into a single file name. Both separators have to go: on Windows,
+        # paths such as "C:/data/file.csv" use "/" (os.path.altsep), and leaving it in would
+        # point at sub-directories of the state dir that do not exist.
+        return os.path.join(self._temp_dir, "%s.json" % re.sub(r"[\\/:]", "_", path))
 
     def new_resumable_file_upload(
         self, path: str, start_blob_upload_request: ApiStartBlobUploadRequest
