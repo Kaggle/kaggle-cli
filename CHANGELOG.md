@@ -4,6 +4,7 @@ Changelog
 ### Next
 
 * Report a 404 from `kaggle competitions submit` with a competition-specific hint on stderr, naming the notebook and version for code submissions. The check never matched a 404, so users got the generic `<owner>/<slug>` hint instead
+* Keep waiting in `kaggle benchmarks tasks push --wait` while a task is in a creation state the CLI doesn't recognize, such as the new `VALIDATING` (which kagglesdk reports as `UNSPECIFIED` once it maps unknown values instead of failing), and treat such a task as still pending when pushing a new version. Only `ERRORED`, `KERNEL_WITHOUT_RUN`, `VALIDATION_FAILED` and `NO_MODEL_SPECIFIED` are now reported as failures; before, any state other than queued, running or completed was reported as "creation failed"
 * Exit non-zero from `kaggle competitions submit` when the submission file upload fails. It printed "Could not submit to competition" and exited 0, so scripts treated the failed submission as a success
 * Stream `kaggle kernels output` files to disk through the same download path as datasets and competitions, with a read timeout, a size check, and resume after a dropped connection. Each file used to be read into memory whole, so a 512 MiB output took about 1.2 GB of RAM, and a dropped connection failed the command and left an empty file behind
 * Honor the version in `<owner>/<kernel>/<version>` for `kaggle kernels pull`, `output`, `status`, `files` and `logs`, which previously returned 403 for `pull` and acted on the latest version for the others

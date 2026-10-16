@@ -10006,14 +10006,19 @@ class KaggleApi:
 
     # -- Constants --
 
+    # Any run state not listed (including UNSPECIFIED and unknown states) is in progress.
     _TERMINAL_RUN_STATES = {
         BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED,
         BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED,
     }
 
-    _PENDING_CREATION_STATES = {
-        BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_QUEUED,
-        BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING,
+    # Any creation state that is neither COMPLETED nor listed here (including
+    # UNSPECIFIED and unknown states) is pending.
+    _FAILED_CREATION_STATES = {
+        BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED,
+        BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_KERNEL_WITHOUT_RUN,
+        BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_VALIDATION_FAILED,
+        BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_NO_MODEL_SPECIFIED,
     }
 
     _TASK_CREATION_COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
@@ -10098,6 +10103,11 @@ class KaggleApi:
         s = s.replace("BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_", "")
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
         return s
+
+    @classmethod
+    def _is_creation_pending(cls, state) -> bool:
+        """Return True if task creation is neither completed nor failed."""
+        return state != cls._TASK_CREATION_COMPLETED and state not in cls._FAILED_CREATION_STATES
 
     @staticmethod
     def _format_state(state) -> str:
@@ -10469,9 +10479,9 @@ class KaggleApi:
             task_info = self._get_benchmark_task(task, kaggle)
             state = task_info.creation_state
 
-            if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
+            if state == self._TASK_CREATION_COMPLETED:
                 return True
-            elif state not in self._PENDING_CREATION_STATES:
+            elif state in self._FAILED_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed (status: {self._clean_enum_str(state)})."
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
                 if error:
@@ -10776,7 +10786,7 @@ class KaggleApi:
             # If a previous push is still being created, wait or error.
             task_info = self._get_benchmark_task(task_slug, kaggle, allow_not_found=True)
             is_new_version = task_info is not None
-            if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
+            if task_info and self._is_creation_pending(task_info.creation_state):
                 if wait is None:
                     raise ValueError(
                         f"Task '{task_slug}' creation is still pending. "

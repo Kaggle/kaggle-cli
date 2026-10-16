@@ -32,11 +32,24 @@ QUEUED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE
 RUNNING = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING
 COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
 ERRORED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
+UNSPECIFIED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_UNSPECIFIED
+# VALIDATING is newer than the minimum supported kagglesdk; on older versions
+# stand in with a raw value the enum doesn't know, like any future state.
+VALIDATING = getattr(BenchmarkTaskVersionCreationState, "BENCHMARK_TASK_VERSION_CREATION_STATE_VALIDATING", 8)
+PENDING_CREATION_STATES = [QUEUED, RUNNING, VALIDATING, UNSPECIFIED]
+PENDING_CREATION_IDS = ["queued", "running", "validating", "unspecified"]
+FAILED_CREATION_STATES = [
+    ERRORED,
+    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_KERNEL_WITHOUT_RUN,
+    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_VALIDATION_FAILED,
+    BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_NO_MODEL_SPECIFIED,
+]
 
 RUN_QUEUED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_QUEUED
 RUN_RUNNING = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_RUNNING
 RUN_COMPLETED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
 RUN_ERRORED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED
+RUN_UNSPECIFIED = BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_UNSPECIFIED
 
 DEFAULT_TASK_CONTENT = '@task(name="my-task")\ndef evaluate(): pass\n'
 
@@ -287,7 +300,7 @@ class TestPush:
 
     # -- Server edge cases --
 
-    @pytest.mark.parametrize("state", [QUEUED, RUNNING], ids=["queued", "running"])
+    @pytest.mark.parametrize("state", PENDING_CREATION_STATES, ids=PENDING_CREATION_IDS)
     def test_push_rejects_pending_task_without_wait(self, api, tmp_path, state):
         """Push without --wait rejects when task is pending, with a --wait hint."""
         filepath = _write_task_file(tmp_path)
@@ -296,7 +309,7 @@ class TestPush:
             _push(api, "my-task", filepath)
         assert "--wait" in str(exc_info.value)
 
-    @pytest.mark.parametrize("state", [QUEUED, RUNNING], ids=["queued", "running"])
+    @pytest.mark.parametrize("state", PENDING_CREATION_STATES, ids=PENDING_CREATION_IDS)
     def test_push_wait_monitors_pending_then_pushes(self, api, capsys, tmp_path, state):
         """Push --wait with a pending task waits for existing creation, then pushes new version."""
         filepath = _write_task_file(tmp_path)
@@ -318,6 +331,15 @@ class TestPush:
         assert "already being created" in output
         assert "Pushed new version of my-task" in output
         # Verify the create API was still called (new version pushed)
+        api._mock_benchmarks.create_benchmark_task.assert_called_once()
+
+    @pytest.mark.parametrize("state", FAILED_CREATION_STATES, ids=lambda s: s.name.lower())
+    def test_push_proceeds_when_previous_version_failed(self, api, tmp_path, state):
+        """A failed previous version doesn't block pushing a new one."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=state)
+        _push(api, "my-task", filepath)
         api._mock_benchmarks.create_benchmark_task.assert_called_once()
 
     def test_push_propagates_server_error(self, api, tmp_path):
@@ -356,6 +378,36 @@ class TestPush:
         assert "Status" in output
         assert "Completed" in output
         assert "Model Output:" in output
+
+    @pytest.mark.parametrize("state", [VALIDATING, UNSPECIFIED], ids=["validating", "unspecified"])
+    def test_push_wait_keeps_polling_through_unknown_states(self, api, capsys, tmp_path, state):
+        """States that are neither completed nor failed keep polling until completion."""
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        api._mock_benchmarks.get_benchmark_task.side_effect = [
+            _make_task(state=COMPLETED),
+            _make_task(state=state),
+            _make_task(state=state),
+            _make_task(state=COMPLETED),
+        ]
+        with patch("time.sleep") as mock_sleep:
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
+        assert mock_sleep.call_count == 2
+        output = capsys.readouterr().out
+        assert "\nCompleted" in output
+        assert "Model Output:" in output
+
+    @pytest.mark.parametrize("state", FAILED_CREATION_STATES, ids=lambda s: s.name.lower())
+    def test_push_wait_raises_on_failed_creation(self, api, tmp_path, state):
+        filepath = _write_task_file(tmp_path)
+        _setup_create_response(api, "my-task")
+        api._mock_benchmarks.get_benchmark_task.side_effect = [
+            _make_task(state=COMPLETED),
+            _make_task(state=state),
+        ]
+        with patch("time.sleep") as mock_sleep, pytest.raises(ValueError, match="creation failed"):
+            api.benchmarks_tasks_push_cli("my-task", filepath, wait=0)
+        mock_sleep.assert_not_called()
 
     def test_push_adaptive_polling(self, api, tmp_path):
         filepath = _write_task_file(tmp_path)
@@ -454,6 +506,7 @@ class TestPush:
         """Push attaches Kaggle datasets via BenchmarkTaskOptions."""
         filepath = _write_task_file(tmp_path)
         _setup_create_response(api, "my-task")
+        _setup_completed_task(api)
         resp = api._mock_benchmarks.create_benchmark_task.return_value
         resp.options = MagicMock()
         resp.options.dataset_data_sources = ["user/dataset-one", "user/dataset-two"]
@@ -478,6 +531,7 @@ class TestPush:
         """Push warns about invalid/unresolvable Kaggle datasets."""
         filepath = _write_task_file(tmp_path)
         _setup_create_response(api, "my-task")
+        _setup_completed_task(api)
         resp = api._mock_benchmarks.create_benchmark_task.return_value
         resp.options = MagicMock()
         resp.options.dataset_data_sources = ["user/valid"]
@@ -495,6 +549,7 @@ class TestPush:
         """Push without --kaggle-dataset does not set options on the request."""
         filepath = _write_task_file(tmp_path)
         _setup_create_response(api, "my-task")
+        _setup_completed_task(api)
         _push(api, "my-task", filepath)
         request = api._mock_benchmarks.create_benchmark_task.call_args[0][0]
         # When no datasets are specified, options should not be set
@@ -740,6 +795,19 @@ class TestRun:
         output = capsys.readouterr().out
         assert "Waiting for run(s) to complete" in output
         assert "All runs completed" in output
+        assert "gemini-pro: COMPLETED" in output
+
+    def test_run_wait_treats_unspecified_run_state_as_in_progress(self, api, capsys):
+        _setup_completed_task(api)
+        _setup_batch_schedule(api, [_make_run_result()])
+        api._mock_benchmarks.list_benchmark_task_runs.side_effect = [
+            MagicMock(runs=[_make_run(state=RUN_UNSPECIFIED)], next_page_token=""),
+            MagicMock(runs=[_make_run(state=RUN_COMPLETED)], next_page_token=""),
+        ]
+        with patch("time.sleep"):
+            api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], wait=0)
+        output = capsys.readouterr().out
+        assert "1 run(s) still in progress" in output
         assert "gemini-pro: COMPLETED" in output
 
     def test_run_adaptive_polling(self, api):
@@ -1133,6 +1201,7 @@ class TestFormatState:
             (QUEUED, "Queued"),
             (RUNNING, "Running"),
             (ERRORED, "Errored"),
+            (UNSPECIFIED, "Unspecified"),
         ],
     )
     def test_known_creation_states(self, state, expected):
