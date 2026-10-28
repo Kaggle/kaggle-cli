@@ -161,6 +161,29 @@ class TestBenchmarksLeaderboard:
         assert lines[0] == "Model,Task 1"
         assert lines[1] == "Model A,0.85"
 
+    def test_benchmark_leaderboard_cli_empty_task_slugs_keep_all_columns(self, api, capsys):
+        # Arrange: Game Arena leaderboards send every column with an empty slug.
+        rows_data = [
+            {
+                "model_name": "Model A",
+                "model_slug": "model-a",
+                "results": [
+                    {"task_name": "Score", "task_slug": "", "score": 535.1},
+                    {"task_name": "Matches Played", "task_slug": "", "score": 7221},
+                    {"task_name": "Games Covered", "task_slug": "", "score": 15},
+                ],
+            }
+        ]
+        api._mock_benchmarks.get_benchmark_leaderboard.return_value = _make_leaderboard_response(rows_data)
+
+        # Act
+        api.benchmark_leaderboard_cli("kaggle/game-arena", view=True, csv_display=True)
+
+        # Assert
+        lines = [l.strip() for l in capsys.readouterr().out.strip().split("\n")]
+        assert lines[0] == "Model,Score,Matches Played,Games Covered"
+        assert lines[1] == "Model A,535.1,7221,15"
+
     def test_benchmark_leaderboard_cli_no_show_or_download_raises_value_error(self, api):
         with pytest.raises(ValueError, match="Either --show or --download must be specified"):
             api.benchmark_leaderboard_cli("owner/benchmark-slug")

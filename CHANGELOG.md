@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Show every column in `kaggle benchmarks leaderboard` for Game Arena leaderboards (`kaggle/game-arena`, `kaggle/chess-text`, `kaggle/poker-heads-up`, ...). Their columns share an empty task slug, so all but the last collapsed into one and the headline score was dropped from `--show` and `--download`
 * Validate bare slugs in `kaggle kernels delete` and require an explicit owner when no username is configured, before confirmation or API access
 * Clear stale CPU/GPU image pins when pushing a TPU notebook pulled from a CPU/GPU session
 * Add `--public` to `kaggle competitions leaderboard`, which returns the public leaderboard from `--show`. Once a competition has concluded `--show` returns the final leaderboard and `--download` returns the public one, and neither said which
