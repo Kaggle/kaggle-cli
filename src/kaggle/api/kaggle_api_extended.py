@@ -6025,8 +6025,13 @@ class KaggleApi:
                 f"To delete the entire kernel, run: kaggle kernels delete {owner_slug}/{kernel_slug}"
             )
 
+        if not owner_slug.strip():
+            raise ValueError("A kernel owner is required. Specify the kernel as <owner>/<kernel-name>.")
+        kernel_ref = f"{owner_slug}/{kernel_slug}"
+        self.validate_kernel_string(kernel_ref)
+
         if not no_confirm:
-            if not self.confirmation(f"delete the kernel: {owner_slug}/{kernel_slug}"):
+            if not self.confirmation(f"delete the kernel: {kernel_ref}"):
                 print("Deletion cancelled")
                 return
 
@@ -6035,7 +6040,7 @@ class KaggleApi:
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
             kaggle.kernels.kernels_api_client.delete_kernel(request)
-            print(f"Kernel {owner_slug}/{kernel_slug} deleted successfully")
+            print(f"Kernel {kernel_ref} deleted successfully")
 
     def kernels_delete_cli(self, kernel: str, no_confirm: bool = False) -> None:
         """A client wrapper for deleting a kernel.

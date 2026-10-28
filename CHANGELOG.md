@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Validate bare slugs in `kaggle kernels delete` and require an explicit owner when no username is configured, before confirmation or API access
 * Clear stale CPU/GPU image pins when pushing a TPU notebook pulled from a CPU/GPU session
 * Add `--public` to `kaggle competitions leaderboard`, which returns the public leaderboard from `--show`. Once a competition has concluded `--show` returns the final leaderboard and `--download` returns the public one, and neither said which
 * Fix `kaggle datasets create/version` (and other uploads) failing on Windows with `[Errno 2] No such file or directory` when the path uses forward slashes, such as `C:/data` from Git Bash: the resumable-upload state file name kept the `/` separators and pointed into sub-directories that do not exist

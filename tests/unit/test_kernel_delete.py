@@ -112,6 +112,52 @@ class TestKernelsDelete(unittest.TestCase):
         self.assertEqual(req.kernel_slug, "kernel-slug")
         mock_print.assert_any_call("Kernel owner/kernel-slug deleted successfully")
 
+    @patch.object(KaggleApi, "confirmation")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_short_bare_slug_rejected_before_confirmation(self, mock_build, mock_confirmation):
+        for no_confirm in (False, True):
+            with self.subTest(no_confirm=no_confirm):
+                with self.assertRaisesRegex(ValueError, "at least five characters"):
+                    self.api.kernels_delete("tiny", no_confirm=no_confirm)
+        mock_confirmation.assert_not_called()
+        mock_build.assert_not_called()
+
+    @patch.object(KaggleApi, "confirmation")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_bare_slug_without_username_rejected(self, mock_build, mock_confirmation):
+        for username in (None, "", "   "):
+            self.api.config_values = {"username": username}
+            for no_confirm in (False, True):
+                with self.subTest(username=username, no_confirm=no_confirm):
+                    with self.assertRaisesRegex(ValueError, "A kernel owner is required"):
+                        self.api.kernels_delete("kernel-slug", no_confirm=no_confirm)
+        mock_confirmation.assert_not_called()
+        mock_build.assert_not_called()
+
+    @patch.object(KaggleApi, "confirmation")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_whitespace_owner_rejected_before_confirmation(self, mock_build, mock_confirmation):
+        for no_confirm in (False, True):
+            with self.subTest(no_confirm=no_confirm):
+                with self.assertRaisesRegex(ValueError, "A kernel owner is required"):
+                    self.api.kernels_delete("  /kernel-slug", no_confirm=no_confirm)
+        mock_confirmation.assert_not_called()
+        mock_build.assert_not_called()
+
+    @patch("builtins.print")
+    @patch.object(KaggleApi, "confirmation")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_explicit_owner_without_configured_username(self, mock_build, mock_confirmation, mock_print):
+        self.api.config_values = {}
+        self.api.kernels_delete("owner/kernel-slug", no_confirm=True)
+        mock_confirmation.assert_not_called()
+        client = mock_build.return_value.__enter__.return_value
+        client.kernels.kernels_api_client.delete_kernel.assert_called_once()
+        request = client.kernels.kernels_api_client.delete_kernel.call_args.args[0]
+        self.assertEqual(request.user_name, "owner")
+        self.assertEqual(request.kernel_slug, "kernel-slug")
+        mock_print.assert_any_call("Kernel owner/kernel-slug deleted successfully")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -286,8 +286,9 @@ def test_kernels_delete_parser_succeeds(parser):
 
 @pytest.mark.parametrize("argv", [["kernels", "delete", "--help"], ["kernels", "topics", "list", "--help"]])
 def test_kernels_help_does_not_advertise_a_version(parser, capsys, argv):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exc:
         parser.dispatch(argv)
+    assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "<owner>/<kernel-name>" in out
     assert "<version>" not in out
