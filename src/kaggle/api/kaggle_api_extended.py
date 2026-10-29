@@ -9159,9 +9159,7 @@ class KaggleApi:
         if len(items) == 0:
             return
         for f, label in zip(fields, labels):
-            length = max(
-                len(f), len(label), max([len(self.string(getattr(i, self.camel_to_snake(f)))) for i in items])
-            )
+            length = max(len(f), len(label), max([len(self.string(getattr(i, self.camel_to_snake(f)))) for i in items]))
             justify = (
                 ">"
                 if isinstance(getattr(items[0], self.camel_to_snake(f)), int) or f == "size" or f == "reward"
