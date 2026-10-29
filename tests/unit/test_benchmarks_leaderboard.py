@@ -161,7 +161,27 @@ class TestBenchmarksLeaderboard:
         assert lines[0] == "Model,Task 1"
         assert lines[1] == "Model A,0.85"
 
-    def test_benchmark_leaderboard_cli_empty_task_slugs_keep_all_columns(self, api, capsys):
+    @pytest.mark.parametrize(
+        "csv_display, expected",
+        [
+            pytest.param(
+                True,
+                ["Model,Score,Matches Played,Games Covered", "Model A,535.1,7221,15"],
+                id="csv",
+            ),
+            # Each column must be at least as wide as its header, so values line up under it.
+            pytest.param(
+                False,
+                [
+                    "Model    Score   Matches Played  Games Covered",
+                    "-------  ------  --------------  -------------",
+                    "Model A  535.1   7221            15",
+                ],
+                id="table",
+            ),
+        ],
+    )
+    def test_benchmark_leaderboard_cli_empty_task_slugs_keep_all_columns(self, api, capsys, csv_display, expected):
         # Arrange: Game Arena leaderboards send every column with an empty slug.
         rows_data = [
             {
@@ -177,12 +197,11 @@ class TestBenchmarksLeaderboard:
         api._mock_benchmarks.get_benchmark_leaderboard.return_value = _make_leaderboard_response(rows_data)
 
         # Act
-        api.benchmark_leaderboard_cli("kaggle/game-arena", view=True, csv_display=True)
+        api.benchmark_leaderboard_cli("kaggle/game-arena", view=True, csv_display=csv_display)
 
         # Assert
-        lines = [l.strip() for l in capsys.readouterr().out.strip().split("\n")]
-        assert lines[0] == "Model,Score,Matches Played,Games Covered"
-        assert lines[1] == "Model A,535.1,7221,15"
+        lines = [l.rstrip() for l in capsys.readouterr().out.strip().split("\n")]
+        assert lines == expected
 
     def test_benchmark_leaderboard_cli_no_show_or_download_raises_value_error(self, api):
         with pytest.raises(ValueError, match="Either --show or --download must be specified"):
