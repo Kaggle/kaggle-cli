@@ -9158,8 +9158,8 @@ class KaggleApi:
         borders = []
         if len(items) == 0:
             return
-        for f in fields:
-            length = max(len(f), max([len(self.string(getattr(i, self.camel_to_snake(f)))) for i in items]))
+        for f, label in zip(fields, labels):
+            length = max(len(f), len(label), max([len(self.string(getattr(i, self.camel_to_snake(f)))) for i in items]))
             justify = (
                 ">"
                 if isinstance(getattr(items[0], self.camel_to_snake(f)), int) or f == "size" or f == "reward"
@@ -11396,27 +11396,23 @@ class KaggleApi:
                 print("No results found")
             return
 
-        # Flatten the response
-        tasks = {}  # slug -> name
+        # Flatten the response. Columns are keyed by (slug, name) in server order:
+        # some leaderboards (e.g. Game Arena) send every column with an empty slug.
+        tasks = {}  # (slug, name) -> field
         for row in response.rows:
             for result in row.task_results:
-                tasks[result.benchmark_task_slug] = result.benchmark_task_name
+                tasks.setdefault((result.benchmark_task_slug, result.benchmark_task_name), f"task_{len(tasks)}")
 
-        sorted_task_slugs = sorted(tasks.keys())
-
-        def slug_to_field(slug):
-            return slug.replace("-", "_")
-
-        fields = ["model"] + [slug_to_field(slug) for slug in sorted_task_slugs]
-        labels = ["Model"] + [tasks[slug] for slug in sorted_task_slugs]
+        fields = ["model"] + list(tasks.values())
+        labels = ["Model"] + [name for _, name in tasks]
 
         items = []
         for row in response.rows:
             row_view = BenchmarkLeaderboardRowView(row.model_version_name)
-            for slug in sorted_task_slugs:
-                setattr(row_view, slug_to_field(slug), "N/A")
+            for field_name in tasks.values():
+                setattr(row_view, field_name, "N/A")
             for result in row.task_results:
-                field_name = slug_to_field(result.benchmark_task_slug)
+                field_name = tasks[(result.benchmark_task_slug, result.benchmark_task_name)]
                 score = "N/A"
                 if result.result:
                     if result.result.numeric_result:
