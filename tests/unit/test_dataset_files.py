@@ -100,6 +100,32 @@ class TestDatasetListFilesCli(unittest.TestCase):
         self.assertEqual(json.loads(stdout), [{"name": "train.csv", "size": 1024, "creationDate": None}])
         self.assertNotIn("Next Page Token", stderr)
 
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_unrecognised_format_falls_back_to_table_on_stdout(self, mock_client):
+        """Only the exact `json` format moves the hint; `JSON` degrades to the table."""
+        mock_client.return_value.__enter__ = MagicMock(return_value=_mock_kaggle_client("next-token"))
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        stdout, stderr = self._run(output_format="JSON")
+
+        self.assertIn("Next Page Token = next-token", stdout)
+        self.assertEqual(stderr, "")
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_unwritable_stderr_falls_back_to_stdout(self, mock_client):
+        """A closed stderr must not turn the command into a failure."""
+        mock_client.return_value.__enter__ = MagicMock(return_value=_mock_kaggle_client("next-token"))
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        stdout = io.StringIO()
+        closed_stderr = io.StringIO()
+        closed_stderr.close()
+        with redirect_stdout(stdout), redirect_stderr(closed_stderr):
+            self.api.dataset_list_files_cli("owner/dataset-name", output_format="json")
+
+        self.assertIn("Next Page Token = next-token", stdout.getvalue())
+        self.assertIn('"name": "train.csv"', stdout.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5555,12 +5555,18 @@ class KaggleApi:
             else:
                 next_page_token = result.next_page_token
                 if next_page_token:
-                    token_stream = sys.stdout
+                    hint = "Next Page Token = {}".format(next_page_token)
                     if self._get_output_format(csv_display, output_format) == OutputFormat.JSON:
                         # JSON output is a documented machine-readable contract, so the
                         # pagination hint must not corrupt stdout.
-                        token_stream = sys.stderr
-                    print("Next Page Token = {}".format(next_page_token), file=token_stream)
+                        try:
+                            print(hint, file=sys.stderr)
+                        except (OSError, ValueError):
+                            # stderr is closed or otherwise unwritable: keep the historic
+                            # behaviour instead of failing the whole command.
+                            print(hint)
+                    else:
+                        print(hint)
                 fields = ["name", "size", "creationDate"]
                 ApiDatasetFile.size = ApiDatasetFile.total_bytes  # type: ignore[attr-defined]
                 self.print_results(
