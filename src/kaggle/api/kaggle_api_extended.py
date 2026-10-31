@@ -5555,7 +5555,12 @@ class KaggleApi:
             else:
                 next_page_token = result.next_page_token
                 if next_page_token:
-                    print("Next Page Token = {}".format(next_page_token))
+                    token_stream = sys.stdout
+                    if self._get_output_format(csv_display, output_format) == OutputFormat.JSON:
+                        # JSON output is a documented machine-readable contract, so the
+                        # pagination hint must not corrupt stdout.
+                        token_stream = sys.stderr
+                    print("Next Page Token = {}".format(next_page_token), file=token_stream)
                 fields = ["name", "size", "creationDate"]
                 ApiDatasetFile.size = ApiDatasetFile.total_bytes  # type: ignore[attr-defined]
                 self.print_results(
