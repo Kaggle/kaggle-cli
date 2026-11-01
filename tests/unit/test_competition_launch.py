@@ -1,10 +1,7 @@
 # coding=utf-8
-import sys
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
-
-sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
