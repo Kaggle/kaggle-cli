@@ -192,20 +192,13 @@ class TestWithRetryRateLimiting(unittest.TestCase):
     @patch("kaggle.api.kaggle_api_extended.time.sleep")
     @patch("builtins.print")
     def test_connect_timeout_is_retried(self, mock_print, mock_sleep):
-        call_count = 0
-
-        def failing_then_succeeding(*args):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise ConnectTimeout("timed out")
-            return "success"
+        failing_then_succeeding = MagicMock(side_effect=[ConnectTimeout("timed out"), "success"])
 
         wrapped = self.api.with_retry(failing_then_succeeding, max_retries=3)
         result = wrapped()
 
         self.assertEqual(result, "success")
-        self.assertEqual(call_count, 2)
+        self.assertEqual(failing_then_succeeding.call_count, 2)
         mock_sleep.assert_called_once()
 
     @patch("kaggle.api.kaggle_api_extended.time.sleep")
