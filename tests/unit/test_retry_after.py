@@ -145,14 +145,7 @@ class TestWithRetryRateLimiting(unittest.TestCase):
     def test_respects_retry_after_header(self, mock_print, mock_sleep):
         error = self._make_429_error(retry_after=42)
 
-        call_count = 0
-
-        def failing_then_succeeding(*args):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise error
-            return "success"
+        failing_then_succeeding = MagicMock(side_effect=[error, "success"])
 
         wrapped = self.api.with_retry(failing_then_succeeding, max_retries=3)
         result = wrapped()
