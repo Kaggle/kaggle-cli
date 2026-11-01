@@ -78,11 +78,8 @@ class TestTeamPublicSubmissions(unittest.TestCase):
         mock_view.return_value = [_mock_submission(11, "2026-01-02T00:00:00Z", "100.0")]
 
         captured = io.StringIO()
-        sys.stdout = captured
-        try:
+        with contextlib.redirect_stdout(captured):
             self.api.competition_team_submissions_cli(team_id=42, output_format="csv")
-        finally:
-            sys.stdout = sys.__stdout__
 
         lines = [line for line in captured.getvalue().splitlines() if line]
         self.assertEqual(lines[0], "id,dateSubmitted,publicScore")
