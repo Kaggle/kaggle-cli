@@ -245,8 +245,9 @@ def test_competitions_submission_download_dash_i_succeeds(parser):
 
 
 def test_competitions_submission_download_non_int_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["competitions", "submission-download", "not-a-number"])
+    assert excinfo.value.code == 2
 
 
 def test_competitions_episodes_parser_missing_sub_id_fails(parser):
