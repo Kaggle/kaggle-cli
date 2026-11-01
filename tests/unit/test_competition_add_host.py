@@ -1,11 +1,8 @@
 # coding=utf-8
 import io
-import sys
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import MagicMock, patch
-
-sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
