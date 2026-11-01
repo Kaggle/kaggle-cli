@@ -2257,8 +2257,7 @@ class TestCliArgParsing:
     )
     def test_parse_download_force(self, cmd, expected):
         args = self._parse(cmd)
-        for key, val in expected.items():
-            assert getattr(args, key) == val
+        assert {key: getattr(args, key) for key in expected} == expected
 
 
 # ============================================================
