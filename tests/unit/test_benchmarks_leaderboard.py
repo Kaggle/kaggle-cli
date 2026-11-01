@@ -320,8 +320,7 @@ class TestCliArgParsing:
     )
     def test_cli_parsing(self, cmd, expected):
         args = self._parse(cmd)
-        for k, v in expected.items():
-            assert getattr(args, k) == v
+        assert {k: getattr(args, k) for k in expected} == expected
 
 
 def _leaderboard_from_server_json(task_results):
