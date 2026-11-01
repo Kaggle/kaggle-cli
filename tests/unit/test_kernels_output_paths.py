@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, "../../src")
@@ -74,9 +75,7 @@ class TestKernelsOutputPaths(unittest.TestCase):
             outfiles = self._download(["result.csv", "sub/dir/result.csv"], target_dir)
             expected = [os.path.join(target_dir, "result.csv"), os.path.join(target_dir, "sub", "dir", "result.csv")]
             self.assertEqual([os.path.normpath(p) for p in outfiles], expected)
-            for path in expected:
-                with open(path, "rb") as f:
-                    self.assertEqual(f.read(), b"payload")
+            self.assertEqual([Path(path).read_bytes() for path in expected], [b"payload", b"payload"])
 
 
 if __name__ == "__main__":
