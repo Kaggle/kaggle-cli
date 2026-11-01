@@ -227,8 +227,9 @@ def test_model_instances_create_parser_with_ignore_patterns_succeeds(parser):
 
 
 def test_model_instances_files_parser_missing_instance_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["models", "instances", "files"])
+    assert excinfo.value.code == 2
 
 
 def test_model_instances_files_parser_succeeds(parser):
