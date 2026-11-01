@@ -5,8 +5,9 @@ import pytest
 
 
 def test_models_get_parser_missing_model_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["models", "get"])
+    assert excinfo.value.code == 2
 
 
 def test_models_get_parser_succeeds(parser):
