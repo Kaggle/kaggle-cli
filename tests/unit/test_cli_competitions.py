@@ -264,8 +264,9 @@ def test_competitions_episodes_parser_succeeds(parser):
 
 
 def test_competitions_replay_parser_missing_episode_id_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["competitions", "replay"])
+    assert excinfo.value.code == 2
 
 
 def test_competitions_replay_parser_succeeds(parser):
