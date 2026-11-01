@@ -155,11 +155,8 @@ class TestQuota(unittest.TestCase):
         )
 
         captured = io.StringIO()
-        sys.stdout = captured
-        try:
+        with redirect_stdout(captured):
             self.api.quota_view_cli(output_format="json")
-        finally:
-            sys.stdout = sys.__stdout__
 
         import json
 
