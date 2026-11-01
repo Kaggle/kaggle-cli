@@ -130,8 +130,9 @@ def test_competitions_download_parser_wp_flag_succeeds(parser):
 
 
 def test_competitions_submit_parser_missing_message_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["competitions", "submit", "my-comp", "-f", "sub.csv"])
+    assert excinfo.value.code == 2
 
 
 def test_competitions_submit_parser_succeeds(parser):
