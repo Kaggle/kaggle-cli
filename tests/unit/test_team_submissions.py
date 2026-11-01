@@ -1,4 +1,5 @@
 # coding=utf-8
+import contextlib
 import io
 import sys
 import unittest
@@ -52,11 +53,8 @@ class TestTeamPublicSubmissions(unittest.TestCase):
         ]
 
         captured = io.StringIO()
-        sys.stdout = captured
-        try:
+        with contextlib.redirect_stdout(captured):
             self.api.competition_team_submissions_cli(team_id=42)
-        finally:
-            sys.stdout = sys.__stdout__
 
         output = captured.getvalue()
         self.assertIn("11", output)
