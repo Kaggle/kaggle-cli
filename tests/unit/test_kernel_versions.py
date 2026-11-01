@@ -93,10 +93,10 @@ class TestVersionIsSentAsVersionLabel(_KernelRequestTestCase):
         self.api.kernels_output("owner/my-slug/2", target)
 
         self.assertEqual(list_output.call_count, 2)
-        for call in list_output.call_args_list:
-            request = call[0][0]
-            self.assertEqual(request.kernel_slug, "my-slug")
-            self.assertEqual(request.version_label, "v2")
+        self.assertEqual(
+            [(call[0][0].kernel_slug, call[0][0].version_label) for call in list_output.call_args_list],
+            [("my-slug", "v2"), ("my-slug", "v2")],
+        )
 
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_an_already_prefixed_version_is_not_prefixed_twice(self, mock_client):
