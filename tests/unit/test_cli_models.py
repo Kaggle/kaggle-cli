@@ -156,8 +156,9 @@ def test_models_topics_show_two_args_succeeds(parser):
 
 
 def test_model_instances_get_parser_missing_instance_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["models", "instances", "get"])
+    assert excinfo.value.code == 2
 
 
 def test_model_instances_get_parser_succeeds(parser):
