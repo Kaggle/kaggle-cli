@@ -11,8 +11,6 @@ import sys
 
 import requests
 
-sys.path.insert(0, "../..")
-
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kaggle.models.kaggle_models_extended import ResumableUploadResult
 from kagglesdk.competitions.types.competition_api_service import (
