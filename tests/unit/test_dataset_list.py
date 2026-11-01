@@ -1,9 +1,6 @@
 # coding=utf-8
 import unittest
 from unittest.mock import MagicMock, patch
-import sys
-
-sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kagglesdk.datasets.types.dataset_enums import (
