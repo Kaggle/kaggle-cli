@@ -133,8 +133,9 @@ def test_models_topics_list_succeeds(parser):
 
 
 def test_models_topics_show_missing_topic_ref_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["models", "topics", "show"])
+    assert excinfo.value.code == 2
 
 
 def test_models_topics_show_succeeds(parser):
