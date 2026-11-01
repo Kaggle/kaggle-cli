@@ -202,8 +202,9 @@ def test_competitions_leaderboard_parser_with_public_succeeds(parser):
 
 
 def test_competitions_team_submissions_parser_missing_team_id_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["competitions", "team-submissions"])
+    assert excinfo.value.code == 2
 
 
 def test_competitions_team_submissions_parser_succeeds(parser):
