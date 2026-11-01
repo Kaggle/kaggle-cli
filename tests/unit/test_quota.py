@@ -120,11 +120,8 @@ class TestQuota(unittest.TestCase):
         )
 
         captured = io.StringIO()
-        sys.stdout = captured
-        try:
+        with redirect_stdout(captured):
             self.api.quota_view_cli(output_format="csv")
-        finally:
-            sys.stdout = sys.__stdout__
 
         lines = [line for line in captured.getvalue().splitlines() if line]
         self.assertEqual(lines[0], "resource,used,remaining,total,refreshAt")
