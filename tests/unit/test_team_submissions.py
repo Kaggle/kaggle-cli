@@ -109,11 +109,8 @@ class TestTeamPublicSubmissions(unittest.TestCase):
         ]
 
         captured = io.StringIO()
-        sys.stdout = captured
-        try:
+        with contextlib.redirect_stdout(captured):
             self.api.competition_team_submissions_cli(team_id=42, output_format="json")
-        finally:
-            sys.stdout = sys.__stdout__
 
         import json
 
