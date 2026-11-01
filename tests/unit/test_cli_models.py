@@ -81,8 +81,9 @@ def test_models_create_parser_with_path_succeeds(parser):
 
 
 def test_models_delete_parser_missing_model_fails(parser):
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as excinfo:
         parser.dispatch(["models", "delete"])
+    assert excinfo.value.code == 2
 
 
 def test_models_delete_parser_succeeds(parser):
