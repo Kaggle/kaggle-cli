@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Fix every `kaggle` command failing with `ModuleNotFoundError: No module named 'six'` when installed alongside `python-dateutil` 4.0.0 or newer. `kaggle.models.upload_file` imported `six` without declaring it, and only got it through `python-dateutil`, which dropped `six` in 4.0.0
 * Show every column in `kaggle benchmarks leaderboard` for Game Arena leaderboards (`kaggle/game-arena`, `kaggle/chess-text`, `kaggle/poker-heads-up`, ...). Their columns share an empty task slug, so all but the last collapsed into one and the headline score was dropped from `--show` and `--download`
 * Validate bare slugs in `kaggle kernels delete` and require an explicit owner when no username is configured, before confirmation or API access
 * Clear stale CPU/GPU image pins when pushing a TPU notebook pulled from a CPU/GPU session

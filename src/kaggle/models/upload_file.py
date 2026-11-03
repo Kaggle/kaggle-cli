@@ -19,7 +19,6 @@
 import pprint
 import re  # noqa: F401
 
-import six
 from typing import Any
 from kagglesdk.datasets.types.dataset_api_service import ApiDatasetColumn
 
@@ -127,7 +126,7 @@ class UploadFile(object):
         """Returns the model properties as a dict."""
         result: dict[str, Any] = {}
 
-        for attr, _ in six.iteritems(self.column_types):
+        for attr, _ in self.column_types.items():
             value = getattr(self, attr)
             if isinstance(value, list):
                 result[attr] = list(map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value))
