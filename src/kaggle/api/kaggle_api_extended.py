@@ -2137,8 +2137,8 @@ class KaggleApi:
             page_size=page_size,
             page_token=page_token,
         )
-        if response and response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        if response:
+            self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         if response and response.competitions:
             self.print_results(
                 response.competitions,
@@ -2705,8 +2705,7 @@ class KaggleApi:
         else:
             result = self.competition_list_files(competition, page_token, page_size)
             next_page_token = result.next_page_token
-            if next_page_token:
-                print("Next Page Token = {}".format(next_page_token))
+            self.print_next_page_token(next_page_token, csv_display=csv_display, output_format=output_format)
             if result:
                 self.print_results(
                     result.files,
@@ -2858,6 +2857,8 @@ class KaggleApi:
         page_size: Optional[int] = 20,
         page_token: Optional[str] = None,
         public: bool = False,
+        csv_display: bool = False,
+        output_format: Optional[str] = None,
     ) -> list[ApiLeaderboardSubmission | None] | None:
         """View a leaderboard based on a competition name.
 
@@ -2867,6 +2868,9 @@ class KaggleApi:
             page_token (Optional[str]): the page token for pagination
             public (bool): if True, return the public leaderboard instead of the
                 final one. Only differs once a competition has concluded.
+            csv_display (bool): if True, a pagination token is reported on stderr instead of stdout
+            output_format (Optional[str]): the output format; a pagination token is reported on
+                stderr for the machine-readable formats so that stdout stays parseable
 
         Returns:
             Union[listApiLeaderboardSubmission, None, None]:
@@ -2878,8 +2882,7 @@ class KaggleApi:
                 request.override_public = True
             self._set_paging(request, page_size, page_token)
             response = kaggle.competitions.competition_api_client.get_leaderboard(request)
-        if response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         result: list[ApiLeaderboardSubmission | None] | None = response.submissions
         return result
 
@@ -2929,7 +2932,9 @@ class KaggleApi:
             self.competition_leaderboard_download(competition, path, quiet)
 
         if view:
-            results = self.competition_leaderboard_view(competition, page_size, page_token, public)
+            results = self.competition_leaderboard_view(
+                competition, page_size, page_token, public, csv_display=csv_display, output_format=output_format
+            )
             if results:
                 self.print_results(
                     results,
@@ -4345,7 +4350,7 @@ class KaggleApi:
             )
             page_size_default = 20
             if response.total_count and page * page_size_default < response.total_count:
-                print("Next Page Token = {}".format(page + 1))
+                self.print_next_page_token(page + 1, csv_display=csv_display, output_format=output_format)
         else:
             print("No topics found")
 
@@ -5286,8 +5291,8 @@ class KaggleApi:
             page_token=page_token,
         )
         datasets = response.datasets if response else None
-        if response and response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        if response:
+            self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         if datasets:
             self.print_results(
                 datasets,
@@ -5554,8 +5559,7 @@ class KaggleApi:
                 print(result.error_message)
             else:
                 next_page_token = result.next_page_token
-                if next_page_token:
-                    print("Next Page Token = {}".format(next_page_token))
+                self.print_next_page_token(next_page_token, csv_display=csv_display, output_format=output_format)
                 fields = ["name", "size", "creationDate"]
                 ApiDatasetFile.size = ApiDatasetFile.total_bytes  # type: ignore[attr-defined]
                 self.print_results(
@@ -6750,8 +6754,8 @@ class KaggleApi:
             sort_by=sort_by,
         )
         kernels = response.kernels if response else None
-        if response and response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        if response:
+            self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         fields = ["ref", "title", "author", "lastRunTime", "totalVotes"]
         if kernels:
             self.print_results(
@@ -6907,8 +6911,8 @@ class KaggleApi:
             page_token=page_token,
         )
         documents = response.documents if response else None
-        if response and response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        if response:
+            self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         if documents:
             rows = [self._search_document_to_row(document) for document in documents]
             fields = ["type", "ref", "title", "owner", "votes"]
@@ -7097,8 +7101,7 @@ class KaggleApi:
             return
 
         next_page_token = result.nextPageToken
-        if next_page_token:
-            print("Next Page Token = {}".format(next_page_token))
+        self.print_next_page_token(next_page_token, csv_display=csv_display, output_format=output_format)
         fields = ["name", "size", "creationDate"]
         self.print_results(
             result.files,
@@ -7957,6 +7960,8 @@ class KaggleApi:
         owner: Optional[str] = None,
         page_size: int = 20,
         page_token: Optional[str] = None,
+        csv_display: bool = False,
+        output_format: Optional[str] = None,
     ) -> list[ApiModel | None] | None:
         """Returns a list of models.
 
@@ -7966,6 +7971,9 @@ class KaggleApi:
             owner (Optional[str]): The username or organization slug to which to filter the search.
             page_size (int): The page size to return (default is 20).
             page_token (Optional[str]): The page token for pagination.
+            csv_display (bool): If True, a pagination token is reported on stderr instead of stdout.
+            output_format (Optional[str]): The output format; a pagination token is reported on
+                stderr for the machine-readable formats so that stdout stays parseable.
 
         Returns:
             Union[List[ApiModel, None], None]: A list of ApiModel objects.
@@ -7986,8 +7994,7 @@ class KaggleApi:
             request.owner = owner or ""
             self._set_paging(request, page_size, page_token)
             response = kaggle.models.model_api_client.list_models(request)
-            if response.next_page_token:
-                print("Next Page Token = {}".format(response.next_page_token))
+            self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
             result: list[ApiModel | None] | None = response.models
             return result
 
@@ -8012,7 +8019,9 @@ class KaggleApi:
             csv_display: If True, print comma-separated values instead of a table.
             output_format: The output format to use.
         """
-        models = self.model_list(sort_by, search, owner, page_size, page_token)
+        models = self.model_list(
+            sort_by, search, owner, page_size, page_token, csv_display=csv_display, output_format=output_format
+        )
         fields = ["id", "ref", "title", "subtitle", "author"]
         if models:
             self.print_results(
@@ -8543,6 +8552,7 @@ class KaggleApi:
         page_token: Union[str, None] = None,
         page_size: int = 20,
         csv_display: bool = False,
+        output_format: Optional[str] = None,
     ) -> FileList:
         """Lists files for the current version of a model instance.
 
@@ -8551,6 +8561,8 @@ class KaggleApi:
             page_token (Union[str, None]): The token for pagination.
             page_size (int): The number of items per page.
             csv_display (bool): If True, print comma-separated values instead of a table.
+            output_format (Optional[str]): The output format; a pagination token is reported on
+                stderr for the machine-readable formats so that stdout stays parseable.
 
         Returns:
             FileList: A FileList object.
@@ -8573,8 +8585,7 @@ class KaggleApi:
 
             if response:
                 next_page_token = response.next_page_token
-                if next_page_token:
-                    print("Next Page Token = {}".format(next_page_token))
+                self.print_next_page_token(next_page_token, csv_display=csv_display, output_format=output_format)
                 return FileList.from_response(response)
             else:
                 print("No files found")
@@ -8594,7 +8605,11 @@ class KaggleApi:
             output_format: The output format to use.
         """
         result = self.model_instance_files(
-            model_instance, page_token=page_token, page_size=page_size, csv_display=csv_display
+            model_instance,
+            page_token=page_token,
+            page_size=page_size,
+            csv_display=csv_display,
+            output_format=output_format,
         )
         if result and result.files is not None:
             self.print_results(
@@ -8626,8 +8641,7 @@ class KaggleApi:
             output_format: The output format to use.
         """
         response = self.model_instances_list(model_instance, page_size, page_token)
-        if response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         instances = response.instances
         if instances:
             self.print_results(
@@ -8910,6 +8924,7 @@ class KaggleApi:
         page_token: Union[str, None] = None,
         page_size: int = 20,
         csv_display: bool = False,
+        output_format: Optional[str] = None,
     ) -> Union[ApiListModelInstanceVersionFilesResponse, None]:
         """Lists all files for a model instance version.
 
@@ -8918,6 +8933,8 @@ class KaggleApi:
             page_token (Union[str, None]): The token for pagination.
             page_size (int): The number of items per page.
             csv_display (bool): If True, print comma-separated values instead of a table.
+            output_format (Optional[str]): The output format; a pagination token is reported on
+                stderr for the machine-readable formats so that stdout stays parseable.
 
         Returns:
             Union[ApiListModelInstanceVersionFilesResponse, None]: An ApiListModelInstanceVersionFilesResponse object or None.
@@ -8941,8 +8958,7 @@ class KaggleApi:
 
         if response:
             next_page_token = response.next_page_token
-            if next_page_token:
-                print("Next Page Token = {}".format(next_page_token))
+            self.print_next_page_token(next_page_token, csv_display=csv_display, output_format=output_format)
             return cast(ApiListModelInstanceVersionFilesResponse, response)
         else:
             print("No files found")
@@ -8962,7 +8978,11 @@ class KaggleApi:
             output_format: The output format to use.
         """
         result = self.model_instance_version_files(
-            model_instance_version, page_token=page_token, page_size=page_size, csv_display=csv_display
+            model_instance_version,
+            page_token=page_token,
+            page_size=page_size,
+            csv_display=csv_display,
+            output_format=output_format,
         )
         if result and result.files is not None:
             fields = ["name", "size", "creation_date"]
@@ -9001,8 +9021,7 @@ class KaggleApi:
             output_format: The output format to use.
         """
         response = self.model_instance_versions_list(model_instance, page_size, page_token)
-        if response.next_page_token:
-            print("Next Page Token = {}".format(response.next_page_token))
+        self.print_next_page_token(response.next_page_token, csv_display=csv_display, output_format=output_format)
         versions = response.version_list
         if versions:
             self.print_results(
@@ -9249,6 +9268,27 @@ class KaggleApi:
             self.print_json(items, resolved_fields, resolved_labels)
         else:
             self.print_table(items, resolved_fields, resolved_labels)
+
+    def print_next_page_token(self, next_page_token, csv_display=False, output_format=None):
+        """Reports a pagination token without corrupting machine-readable output.
+
+        For the human-readable table format the token keeps going to stdout, as
+        it always has. For the machine-readable formats (``csv`` and ``json``)
+        it goes to stderr instead, so that stdout stays a valid document that
+        callers can pipe straight into a parser.
+
+        Args:
+            next_page_token: The token to report; nothing is printed if falsy.
+            csv_display: If True, CSV is being printed (legacy option).
+            output_format: The format option value, e.g. "json(field1,field2)".
+        """
+        if not next_page_token:
+            return
+        message = "Next Page Token = {}".format(next_page_token)
+        if self._get_output_format(csv_display, output_format) == OutputFormat.TABLE:
+            print(message)
+        else:
+            print(message, file=sys.stderr)
 
     def string(self, item):
         return item if isinstance(item, str) else str(item)

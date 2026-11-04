@@ -29,7 +29,7 @@ kaggle search "<query>" [options]
 *   `-m, --mine`: Restrict the search to your own content.
 *   `--sort-by <SORT_BY>`: Sort order. One of: `relevance` (default), `hotness`, `votes`, `dateCreated`, `dateUpdated`, `totalComments`, `lastViewed`.
 *   `--page-size <SIZE>`: Number of results to show on a page (default: 20, max: 100).
-*   `--page-token <TOKEN>`: Page token for results paging (printed as `Next Page Token = ...` at the top of a page when more results exist).
+*   `--page-token <TOKEN>`: Page token for results paging (printed as `Next Page Token = ...` when more results exist — at the top of a page for the default `table` format, and on stderr for `--csv` and `--format csv`/`json` so that stdout stays parseable; see [Output Format](./output_format.md#pagination-tokens)).
 *   `-v, --csv`: Print results in CSV format instead of a table.
 *   `--format <FORMAT>`: Print results in the selected format (`csv`, `table`, `json`). Supports field projection, e.g. `--format 'json(type,ref)'`.
 
