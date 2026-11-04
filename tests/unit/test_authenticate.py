@@ -368,6 +368,26 @@ class TestAuthenticate(unittest.TestCase):
         self.assertEqual(api.config_values["token"], oauth_token)
         self.assertEqual(api.config_values["username"], "dinosaur")
 
+    def test_valid_kaggle_json_file_succeeds(self):
+        api = KaggleApi()
+        key = "0123456789abcdef0123456789abcdef"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            api.config = os.path.join(tmpdir, "kaggle.json")
+            with open(api.config, "w", encoding="utf-8") as f:
+                f.write(f'{{"username": "dinosaur", "key": "{key}"}}')
+            os.chmod(api.config, 0o600)
+
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("KAGGLE_USERNAME", None)
+                os.environ.pop("KAGGLE_KEY", None)
+                os.environ.pop("KAGGLE_API_TOKEN", None)
+                api._load_config()
+                result = api._authenticate_with_legacy_apikey()
+
+        self.assertTrue(result)
+        self.assertEqual(api.config_values["username"], "dinosaur")
+        self.assertEqual(api.config_values["key"], key)
+
 
 if __name__ == "__main__":
     unittest.main()
