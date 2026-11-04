@@ -1511,6 +1511,11 @@ class KaggleApi:
         print_auth_help()
         exit(1)
 
+    _ACCESS_TOKEN_PREFIX = "KGAT_"
+    _REFRESH_TOKEN_PREFIX = "KGRT_"
+    _ACCESS_TOKEN_RE = re.compile(r"^KGAT_[0-9a-fA-F]{32}$")
+    _LEGACY_API_KEY_RE = re.compile(r"^[0-9a-fA-F]{32}$")
+
     def _authenticate_with_legacy_apikey(self) -> bool:
         """Authenticate the user with the Kaggle API using legacy API key.
 
@@ -1521,6 +1526,36 @@ class KaggleApi:
         Returns:
             bool: True if legacy credentials are available.
         """
+        key = self.config_values.get(self.CONFIG_NAME_KEY)
+        if isinstance(key, str) and key.strip().upper().startswith(
+            (self._ACCESS_TOKEN_PREFIX, self._REFRESH_TOKEN_PREFIX)
+        ):
+            source = "KAGGLE_KEY environment variable" if os.environ.get("KAGGLE_KEY") == key else self.config
+            print(
+                f"Error: Found an API token ({key.strip()[:5]}...) in {source}.\n"
+                f"API tokens starting with KGAT_ cannot be used as a legacy API key in KAGGLE_KEY or {self.config}.\n"
+                "To authenticate with a KGAT_ token, save the raw token to ~/.kaggle/access_token "
+                "or set the KAGGLE_API_TOKEN environment variable."
+            )
+            self.config_values.pop(self.CONFIG_NAME_KEY, None)
+            return False
+
+        for token_field in (self.CONFIG_NAME_TOKEN, "api_token", "apiToken"):
+            token_val = self.config_values.get(token_field)
+            if (
+                isinstance(token_val, str)
+                and token_val.strip().upper().startswith((self._ACCESS_TOKEN_PREFIX, self._REFRESH_TOKEN_PREFIX))
+                and os.environ.get("KAGGLE_API_TOKEN") != token_val
+                and os.environ.get("KAGGLE_TOKEN") != token_val
+            ):
+                print(
+                    f"Error: Found an API token ({token_val.strip()[:5]}...) in {self.config}.\n"
+                    f'{self.config} is for legacy JSON credentials ({{"username": "...", "key": "..."}}).\n'
+                    "To authenticate with a KGAT_ token, save the raw token to ~/.kaggle/access_token "
+                    "or set the KAGGLE_API_TOKEN environment variable."
+                )
+                return False
+
         if self.CONFIG_NAME_USER in self.config_values and self.CONFIG_NAME_KEY in self.config_values:
             self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.LEGACY_API_KEY)
             self.logger.debug(f"Authenticated with legacy api key in: {self.config}")
@@ -1562,9 +1597,72 @@ class KaggleApi:
             return True
         return prog.endswith("/kaggle/__main__.py")
 
+    def _validate_access_token_format(self, access_token: str, source: Optional[str]) -> bool:
+        """Validate that an access token does not have a legacy or malformed format."""
+        source_label = "~/.kaggle/access_token" if source == "access_token" else (source or "access_token")
+        token = access_token.strip()
+
+        if token.startswith("{"):
+            if self._ACCESS_TOKEN_PREFIX in token.upper():
+                print(
+                    f"Error: Found JSON content in {source_label}, which expects a plain-text API token.\n"
+                    "Provide only the raw KGAT_... token string without JSON formatting."
+                )
+            else:
+                print(
+                    f"Error: Found legacy JSON credentials in {source_label}.\n"
+                    'Legacy credentials ({"username": "...", "key": "..."}) belong in ~/.kaggle/kaggle.json '
+                    "(or KAGGLE_USERNAME and KAGGLE_KEY).\n"
+                    f"{source_label} expects a plain-text API token starting with KGAT_."
+                )
+            return False
+
+        if self._LEGACY_API_KEY_RE.match(token):
+            print(
+                f"Error: Found a legacy API key (32-character hex string without a KGAT_ prefix) in {source_label}.\n"
+                'Legacy API keys must be paired with a username in ~/.kaggle/kaggle.json ({"username": "...", "key": "..."}) '
+                "or via KAGGLE_USERNAME and KAGGLE_KEY.\n"
+                f"{source_label} expects an API access token starting with KGAT_."
+            )
+            return False
+
+        if token.upper().startswith(self._REFRESH_TOKEN_PREFIX):
+            print(
+                f"Error: Found an OAuth refresh token (KGRT_...) in {source_label}.\n"
+                f"{source_label} expects an API access token starting with KGAT_."
+            )
+            return False
+
+        if token.startswith(('"', "'")) or ("=" in token and self._ACCESS_TOKEN_PREFIX in token.upper()):
+            print(
+                f"Error: Malformed API access token in {source_label}.\n"
+                f"{source_label} must contain only the raw KGAT_... token string (without quotes or KEY=VALUE syntax)."
+            )
+            return False
+
+        if token.upper().startswith("KGAT") and not self._ACCESS_TOKEN_RE.match(token):
+            print(
+                f"Error: Malformed API access token in {source_label}.\n"
+                'A Kaggle API token must start with "KGAT_" followed by 32 hexadecimal characters. '
+                "Please verify that your token was not truncated or modified."
+            )
+            return False
+
+        if any(c.isspace() for c in token):
+            print(
+                f"Error: Malformed API access token in {source_label}.\n"
+                f"{source_label} must contain a single valid API token (e.g. KGAT_<32-hex-chars>)."
+            )
+            return False
+
+        return True
+
     def _authenticate_with_access_token(self) -> bool:
         access_token, source = get_access_token_from_env()
         if not access_token:
+            return False
+
+        if not self._validate_access_token_format(access_token, source):
             return False
 
         username = self._introspect_token(access_token)
@@ -1614,7 +1712,7 @@ class KaggleApi:
                     return None
                 return response.username
             except HTTPError as e:
-                if e.response.status_code in (400, 403, 404):
+                if e.response is not None and e.response.status_code in (400, 401, 403, 404):
                     self.logger.debug("Access token invalid: %s", e)
                     return None
                 raise
@@ -1701,8 +1799,31 @@ class KaggleApi:
                         )
 
                 with open(self.config) as f:
-                    config_data = json.load(f) or {}
-            except:
+                    raw_content = f.read().strip()
+
+                if raw_content:
+                    try:
+                        loaded = json.loads(raw_content)
+                    except json.JSONDecodeError:
+                        loaded = None
+
+                    if isinstance(loaded, dict):
+                        config_data = loaded
+                    elif self._ACCESS_TOKEN_PREFIX in raw_content.upper():
+                        print(
+                            f"Error: Found an API access token (KGAT_...) in {self.config}.\n"
+                            f'{self.config} is for legacy JSON credentials ({{"username": "...", "key": "..."}}).\n'
+                            "To authenticate with a KGAT_ token, save the raw token to ~/.kaggle/access_token "
+                            "or set the KAGGLE_API_TOKEN environment variable."
+                        )
+                    else:
+                        print(
+                            f"Error: {self.config} is not a valid JSON object.\n"
+                            'Expected legacy credentials in the format {"username": "<username>", "key": "<key>"}.\n'
+                            "If you are using an API access token (KGAT_...), save it to ~/.kaggle/access_token "
+                            "or set the KAGGLE_API_TOKEN environment variable."
+                        )
+            except Exception:
                 pass
 
         else:
