@@ -6096,7 +6096,7 @@ class KaggleApi:
         elif result.status.lower() == "ok":
             print("Dataset version is being created. Please check progress at " + result.url)
         else:
-            print("Dataset version creation error: " + result.error)
+            raise ValueError("Dataset version creation error: " + result.error)
 
     def dataset_delete(self, owner_slug: str | None, dataset_slug: str, no_confirm: bool = False) -> bool:
         """Deletes a dataset.
@@ -6374,7 +6374,7 @@ class KaggleApi:
             else:
                 print("Your private Dataset is being created. Please check " "progress at " + result.url)
         else:
-            print("Dataset creation error: " + result.error)
+            raise ValueError("Dataset creation error: " + result.error)
 
     def _resume_marker_path(self, outfile):
         """Path of the sidecar file that records the identity of an in-progress download."""
@@ -7481,7 +7481,7 @@ class KaggleApi:
                 # Shouldn't happen but didn't test exhaustively
                 print("Kernel version successfully %s.  %s %s" % (outcome, where, result.url))
         else:
-            print("Kernel push error: " + result.error)
+            raise ValueError("Kernel push error: " + result.error)
 
     def kernels_pull(self, kernel, path, metadata=False, quiet=True):
         """Pulls a kernel to a specified path.
@@ -8258,7 +8258,7 @@ class KaggleApi:
         if result.id:
             print("Your model was created. Id={}. Url={}".format(result.id, result.url))
         else:
-            print("Model creation error: " + result.error)
+            raise ValueError("Model creation error: " + result.error)
 
     def model_delete(self, model: str, no_confirm: bool) -> Optional[ApiDeleteModelResponse]:
         """Deletes a model.
@@ -8296,7 +8296,7 @@ class KaggleApi:
             return
 
         if result.error:
-            print("Model deletion error: " + result.error)
+            raise ValueError("Model deletion error: " + result.error)
         else:
             print("The model was deleted.")
 
@@ -8386,7 +8386,7 @@ class KaggleApi:
         if result.id:
             print("Your model was updated. Id={}. Url={}".format(result.id, result.url))
         else:
-            print("Model update error: " + result.error)
+            raise ValueError("Model update error: " + result.error)
 
     def model_instance_get(self, model_instance: str) -> ApiModelInstance:
         """Gets a model instance.
@@ -8615,7 +8615,7 @@ class KaggleApi:
         if result.id:
             print("Your model instance was created. Id={}. Url={}".format(result.id, result.url))
         else:
-            print("Model instance creation error: " + result.error)
+            raise ValueError("Model instance creation error: " + result.error)
 
     def model_instance_delete(self, model_instance: str, no_confirm: bool = False) -> Optional[ApiDeleteModelResponse]:
         """Deletes a model instance.
@@ -8658,7 +8658,7 @@ class KaggleApi:
             return
 
         if len(result.error) > 0:
-            print("Model instance deletion error: " + result.error)
+            raise ValueError("Model instance deletion error: " + result.error)
         else:
             print("The model instance was deleted.")
 
@@ -8864,7 +8864,7 @@ class KaggleApi:
         if len(result.error) == 0:
             print("Your model instance was updated. Id={}. Url={}".format(result.id, result.url))
         else:
-            print("Model update error: " + result.error)
+            raise ValueError("Model update error: " + result.error)
 
     def model_instance_version_create(
         self,
@@ -8940,7 +8940,7 @@ class KaggleApi:
         if result.id != 0:
             print("Your model instance version was created. Url={}".format(result.url))
         else:
-            print("Model instance version creation error: " + result.error)
+            raise ValueError("Model instance version creation error: " + result.error)
 
     def model_instance_version_download(
         self,
@@ -9192,7 +9192,7 @@ class KaggleApi:
             return
 
         if len(result.error) > 0:
-            print("Model instance version deletion error: " + result.error)
+            raise ValueError("Model instance version deletion error: " + result.error)
         else:
             print("The model instance version was deleted.")
 
