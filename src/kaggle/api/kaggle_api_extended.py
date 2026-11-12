@@ -7546,7 +7546,11 @@ class KaggleApi:
                 file_name = existing_metadata["code_file"]
             elif os.path.isfile(metadata_path):
                 with open(metadata_path) as f:
-                    file_name = json.load(f)["code_file"]
+                    local_metadata = json.load(f)
+                # Reuse code_file only if the folder holds this same kernel; another kernel's file would be overwritten.
+                local_id = str(local_metadata.get("id", "")).lower().split("/")[:2]
+                if local_id == [owner_slug.lower(), kernel_slug.lower()]:
+                    file_name = local_metadata["code_file"]
 
             if not file_name or file_name == "INSERT_CODE_FILE_PATH_HERE":
                 extension = None
