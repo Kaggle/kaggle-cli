@@ -353,6 +353,31 @@ class TestKernelsPull(unittest.TestCase):
 
         mock_pull.assert_called_once_with("owner/my-slug", path=None, metadata=False, quiet=False)
 
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_kernels_pull_code_file_only_reused_for_same_kernel(self, mock_client):
+        import tempfile
+
+        mock_kaggle = MagicMock()
+        blob = mock_kaggle.kernels.kernels_api_client.get_kernel.return_value.blob
+        blob.language, blob.kernel_type, blob.slug, blob.source = "python", "script", "kernel-b", "B"
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        for local_id, expected_file in [("owner/kernel-a", "kernel-b.py"), ("Owner/Kernel-B", "mine.py")]:
+            with self.subTest(local_id=local_id), tempfile.TemporaryDirectory() as d:
+                with open(os.path.join(d, "kernel-metadata.json"), "w") as f:
+                    json.dump({"id": local_id, "code_file": "mine.py"}, f)
+                with open(os.path.join(d, "mine.py"), "w") as f:
+                    f.write("local work")
+
+                self.api.kernels_pull("owner/kernel-b", path=d)
+
+                with open(os.path.join(d, expected_file)) as f:
+                    self.assertEqual(f.read(), "B")
+                if expected_file != "mine.py":
+                    with open(os.path.join(d, "mine.py")) as f:
+                        self.assertEqual(f.read(), "local work")
+
 
 if __name__ == "__main__":
     unittest.main()
