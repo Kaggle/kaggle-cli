@@ -80,6 +80,27 @@ In this case, `title` (which is a topic field) will be preserved in the topic ou
 }
 ```
 
+### Pagination Tokens
+
+When a paginated command has more results to show, it reports the token for the
+next page as a `Next Page Token = ...` line.
+
+Because `csv` and `json` are meant to be consumed by other programs, that line
+is written to **stderr** for those formats, so that stdout stays a single
+parseable document:
+
+```sh
+# stdout is valid JSON; the token goes to the terminal via stderr
+kaggle datasets files zillow/zecon --page-size 1 --format json | jq '.[].name'
+
+# keep the token out of the way entirely
+kaggle datasets files zillow/zecon --page-size 1 --format json 2>/dev/null > files.json
+```
+
+For the default `table` format the line stays on **stdout**, where it has always
+been, since that output is meant to be read by a person. The legacy `--csv`
+(`-v`) option behaves like `--format csv`.
+
 ### Mutual Exclusion
 
 The `--csv` (or `-v`) option and the `--format` option are **mutually exclusive**. You cannot specify both at the same time.
