@@ -36,6 +36,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.parse
 import zipfile
 from dateutil.relativedelta import relativedelta
 from os.path import expanduser
@@ -568,7 +569,8 @@ def _resolve_download_path(destination: str, file_name: str, url: str) -> str:
 
     Raises ValueError if the resolved path would land outside `destination`.
     """
-    base_name = url.split("?")[0].split("/")[-1]
+    raw_base = url.split("?")[0].split("/")[-1]
+    base_name = os.path.basename(urllib.parse.unquote(raw_base).replace("\\", "/"))
     parts = [part for part in (file_name or "").replace("\\", "/").split("/") if part not in ("", ".")]
     outfile = os.path.join(destination, os.path.normpath(os.path.join(*parts[:-1], base_name)))
     if not _is_within_directory(os.path.realpath(destination), os.path.realpath(outfile)):
