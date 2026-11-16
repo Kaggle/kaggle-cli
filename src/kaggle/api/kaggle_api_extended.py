@@ -5801,7 +5801,7 @@ class KaggleApi:
         url = response.request.url
         outfile = _resolve_download_path(effective_path, file_name, url)
 
-        downloaded = force or self.download_needed(response, outfile, quiet)
+        downloaded = force or self.download_needed(response, outfile, quiet, exact=dataset_version_number is not None)
         if downloaded:
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
@@ -5839,7 +5839,7 @@ class KaggleApi:
             response = kaggle.datasets.dataset_api_client.download_dataset(request)
 
         outfile = os.path.join(effective_path, dataset_slug + ".zip")
-        if force or self.download_needed(response, outfile, quiet):
+        if force or self.download_needed(response, outfile, quiet, exact=dataset_version_number is not None):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
         if unzip:
@@ -9234,13 +9234,16 @@ class KaggleApi:
         pretty = json.dumps(obj.to_dict(), indent=indent)
         print(pretty)
 
-    def download_needed(self, response: Response, outfile: str, quiet: bool = True) -> bool:
+    def download_needed(self, response: Response, outfile: str, quiet: bool = True, exact: bool = False) -> bool:
         """Determines if a download is needed based on the timestamp.
 
         Args:
             response (Response): The response from the API.
             outfile (str): The output file to which to write.
             quiet (bool): Suppress verbose output (default is True).
+            exact (bool): The request pins a specific version, so only a local copy with the
+                same timestamp and size counts as that version. Every version is saved under
+                the same name, so a newer local copy may be a different version.
 
         Returns:
             bool: True if a download is needed (remote is newer), False otherwise.
@@ -9257,6 +9260,8 @@ class KaggleApi:
                 remote_size = int(response.headers["Content-Length"])
                 local_size = os.path.getsize(outfile)
                 if local_size < remote_size:
+                    return True
+                if exact and (local_size != remote_size or local_date != remote_date):
                     return True
                 if remote_date <= local_date:
                     if not quiet:
