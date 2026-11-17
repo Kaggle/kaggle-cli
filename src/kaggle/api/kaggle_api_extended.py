@@ -5801,7 +5801,7 @@ class KaggleApi:
         url = response.request.url
         outfile = _resolve_download_path(effective_path, file_name, url)
 
-        downloaded = force or self.download_needed(response, outfile, quiet, exact=dataset_version_number is not None)
+        downloaded = force or self.download_needed(response, outfile, quiet, exact=bool(dataset_version_number))
         if downloaded:
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
