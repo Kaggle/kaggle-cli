@@ -5839,7 +5839,7 @@ class KaggleApi:
             response = kaggle.datasets.dataset_api_client.download_dataset(request)
 
         outfile = os.path.join(effective_path, dataset_slug + ".zip")
-        if force or self.download_needed(response, outfile, quiet, exact=dataset_version_number is not None):
+        if force or self.download_needed(response, outfile, quiet, exact=bool(dataset_version_number)):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
 
         if unzip:
