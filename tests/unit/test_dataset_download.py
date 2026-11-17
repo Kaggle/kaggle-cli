@@ -1,7 +1,10 @@
 # coding=utf-8
 import os
 import sys
+import tempfile
+import time
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, "../../src")
@@ -207,6 +210,68 @@ class TestDatasetDownload(unittest.TestCase):
         self.assertEqual(request.owner_slug, "owner")
         self.assertEqual(request.dataset_slug, "my-dataset")
         self.assertEqual(request.dataset_version_number, 3)
+
+    @patch.object(KaggleApi, "download_needed", return_value=False)
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_only_a_pinned_version_requires_an_exact_local_match(self, mock_client, mock_download_needed):
+        mock_kaggle = MagicMock()
+        mock_kaggle.datasets.dataset_api_client.download_dataset.return_value.request.url = (
+            "http://example.com/download/file1.csv?token=123"
+        )
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        for dataset, exact in [("owner/my-dataset/1", True), ("owner/my-dataset", False)]:
+            for download in (
+                lambda: self.api.dataset_download_files(dataset, path="/tmp/download"),
+                lambda: self.api.dataset_download_file(dataset, "file1.csv", path="/tmp/download"),
+            ):
+                mock_download_needed.reset_mock()
+                download()
+                self.assertEqual(mock_download_needed.call_args.kwargs["exact"], exact)
+
+
+class TestDownloadNeeded(unittest.TestCase):
+    """Every dataset version is saved under the same name, so a pinned request must not
+    treat a newer local copy (possibly another version) as already downloaded."""
+
+    LAST_MODIFIED = "Mon, 16 Nov 2026 10:00:00 GMT"
+
+    def setUp(self):
+        self.api = KaggleApi.__new__(KaggleApi)
+        fd, self.outfile = tempfile.mkstemp()
+        os.write(fd, b"a,b\n999,999\n")
+        os.close(fd)
+        self.addCleanup(os.remove, self.outfile)
+
+    def _response(self, size, last_modified=LAST_MODIFIED):
+        response = MagicMock()
+        response.headers = {"Last-Modified": last_modified, "Content-Length": str(size)}
+        return response
+
+    def _set_local_date(self, last_modified):
+        # The same conversion download_file uses when it stamps a finished download.
+        remote_date = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
+        stamp = time.mktime(remote_date.timetuple())
+        os.utime(self.outfile, times=(stamp, stamp))
+
+    def test_newer_local_copy_is_kept_for_an_unpinned_request(self):
+        self._set_local_date("Tue, 17 Nov 2026 10:00:00 GMT")
+        self.assertFalse(self.api.download_needed(self._response(size=8), self.outfile))
+
+    def test_newer_local_copy_is_replaced_for_a_pinned_older_version(self):
+        self._set_local_date("Tue, 17 Nov 2026 10:00:00 GMT")
+        self.assertTrue(self.api.download_needed(self._response(size=8), self.outfile, exact=True))
+
+    def test_same_size_but_different_date_is_replaced_for_a_pinned_version(self):
+        self._set_local_date("Tue, 17 Nov 2026 10:00:00 GMT")
+        size = os.path.getsize(self.outfile)
+        self.assertTrue(self.api.download_needed(self._response(size=size), self.outfile, exact=True))
+
+    def test_exact_copy_of_a_pinned_version_is_not_downloaded_again(self):
+        self._set_local_date(self.LAST_MODIFIED)
+        size = os.path.getsize(self.outfile)
+        self.assertFalse(self.api.download_needed(self._response(size=size), self.outfile, exact=True))
 
 
 if __name__ == "__main__":
