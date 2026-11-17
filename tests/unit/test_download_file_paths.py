@@ -67,6 +67,31 @@ class TestResolveDownloadPath(unittest.TestCase):
         )
         self.assertTrue(_is_auto_compressed(resolved, "données.csv"))
 
+    def test_encoded_forward_slash_in_url_is_stripped_to_basename(self):
+        url = _signed_url("sub%2Fdata.csv.zip")
+        resolved = _resolve_download_path("dest", "data.csv", url)
+        self.assertEqual(
+            os.path.normpath(resolved),
+            os.path.normpath("dest/data.csv.zip"),
+        )
+
+    def test_encoded_backslash_in_url_is_stripped_to_basename(self):
+        url = _signed_url("sub%5Cdata.csv.zip")
+        resolved = _resolve_download_path("dest", "data.csv", url)
+        self.assertEqual(
+            os.path.normpath(resolved),
+            os.path.normpath("dest/data.csv.zip"),
+        )
+
+    def test_single_pass_decoding_does_not_double_decode_percent(self):
+        # %2520 decodes to literal "%20" rather than being double-decoded to a space
+        url = _signed_url("file%2520name.csv.zip")
+        resolved = _resolve_download_path("dest", "file%20name.csv", url)
+        self.assertEqual(
+            os.path.normpath(resolved),
+            os.path.normpath("dest/file%20name.csv.zip"),
+        )
+
     def test_nested_compressed_response_keeps_directory_and_zip_suffix(self):
         self.assertEqual(
             self._resolve("cord_19_embeddings/embeddings.csv", base_name="embeddings.csv.zip"),
@@ -120,6 +145,21 @@ class TestResolveDownloadPath(unittest.TestCase):
     def test_rejects_backslash_traversal(self):
         with self.assertRaises(ValueError):
             _resolve_download_path("dest", "..\\..\\evil.csv", _signed_url("evil.csv"))
+
+    def test_rejects_encoded_parent_directory_in_url(self):
+        url = _signed_url("%2e%2e")
+        with self.assertRaises(ValueError):
+            _resolve_download_path("dest", "a/b/train.csv", url)
+
+    def test_rejects_encoded_current_directory_in_url(self):
+        url = _signed_url("%2e")
+        with self.assertRaises(ValueError):
+            _resolve_download_path("dest", "a/b/train.csv", url)
+
+    def test_rejects_trailing_encoded_separator_in_url(self):
+        url = _signed_url("foo%2F")
+        with self.assertRaises(ValueError):
+            _resolve_download_path("dest", "a/b/train.csv", url)
 
 
 class TestDownloadFileDestinations(unittest.TestCase):
