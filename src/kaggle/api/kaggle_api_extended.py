@@ -10134,6 +10134,7 @@ class KaggleApi:
                 choice = input().strip().lower()
             except EOFError:
                 # Closed stdin can never produce a valid answer; treat it as "no" rather than looping.
+                sys.stdout.write("\n")
                 return False
             if choice in options:
                 return options[choice]
