@@ -10134,12 +10134,15 @@ class KaggleApi:
             options[""] = True
         while True:
             sys.stdout.write("{} {} ".format(question, prompt))
-            choice = input().lower()
+            try:
+                choice = input().strip().lower()
+            except EOFError:
+                # Closed stdin can never produce a valid answer; treat it as "no" rather than looping.
+                sys.stdout.write("\n")
+                return False
             if choice in options:
                 return options[choice]
-            else:
-                sys.stdout.write("Please respond with 'yes' or 'no'.\n")
-                return False
+            sys.stdout.write("Please respond with 'y' or 'n'.\n")
 
     def _check_response_version(self, response: Response):
         if self.already_printed_version_warning:
