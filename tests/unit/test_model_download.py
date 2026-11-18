@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 import tarfile
 import io
@@ -71,7 +72,7 @@ class TestModelDownload(unittest.TestCase):
         self.assertEqual(request.instance_slug, "instance")
         self.assertEqual(request.version_number, 2)
 
-        mock_download_needed.assert_called_once_with(mock_response, expected_outfile, True)
+        mock_download_needed.assert_called_once_with(mock_response, expected_outfile, True, exact=True)
 
     @patch.object(KaggleApi, "download_file")
     @patch.object(KaggleApi, "download_needed", return_value=True)
@@ -90,7 +91,7 @@ class TestModelDownload(unittest.TestCase):
         expected_outfile = os.path.join(self.temp_dir, "model.tar.gz")
         self.assertEqual(outfile, expected_outfile)
 
-        mock_download_needed.assert_called_once_with(mock_response, expected_outfile, False)
+        mock_download_needed.assert_called_once_with(mock_response, expected_outfile, False, exact=True)
         mock_download_file.assert_called_once_with(mock_response, expected_outfile, "mock-http-client", False, True)
 
     @patch.object(KaggleApi, "download_file")
@@ -210,6 +211,45 @@ class TestModelDownload(unittest.TestCase):
         expected_outfile = os.path.join(self.temp_dir, "model.tar.gz")
         self.assertEqual(outfile, expected_outfile)
         mock_get_dir.assert_called_once_with("models", "owner", "model", "keras", "instance", "2")
+
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_newer_local_copy_of_another_variation_is_replaced(self, mock_client, mock_download_file):
+        """Every variation and version is saved as <model>.tar.gz, so a newer and
+        larger local archive must not stand in for the one that was requested."""
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.headers = {"Last-Modified": "Wed, 15 Nov 2023 05:11:27 GMT", "Content-Length": "4"}
+        mock_kaggle.models.model_api_client.download_model_instance_version.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        outfile = os.path.join(self.temp_dir, "model.tar.gz")
+        with open(outfile, "wb") as f:
+            f.write(b"another variation")  # larger than the requested one, modified just now
+
+        self.api.model_instance_version_download("owner/model/keras/other-instance/1", path=self.temp_dir)
+        mock_download_file.assert_called_once()
+
+    @patch.object(KaggleApi, "download_file")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_exact_local_copy_is_not_downloaded_again(self, mock_client, mock_download_file):
+        mock_kaggle = MagicMock()
+        mock_response = MagicMock()
+        mock_response.headers = {"Last-Modified": "Wed, 15 Nov 2023 05:11:27 GMT", "Content-Length": "4"}
+        mock_kaggle.models.model_api_client.download_model_instance_version.return_value = mock_response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        outfile = os.path.join(self.temp_dir, "model.tar.gz")
+        with open(outfile, "wb") as f:
+            f.write(b"same")
+        # A finished download carries the server's Last-Modified time.
+        modified = datetime(2023, 11, 15, 5, 11, 27).timestamp()
+        os.utime(outfile, (modified, modified))
+
+        self.api.model_instance_version_download("owner/model/keras/instance/1", path=self.temp_dir)
+        mock_download_file.assert_not_called()
 
 
 if __name__ == "__main__":
