@@ -8994,7 +8994,9 @@ class KaggleApi:
             response = kaggle.models.model_api_client.download_model_instance_version(request)
 
         outfile = os.path.join(effective_path, model_slug + ".tar.gz")
-        if force or self.download_needed(response, outfile, quiet):
+        # Every framework, variation and version is saved under this one name, so a
+        # newer local copy may be a different one; only an exact match is the same.
+        if force or self.download_needed(response, outfile, quiet, exact=True):
             self.download_file(response, outfile, kaggle.http_client(), quiet, not force)
             downloaded = True
         else:
