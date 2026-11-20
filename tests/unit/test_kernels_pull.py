@@ -140,7 +140,7 @@ class TestKernelsPull(unittest.TestCase):
         mock_open_file.assert_any_call(expected_script_path, "w", encoding="utf-8")
         # Second call: metadata
         expected_metadata_path = os.path.join("/tmp", "dummy", "kernel-metadata.json")
-        mock_open_file.assert_any_call(expected_metadata_path, "w")
+        mock_open_file.assert_any_call(expected_metadata_path, "w", encoding="utf-8")
 
     @patch("os.path.exists", return_value=True)
     @patch("os.path.isfile", return_value=False)
@@ -252,7 +252,7 @@ class TestKernelsPull(unittest.TestCase):
         # Windows a POSIX-style path would keep forward slashes and not match).
         self.api.kernels_pull(None, path=effective_path)
 
-        mock_open_file.assert_any_call(metadata_path)
+        mock_open_file.assert_any_call(metadata_path, encoding="utf-8-sig")
 
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
@@ -310,7 +310,7 @@ class TestKernelsPull(unittest.TestCase):
 
         self.api.kernels_pull(None, None)
 
-        mock_open_file.assert_any_call(metadata_path)
+        mock_open_file.assert_any_call(metadata_path, encoding="utf-8-sig")
 
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
