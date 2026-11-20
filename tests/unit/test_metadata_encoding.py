@@ -3,6 +3,9 @@
 On Windows, open() without an encoding uses the ANSI code page: cp1252 on most Western systems, cp932 on
 Japanese ones. UTF-8 text in a metadata file was then silently garbled ("×" was uploaded as "Ã—") or the
 command failed with UnicodeDecodeError. The autouse fixture below reproduces a cp1252 machine on any OS.
+
+Metadata files are read as utf-8-sig, so a file saved with a UTF-8 BOM (Notepad, or PowerShell 5's
+`Set-Content -Encoding UTF8`) works too, and a file saved in another encoding gets an error that says what to do.
 """
 
 import builtins
@@ -57,14 +60,20 @@ def _client(api):
     return api.build_kaggle_client.return_value.__enter__.return_value
 
 
-def _write_json(path, data):
-    # ensure_ascii=False keeps the characters themselves in the file, as an editor would.
-    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+@pytest.fixture(params=["utf-8", "utf-8-sig"], ids=["utf8", "utf8_bom"])
+def write_json(request):
+    """Writes a metadata file as UTF-8, without and with a BOM."""
+
+    def write(path, data):
+        # ensure_ascii=False keeps the characters themselves in the file, as an editor would.
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding=request.param)
+
+    return write
 
 
 @pytest.mark.parametrize("text", TEXTS)
-def test_dataset_metadata_update_reads_utf8(api, tmp_path, text):
-    _write_json(tmp_path / "dataset-metadata.json", {"title": "Test Dataset Title", "description": text})
+def test_dataset_metadata_update_reads_utf8(api, tmp_path, write_json, text):
+    write_json(tmp_path / "dataset-metadata.json", {"title": "Test Dataset Title", "description": text})
     update = _client(api).datasets.dataset_api_client.update_dataset_metadata
     update.return_value.errors = []
 
@@ -74,9 +83,9 @@ def test_dataset_metadata_update_reads_utf8(api, tmp_path, text):
 
 
 @pytest.mark.parametrize("text", TEXTS)
-def test_dataset_create_new_reads_utf8(api, tmp_path, text):
+def test_dataset_create_new_reads_utf8(api, tmp_path, write_json, text):
     api.dataset_status = MagicMock(side_effect=HTTPError())  # type: ignore[method-assign]
-    _write_json(tmp_path / "dataset-metadata.json", {**DATASET, "description": text})
+    write_json(tmp_path / "dataset-metadata.json", {**DATASET, "description": text})
     create = _client(api).datasets.dataset_api_client.create_dataset
     create.return_value.error = ""
 
@@ -86,8 +95,8 @@ def test_dataset_create_new_reads_utf8(api, tmp_path, text):
 
 
 @pytest.mark.parametrize("text", TEXTS)
-def test_dataset_create_version_reads_utf8(api, tmp_path, text):
-    _write_json(tmp_path / "dataset-metadata.json", {**DATASET, "description": text})
+def test_dataset_create_version_reads_utf8(api, tmp_path, write_json, text):
+    write_json(tmp_path / "dataset-metadata.json", {**DATASET, "description": text})
 
     api.dataset_create_version(str(tmp_path), "version notes")
 
@@ -99,8 +108,8 @@ def test_dataset_create_version_reads_utf8(api, tmp_path, text):
 @pytest.mark.parametrize(
     "method, client_method", [("model_create_new", "create_model"), ("model_update", "update_model")]
 )
-def test_model_metadata_is_read_as_utf8(api, tmp_path, text, method, client_method):
-    _write_json(tmp_path / "model-metadata.json", {**MODEL, "description": text})
+def test_model_metadata_is_read_as_utf8(api, tmp_path, write_json, text, method, client_method):
+    write_json(tmp_path / "model-metadata.json", {**MODEL, "description": text})
     call = getattr(_client(api).models.model_api_client, client_method)
     call.return_value = ApiCreateModelResponse()
 
@@ -110,8 +119,8 @@ def test_model_metadata_is_read_as_utf8(api, tmp_path, text, method, client_meth
 
 
 @pytest.mark.parametrize("text", TEXTS)
-def test_model_instance_create_reads_utf8(api, tmp_path, text):
-    _write_json(tmp_path / "model-instance-metadata.json", {**MODEL_INSTANCE, "overview": text})
+def test_model_instance_create_reads_utf8(api, tmp_path, write_json, text):
+    write_json(tmp_path / "model-instance-metadata.json", {**MODEL_INSTANCE, "overview": text})
     create = _client(api).models.model_api_client.create_model_instance
     create.return_value = ApiCreateModelResponse()
 
@@ -121,8 +130,8 @@ def test_model_instance_create_reads_utf8(api, tmp_path, text):
 
 
 @pytest.mark.parametrize("text", TEXTS)
-def test_model_instance_update_reads_utf8(api, tmp_path, text):
-    _write_json(tmp_path / "model-instance-metadata.json", {**MODEL_INSTANCE, "overview": text})
+def test_model_instance_update_reads_utf8(api, tmp_path, write_json, text):
+    write_json(tmp_path / "model-instance-metadata.json", {**MODEL_INSTANCE, "overview": text})
 
     api.model_instance_update(str(tmp_path))
 
@@ -130,9 +139,9 @@ def test_model_instance_update_reads_utf8(api, tmp_path, text):
 
 
 @pytest.mark.parametrize("text", TEXTS)
-def test_competition_create_new_reads_utf8(api, tmp_path, text):
+def test_competition_create_new_reads_utf8(api, tmp_path, write_json, text):
     meta = {"title": "My Awesome Comp", "slug": "my-awesome-comp", "briefDescription": text, "privacy": "PUBLIC"}
-    _write_json(tmp_path / KaggleApi.COMPETITION_METADATA_FILE, meta)
+    write_json(tmp_path / KaggleApi.COMPETITION_METADATA_FILE, meta)
     create = _client(api).competitions.competition_api_client.create_competition
     create.return_value.url = "https://www.kaggle.com/c/my-awesome-comp"
 
@@ -142,9 +151,9 @@ def test_competition_create_new_reads_utf8(api, tmp_path, text):
 
 
 @pytest.mark.parametrize("kernel", [None, "testuser/my-kernel"], ids=["from_metadata", "named"])
-def test_kernels_pull_reads_existing_metadata_as_utf8(api, tmp_path, kernel):
+def test_kernels_pull_reads_existing_metadata_as_utf8(api, tmp_path, write_json, kernel):
     # Only id and code_file are used, so a garbled title was harmless; one cp1252 can't decode made the pull fail.
-    _write_json(
+    write_json(
         tmp_path / "kernel-metadata.json", {"id": "testuser/my-kernel", "title": UNDECODABLE, "code_file": "mine.py"}
     )
     blob = _client(api).kernels.kernels_api_client.get_kernel.return_value.blob
@@ -153,6 +162,31 @@ def test_kernels_pull_reads_existing_metadata_as_utf8(api, tmp_path, kernel):
     api.kernels_pull(kernel, path=str(tmp_path))
 
     assert (tmp_path / "mine.py").read_text(encoding="utf-8") == "print('pulled')"
+
+
+@pytest.mark.parametrize("text", TEXTS)
+def test_kernels_push_reads_metadata_as_utf8(api, tmp_path, write_json, text):
+    # A title that doesn't match the slug only prints a warning.
+    meta = {"id": "testuser/my-kernel", "title": f"My Kernel {text}", "code_file": "script.py"}
+    write_json(tmp_path / "kernel-metadata.json", {**meta, "language": "python", "kernel_type": "script"})
+    (tmp_path / "script.py").write_text("print('hi')", encoding="utf-8")
+    response = _client(api).kernels.kernels_api_client.save_kernel.return_value
+    response.error, response.invalid_tags, response.url, response.version_number = None, [], "https://k", 1
+
+    api.kernels_push(str(tmp_path))
+
+    request = _client(api).kernels.kernels_api_client.save_kernel.call_args[0][0]
+    assert request.new_title == f"My Kernel {text}"
+
+
+def test_metadata_in_another_encoding_says_how_to_fix_it(api, tmp_path):
+    meta_file = tmp_path / "dataset-metadata.json"
+    meta_file.write_text(json.dumps({**DATASET, "description": GARBLED}, ensure_ascii=False), encoding="cp1252")
+
+    with pytest.raises(ValueError, match="is not UTF-8 encoded, please re-save it as UTF-8") as raised:
+        api.dataset_create_version(str(tmp_path), "version notes")
+
+    assert str(meta_file) in str(raised.value)
 
 
 @pytest.mark.parametrize("text", TEXTS)
