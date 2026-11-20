@@ -4288,7 +4288,7 @@ class KaggleApi:
             "reward": None,
         }
         meta_file = os.path.join(folder, self.COMPETITION_METADATA_FILE)
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(meta_data, f, indent=2)
 
         print("Competition metadata template written to: " + meta_file)
@@ -4314,7 +4314,7 @@ class KaggleApi:
         if not os.path.isfile(meta_file):
             raise ValueError("Metadata file not found: " + self.COMPETITION_METADATA_FILE)
 
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta = json.load(f)
 
         title = cast(str, self.get_or_fail(meta, "title"))
@@ -5459,7 +5459,7 @@ class KaggleApi:
         """
         owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
         meta_file = self.get_dataset_metadata_file(effective_path)
-        with open(meta_file, "r") as f:
+        with open(meta_file, "r", encoding="utf-8") as f:
             metadata = json.load(f)
             metadata = metadata.get("info") or metadata
             update_settings = DatasetSettings()
@@ -5614,7 +5614,7 @@ class KaggleApi:
                 raise Exception(response.error_message)
 
         meta_file = os.path.join(effective_path, self.DATASET_METADATA_FILE)
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             f.write(response.to_json(response.info))
 
         return meta_file
@@ -5998,7 +5998,7 @@ class KaggleApi:
         meta_file = self.get_dataset_metadata_file(folder)
 
         # read json
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
         ref = self.get_or_default(meta_data, "id", None)
         id_no = self.get_or_default(meta_data, "id_no", None)
@@ -6221,7 +6221,7 @@ class KaggleApi:
 
         meta_data = {"title": "INSERT_TITLE_HERE", "id": ref, "licenses": licenses}
         meta_file = os.path.join(folder, self.DATASET_METADATA_FILE)
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(meta_data, f, indent=2)
 
         print("Data package template written to: " + meta_file)
@@ -6261,7 +6261,7 @@ class KaggleApi:
         meta_file = self.get_dataset_metadata_file(folder)
 
         # read json
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
         ref = cast(str, self.get_or_fail(meta_data, "id"))
         title = cast(str, self.get_or_fail(meta_data, "title"))
@@ -7269,7 +7269,7 @@ class KaggleApi:
             "model_sources": [],
         }
         meta_file = os.path.join(folder, self.KERNEL_METADATA_FILE)
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(meta_data, f, indent=2)
 
         return meta_file
@@ -7506,7 +7506,7 @@ class KaggleApi:
             else:
                 existing_metadata_path = os.path.join(path, self.KERNEL_METADATA_FILE)
             if os.path.exists(existing_metadata_path):
-                with open(existing_metadata_path) as f:
+                with open(existing_metadata_path, encoding="utf-8") as f:
                     existing_metadata = json.load(f)
                     kernel = existing_metadata["id"]
                     if "INSERT_KERNEL_SLUG_HERE" in kernel:
@@ -7549,7 +7549,7 @@ class KaggleApi:
             if existing_metadata:
                 file_name = existing_metadata["code_file"]
             elif os.path.isfile(metadata_path):
-                with open(metadata_path) as f:
+                with open(metadata_path, encoding="utf-8") as f:
                     local_metadata = json.load(f)
                 # Reuse code_file only if the folder holds this same kernel; another kernel's file would be overwritten.
                 local_id = str(local_metadata.get("id", "")).lower().split("/")[:2]
@@ -7616,7 +7616,7 @@ class KaggleApi:
             data["model_sources"] = server_metadata.model_data_sources
             data["docker_image"] = server_metadata.docker_image
             data["machine_shape"] = server_metadata.machine_shape
-            with open(metadata_path, "w") as f:
+            with open(metadata_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
             return effective_dir
@@ -8075,7 +8075,7 @@ class KaggleApi:
             data["description"] = model.description
             data["publishTime"] = model.publish_time
 
-            with open(meta_file, "w") as f:
+            with open(meta_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             print("Metadata file written to {}".format(meta_file))
 
@@ -8183,7 +8183,7 @@ class KaggleApi:
             "provenanceSources": "",
         }
         meta_file = os.path.join(folder, self.MODEL_METADATA_FILE)
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(meta_data, f, indent=2)
 
         print("Model template written to: " + meta_file)
@@ -8208,7 +8208,7 @@ class KaggleApi:
         meta_file = self.get_model_metadata_file(folder)
 
         # read json
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
         owner_slug = self.get_or_fail(meta_data, "ownerSlug")
         slug = self.get_or_fail(meta_data, "slug")
@@ -8316,7 +8316,7 @@ class KaggleApi:
         meta_file = self.get_model_metadata_file(folder)
 
         # read json
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
         owner_slug = self.get_or_fail(meta_data, "ownerSlug")
         slug = self.get_or_fail(meta_data, "slug")
@@ -8461,7 +8461,7 @@ class KaggleApi:
                 )
             data["externalBaseModelUrl"] = mi.external_base_model_url
 
-            with open(meta_file, "w") as f:
+            with open(meta_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             print("Metadata file written to {}".format(meta_file))
 
@@ -8505,7 +8505,7 @@ class KaggleApi:
             "externalBaseModelUrl": "",
         }
         meta_file = os.path.join(folder, self.MODEL_INSTANCE_METADATA_FILE)
-        with open(meta_file, "w") as f:
+        with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(meta_data, f, indent=2)
 
         print("Model Instance template written to: " + meta_file)
@@ -8538,7 +8538,7 @@ class KaggleApi:
         meta_file = self.get_model_instance_metadata_file(folder)
 
         # read json
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
         owner_slug = self.get_or_fail(meta_data, "ownerSlug")
         model_slug = self.get_or_fail(meta_data, "modelSlug")
@@ -8781,7 +8781,7 @@ class KaggleApi:
         meta_file = self.get_model_instance_metadata_file(folder)
 
         # read json
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
         owner_slug = self.get_or_fail(meta_data, "ownerSlug")
         model_slug = self.get_or_fail(meta_data, "modelSlug")
@@ -10816,7 +10816,7 @@ class KaggleApi:
                 print(f"Example file already exists at '{example_file}', skipping.", file=sys.stderr)
             return
 
-        with open(example_file, "w") as f:
+        with open(example_file, "w", encoding="utf-8") as f:
             f.write(BENCHMARKS_EXAMPLE_TASK)
 
         if not quiet:
@@ -10829,7 +10829,7 @@ class KaggleApi:
                 print(f"Reference file already exists at '{ref_file}', skipping.", file=sys.stderr)
             return
 
-        with open(ref_file, "w") as f:
+        with open(ref_file, "w", encoding="utf-8") as f:
             f.write(BENCHMARKS_SYNTAX_REF)
 
         if not quiet:
@@ -10931,7 +10931,7 @@ class KaggleApi:
         if not file.endswith(".py"):
             raise ValueError(f"File '{file}' must be a Python (.py) file.")
 
-        with open(file) as f:
+        with open(file, encoding="utf-8") as f:
             content = f.read()
         self._validate_task_in_file(task, file, content)
 
