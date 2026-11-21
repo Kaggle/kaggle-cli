@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Add `KAGGLE_PAGE_TOKEN_STDERR=1`, which keeps stdout parseable for `--format json`, `--format csv` and the legacy `--csv`/`-v` by reporting `Next Page Token = ...` on stderr. Every paginated command (`kaggle datasets files`, `datasets list`, `competitions files`, `competitions list`, `competitions leaderboard`, `competitions topics list`, `kernels list`, `kernels files`, `models list`, `models instances list`/`files`, `models instances versions list`/`files`, `search`) prefixes its machine-readable output with that line whenever more results exist, so callers using the documented JSON and CSV formats get a document their parser rejects. Unset, the token still goes to stdout for every format, so existing output is unchanged; `table` always keeps it on stdout
 * Fix every `kaggle` command failing with `ModuleNotFoundError: No module named 'six'` when installed alongside `python-dateutil` 4.0.0 or newer. `kaggle.models.upload_file` imported `six` without declaring it, and only got it through `python-dateutil`, which dropped `six` in 4.0.0
 * Show every column in `kaggle benchmarks leaderboard` for Game Arena leaderboards (`kaggle/game-arena`, `kaggle/chess-text`, `kaggle/poker-heads-up`, ...). Their columns share an empty task slug, so all but the last collapsed into one and the headline score was dropped from `--show` and `--download`
 * Validate bare slugs in `kaggle kernels delete` and require an explicit owner when no username is configured, before confirmation or API access
