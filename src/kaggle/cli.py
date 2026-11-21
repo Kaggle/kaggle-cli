@@ -1530,6 +1530,18 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_delete._action_groups.append(parser_kernels_delete_optional)
     parser_kernels_delete.set_defaults(func=api.kernels_delete_cli)
 
+    # Kernels cancel
+    parser_kernels_cancel = subparsers_kernels.add_parser(
+        "cancel", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_cancel
+    )
+    parser_kernels_cancel_optional = parser_kernels_cancel._action_groups.pop()
+    parser_kernels_cancel_optional.add_argument("kernel_session_id", type=int, help=Help.param_kernel_session_id)
+    parser_kernels_cancel_optional.add_argument(
+        "-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes
+    )
+    parser_kernels_cancel._action_groups.append(parser_kernels_cancel_optional)
+    parser_kernels_cancel.set_defaults(func=api.kernels_cancel_cli)
+
     shared_topics = _get_shared_topics_parser()
 
     # Kernels discussion topics
@@ -2615,6 +2627,7 @@ class Help(object):
         "logs",
         "update",
         "delete",
+        "cancel",
         "topics",
     ]
     models_choices = [
@@ -2797,6 +2810,7 @@ options a specific command accepts."""
     command_kernels_status = "Display the status of the latest kernel run"
     command_kernels_logs = "Print the execution logs from the latest kernel run"
     command_kernels_delete = "Delete a kernel"
+    command_kernels_cancel = "Cancel a queued or running kernel session"
     command_kernels_topics = "List discussion topics for a kernel"
 
     # Models commands
@@ -3007,6 +3021,8 @@ options a specific command accepts."""
     )
 
     param_kernel_name = 'Kernel URL suffix in format <owner>/<kernel-name> (use "kaggle kernels list" to show options)'
+
+    param_kernel_session_id = "Numeric id of the kernel session to cancel"
 
     param_kernel_init = (
         "Create a metadata file for an existing kernel URL suffix in format "

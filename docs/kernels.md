@@ -335,6 +335,36 @@ kaggle kernels delete $KAGGLE_DEVELOPER/exercise-delete --yes
 
 This command permanently removes one of your kernels from Kaggle. Use with caution.
 
+## `kaggle kernels cancel`
+
+Cancels a queued or running kernel session.
+
+**Usage:**
+
+```bash
+kaggle kernels cancel <KERNEL_SESSION_ID> [options]
+```
+
+**Arguments:**
+
+*   `<KERNEL_SESSION_ID>`: Numeric id of the kernel session to cancel. This is the session id, not the kernel id or the version number.
+
+**Options:**
+
+*   `-y, --yes`: Automatically confirm without prompting.
+
+**Example:**
+
+Cancel the kernel session `123456789` and automatically confirm:
+
+```bash
+kaggle kernels cancel 123456789 --yes
+```
+
+**Purpose:**
+
+This command stops a notebook run that is stuck in the queue or still running, without opening the website. The run ends and any output it has not written yet is lost.
+
 ## `kaggle kernels topics list`
 
 Lists discussion topics for a kernel.

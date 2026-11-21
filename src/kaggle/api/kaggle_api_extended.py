@@ -215,6 +215,7 @@ from kagglesdk.kernels.types.kernels_api_service import (
     ApiSaveKernelResponse,
     ApiKernelMetadata,
     ApiDeleteKernelRequest,
+    ApiCancelKernelSessionRequest,
     ApiGetAcceleratorQuotaStatisticsRequest,
 )
 from kagglesdk.kernels.types.kernels_enums import KernelExecutionType, KernelsListSortType, KernelsListViewType
@@ -6178,6 +6179,44 @@ class KaggleApi:
             None:
         """
         self.kernels_delete(kernel, no_confirm)
+
+    def kernels_cancel(self, kernel_session_id: int, no_confirm: bool = False) -> None:
+        """Cancels a queued or running kernel session.
+
+        Args:
+            kernel_session_id (int): The id of the kernel session to cancel.
+            no_confirm (bool): If True, skip confirmation (default is False).
+
+        Returns:
+            None:
+        """
+        if kernel_session_id is None or kernel_session_id <= 0:
+            raise ValueError("A positive kernel session id must be specified")
+
+        if not no_confirm:
+            if not self.confirmation(f"cancel the kernel session: {kernel_session_id}"):
+                print("Cancel aborted")
+                return
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCancelKernelSessionRequest()
+            request.kernel_session_id = kernel_session_id
+            response = kaggle.kernels.kernels_api_client.cancel_kernel_session(request)
+        if response.error_message:
+            raise ValueError(f"Could not cancel kernel session {kernel_session_id}: {response.error_message}")
+        print(f"Kernel session {kernel_session_id} cancelled")
+
+    def kernels_cancel_cli(self, kernel_session_id: int, no_confirm: bool = False) -> None:
+        """A client wrapper for cancelling a kernel session.
+
+        Args:
+            kernel_session_id (int): The id of the kernel session to cancel.
+            no_confirm (bool): If True, skip confirmation (default is False).
+
+        Returns:
+            None:
+        """
+        self.kernels_cancel(kernel_session_id, no_confirm)
 
     def dataset_delete_cli(self, dataset: str, no_confirm: bool = False) -> None:
         """A client wrapper for deleting a dataset.

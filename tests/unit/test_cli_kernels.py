@@ -284,6 +284,23 @@ def test_kernels_delete_parser_succeeds(parser):
     assert kwargs["no_confirm"] is True
 
 
+def test_kernels_cancel_parser_succeeds(parser):
+    func, kwargs = parser.dispatch(["kernels", "cancel", "123456789", "-y"])
+    assert func.__name__ == "kernels_cancel_cli"
+    assert kwargs["kernel_session_id"] == 123456789
+    assert kwargs["no_confirm"] is True
+
+
+def test_kernels_cancel_parser_rejects_non_numeric_id(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["kernels", "cancel", "owner/kernel-name"])
+
+
+def test_kernels_cancel_parser_missing_id_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["kernels", "cancel"])
+
+
 @pytest.mark.parametrize("argv", [["kernels", "delete", "--help"], ["kernels", "topics", "list", "--help"]])
 def test_kernels_help_does_not_advertise_a_version(parser, capsys, argv):
     with pytest.raises(SystemExit) as exc:

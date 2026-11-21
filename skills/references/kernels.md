@@ -276,6 +276,28 @@ kaggle kernels delete owner/kernel-slug -y
 
 **Purpose:** Remove a kernel from Kaggle.
 
+## `kaggle kernels cancel`
+
+Cancels a queued or running kernel session.
+
+**Usage:**
+
+```bash
+kaggle kernels cancel <KERNEL_SESSION_ID> [options]
+```
+
+**Options:**
+
+- `-y, --yes`: Skip confirmation.
+
+**Examples:**
+
+```bash
+kaggle kernels cancel 123456789 -y
+```
+
+**Purpose:** Stop a queued or hung notebook run. Takes the numeric session id, not `<owner>/<kernel-name>`.
+
 ## Error Scenarios And Notes
 
 - Kernel handles are `<owner>/<kernel-name>` or `<owner>/<kernel-name>/<version>`.
