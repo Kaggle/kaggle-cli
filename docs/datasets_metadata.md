@@ -207,13 +207,12 @@ The following file types are supported:
 
 The image needs to have a minimum width of 560px and a minimum height of 280px.
 
-The same image file will be used for two different crops:
+The same image file will be used for two different crops, each the largest rectangle of its ratio that fits in the image, centered:
 
 - Header, 2:1 ratio
-  - Crop rectangle: width: 560px, height: 280px, top: 0, left: 0
-  - For an image with dimensions 560px x 280px, this will be the entire rectangular image.
+  - For a 2:1 image, such as 560px x 280px or 1600px x 800px, this will be the entire image.
+  - For other ratios, this will be the largest centered 2:1 rectangle. For a 1000px x 800px image: width: 1000px, height: 500px, top: 150px, left: 0.
 - Thumbnail, 1:1 ratio
-  - Crop rectangle: width: 280px, height: 280px, top: 0, left: 140px
-  - For an image with dimensions 560px x 280px, this will be a centered 280px square.
+  - The largest centered square. For a 560px x 280px image: width: 280px, height: 280px, top: 0, left: 140px.
 
-While you can upload a larger image than 560px x 280px, the crops as specified above will be applied, and this may not look good. These crops can always be edited in the UI on kaggle.com on the settings page for your dataset.
+If the image size can't be read from the file, the crops for a 560px x 280px image are used. These crops can always be edited in the UI on kaggle.com on the settings page for your dataset.
