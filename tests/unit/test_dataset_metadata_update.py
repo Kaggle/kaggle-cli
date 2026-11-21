@@ -351,10 +351,20 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
                 f.write(data)
             self.assertEqual(KaggleApi._image_dimensions(path), (731, 365), name)
 
-        truncated = os.path.join(self.temp_dir, "truncated.jpg")
-        with open(truncated, "wb") as f:
-            f.write(b"\xff\xd8\xff\xe0\x00")
-        self.assertIsNone(KaggleApi._image_dimensions(truncated))
+        corrupt = {
+            "truncated.jpg": b"\xff\xd8\xff\xe0\x00",
+            # a segment length below 2 (it counts its own two bytes)
+            "short_length.jpg": b"\xff\xd8\xff\xe0\x00\x01" + progressive_frame,
+            # start of scan before any frame header: stop there instead of scanning the compressed data
+            "scan_first.jpg": b"\xff\xd8" + jfif + b"\xff\xda" + struct.pack(">H", 8) + b"\x00" * 6 + progressive_frame,
+            "truncated_vp8l.webp": riff + b"VP8L" + struct.pack("<I", 20) + b"\x2f",
+            "truncated_vp8x.webp": riff + b"VP8X" + struct.pack("<I", 10) + b"\x10\x00",
+        }
+        for name, data in corrupt.items():
+            path = os.path.join(self.temp_dir, name)
+            with open(path, "wb") as f:
+                f.write(data)
+            self.assertIsNone(KaggleApi._image_dimensions(path), name)
 
 
 def _png(width, height):

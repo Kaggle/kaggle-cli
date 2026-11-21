@@ -5586,10 +5586,10 @@ class KaggleApi:
                     if chunk == b"VP8 ":  # lossy
                         width, height = struct.unpack("<HH", head[26:30])
                         return width & 0x3FFF, height & 0x3FFF
-                    if chunk == b"VP8L":  # lossless
+                    if chunk == b"VP8L" and len(head) >= 25:  # lossless
                         bits = int.from_bytes(head[21:25], "little")
                         return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
-                    if chunk == b"VP8X":  # extended
+                    if chunk == b"VP8X" and len(head) >= 30:  # extended
                         return int.from_bytes(head[24:27], "little") + 1, int.from_bytes(head[27:30], "little") + 1
                     return None
                 if head[:2] == b"\xff\xd8":  # JPEG: walk the segments up to the start-of-frame marker
@@ -5603,9 +5603,13 @@ class KaggleApi:
                         if not byte:
                             return None
                         marker = byte[0]
+                        if marker == 0xDA:  # start of scan: a frame header must come before it
+                            return None
                         if marker == 0x01 or 0xD0 <= marker <= 0xD9:  # markers without a length
                             continue
                         (length,) = struct.unpack(">H", f.read(2))
+                        if length < 2:  # the length counts its own 2 bytes, so this file is corrupt
+                            return None
                         if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
                             height, width = struct.unpack(">xHH", f.read(5))
                             return width, height
