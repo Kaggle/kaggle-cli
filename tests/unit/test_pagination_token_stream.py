@@ -1,23 +1,27 @@
 # coding=utf-8
-"""Tests that a pagination token never corrupts machine-readable output.
+"""Tests that a pagination token can be kept out of machine-readable output.
 
 ``--format json`` and ``--format csv`` are documented, machine-readable
-formats, so stdout has to stay a single parseable document. The "Next Page
-Token = ..." notice therefore goes to stderr for those formats, while the
-human-readable table keeps it on stdout where it has always been.
+formats, but the "Next Page Token = ..." notice is printed before the results,
+so stdout is not a single parseable document when more results exist. Setting
+``KAGGLE_PAGE_TOKEN_STDERR`` opts in to reporting that notice on stderr for
+those formats. The variable is opt-in, so with it unset every format keeps the
+notice on stdout exactly as it always has, and the human-readable table keeps
+it on stdout either way.
 """
 
 import csv
 import io
 import json
+import os
 import sys
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, "../..")
 
-from kaggle.api.kaggle_api_extended import KaggleApi
+from kaggle.api.kaggle_api_extended import KaggleApi, PAGE_TOKEN_STDERR_ENV_VAR
 
 TOKEN = "TOKEN123"
 TOKEN_LINE = "Next Page Token = " + TOKEN
@@ -31,6 +35,25 @@ class _Obj:
             setattr(self, key, value)
 
 
+@contextmanager
+def opted_in(value="1"):
+    """Runs the block with KAGGLE_PAGE_TOKEN_STDERR set."""
+    with patch.dict(os.environ, {PAGE_TOKEN_STDERR_ENV_VAR: value}):
+        yield
+
+
+@contextmanager
+def opted_out():
+    """Runs the block with KAGGLE_PAGE_TOKEN_STDERR unset.
+
+    Set explicitly rather than assumed, so that the default-behavior tests hold
+    even when the developer running them has opted in for their own shell.
+    """
+    with patch.dict(os.environ):
+        os.environ.pop(PAGE_TOKEN_STDERR_ENV_VAR, None)
+        yield
+
+
 def _run(func, *args, **kwargs):
     """Calls func, returning its (stdout, stderr) output as a pair of strings."""
     out, err = io.StringIO(), io.StringIO()
@@ -39,85 +62,159 @@ def _run(func, *args, **kwargs):
     return out.getvalue(), err.getvalue()
 
 
-class TestPrintNextPageToken(unittest.TestCase):
-    """Unit tests for the print_next_page_token helper itself."""
+class TestPrintNextPageTokenOptedIn(unittest.TestCase):
+    """The helper's behavior once KAGGLE_PAGE_TOKEN_STDERR is set."""
 
     def setUp(self):
         self.api = KaggleApi.__new__(KaggleApi)
 
+    def _run(self, *args, **kwargs):
+        with opted_in():
+            return _run(self.api.print_next_page_token, *args, **kwargs)
+
     def test_table_keeps_token_on_stdout(self):
-        out, err = _run(self.api.print_next_page_token, TOKEN)
+        out, err = self._run(TOKEN)
         self.assertEqual(TOKEN_LINE, out.strip())
         self.assertEqual("", err)
 
     def test_explicit_table_format_keeps_token_on_stdout(self):
-        out, err = _run(self.api.print_next_page_token, TOKEN, output_format="table")
+        out, err = self._run(TOKEN, output_format="table")
         self.assertEqual(TOKEN_LINE, out.strip())
         self.assertEqual("", err)
 
     def test_json_sends_token_to_stderr(self):
-        out, err = _run(self.api.print_next_page_token, TOKEN, output_format="json")
+        out, err = self._run(TOKEN, output_format="json")
         self.assertEqual("", out)
         self.assertEqual(TOKEN_LINE, err.strip())
 
     def test_json_projection_sends_token_to_stderr(self):
-        out, err = _run(self.api.print_next_page_token, TOKEN, output_format="json(name,size)")
+        out, err = self._run(TOKEN, output_format="json(name,size)")
         self.assertEqual("", out)
         self.assertEqual(TOKEN_LINE, err.strip())
 
     def test_csv_format_sends_token_to_stderr(self):
-        out, err = _run(self.api.print_next_page_token, TOKEN, output_format="csv")
+        out, err = self._run(TOKEN, output_format="csv")
         self.assertEqual("", out)
         self.assertEqual(TOKEN_LINE, err.strip())
 
     def test_legacy_csv_display_sends_token_to_stderr(self):
-        out, err = _run(self.api.print_next_page_token, TOKEN, csv_display=True)
+        out, err = self._run(TOKEN, csv_display=True)
         self.assertEqual("", out)
         self.assertEqual(TOKEN_LINE, err.strip())
 
     def test_unrecognized_format_keeps_token_on_stdout(self):
         # _get_output_format falls back to a table for anything it cannot parse.
-        out, err = _run(self.api.print_next_page_token, TOKEN, output_format="bogus")
+        out, err = self._run(TOKEN, output_format="bogus")
         self.assertEqual(TOKEN_LINE, out.strip())
         self.assertEqual("", err)
 
     def test_non_string_token_is_printed(self):
         # "competitions list-topics" pages by number rather than by opaque token.
-        out, err = _run(self.api.print_next_page_token, 2, output_format="json")
+        out, err = self._run(2, output_format="json")
         self.assertEqual("", out)
         self.assertEqual("Next Page Token = 2", err.strip())
 
     def test_empty_token_prints_nothing(self):
         for token in (None, "", 0):
-            out, err = _run(self.api.print_next_page_token, token, output_format="json")
+            out, err = self._run(token, output_format="json")
+            self.assertEqual("", out, "token %r" % (token,))
+            self.assertEqual("", err, "token %r" % (token,))
+
+    def test_every_documented_truthy_value_opts_in(self):
+        for value in ("1", "true", "TRUE", "True", "yes", "YES"):
+            with opted_in(value):
+                out, err = _run(self.api.print_next_page_token, TOKEN, output_format="json")
+            self.assertEqual("", out, "value %r" % (value,))
+            self.assertEqual(TOKEN_LINE, err.strip(), "value %r" % (value,))
+
+
+class TestPrintNextPageTokenDefault(unittest.TestCase):
+    """Without the variable the helper must not change any existing output."""
+
+    def setUp(self):
+        self.api = KaggleApi.__new__(KaggleApi)
+
+    def _run(self, *args, **kwargs):
+        with opted_out():
+            return _run(self.api.print_next_page_token, *args, **kwargs)
+
+    def test_json_keeps_token_on_stdout(self):
+        out, err = self._run(TOKEN, output_format="json")
+        self.assertEqual(TOKEN_LINE, out.strip())
+        self.assertEqual("", err)
+
+    def test_json_projection_keeps_token_on_stdout(self):
+        out, err = self._run(TOKEN, output_format="json(name,size)")
+        self.assertEqual(TOKEN_LINE, out.strip())
+        self.assertEqual("", err)
+
+    def test_csv_keeps_token_on_stdout(self):
+        out, err = self._run(TOKEN, output_format="csv")
+        self.assertEqual(TOKEN_LINE, out.strip())
+        self.assertEqual("", err)
+
+    def test_legacy_csv_display_keeps_token_on_stdout(self):
+        out, err = self._run(TOKEN, csv_display=True)
+        self.assertEqual(TOKEN_LINE, out.strip())
+        self.assertEqual("", err)
+
+    def test_table_keeps_token_on_stdout(self):
+        out, err = self._run(TOKEN)
+        self.assertEqual(TOKEN_LINE, out.strip())
+        self.assertEqual("", err)
+
+    def test_falsy_values_do_not_opt_in(self):
+        for value in ("", "0", "false", "no", "off", "maybe"):
+            with opted_in(value):
+                out, err = _run(self.api.print_next_page_token, TOKEN, output_format="json")
+            self.assertEqual(TOKEN_LINE, out.strip(), "value %r" % (value,))
+            self.assertEqual("", err, "value %r" % (value,))
+
+    def test_empty_token_prints_nothing(self):
+        for token in (None, "", 0):
+            out, err = self._run(token, output_format="json")
             self.assertEqual("", out, "token %r" % (token,))
             self.assertEqual("", err, "token %r" % (token,))
 
 
 class _CommandCase(unittest.TestCase):
-    """Shared assertions covering the three output formats of a command."""
+    """Shared assertions covering the output formats of a paginated command."""
 
     def setUp(self):
         self.api = KaggleApi.__new__(KaggleApi)
         self.api.already_printed_version_warning = True
 
     def assert_json_is_parseable(self, invoke, expected_rows):
-        out, err = invoke("json")
+        """Opted in, stdout is a JSON document and the token is on stderr."""
+        with opted_in():
+            out, err = invoke("json")
         self.assertNotIn("Next Page Token", out)
         self.assertEqual(TOKEN_LINE, err.strip())
         self.assertEqual(expected_rows, len(json.loads(out)))
 
     def assert_csv_is_parseable(self, invoke, expected_rows):
-        out, err = invoke("csv")
+        """Opted in, stdout is a CSV document and the token is on stderr."""
+        with opted_in():
+            out, err = invoke("csv")
         self.assertNotIn("Next Page Token", out)
         self.assertEqual(TOKEN_LINE, err.strip())
         rows = [row for row in csv.reader(io.StringIO(out)) if row]
         self.assertEqual(expected_rows + 1, len(rows))  # + header row
 
     def assert_table_keeps_token(self, invoke):
-        out, err = invoke("table")
+        """The table format keeps the token on stdout even when opted in."""
+        with opted_in():
+            out, err = invoke("table")
         self.assertIn(TOKEN_LINE, out)
         self.assertEqual("", err)
+
+    def assert_default_keeps_token_on_stdout(self, invoke):
+        """Without the variable, json and csv stdout is unchanged."""
+        for output_format in ("json", "csv", "table", None):
+            with opted_out():
+                out, err = invoke(output_format)
+            self.assertIn(TOKEN_LINE, out, "format %r" % (output_format,))
+            self.assertEqual("", err, "format %r" % (output_format,))
 
 
 class TestDatasetListFilesTokenStream(_CommandCase):
@@ -139,6 +236,9 @@ class TestDatasetListFilesTokenStream(_CommandCase):
 
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
+
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
 
 
 class TestDatasetListTokenStream(_CommandCase):
@@ -168,6 +268,9 @@ class TestDatasetListTokenStream(_CommandCase):
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
 
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
+
 
 class TestCompetitionListFilesTokenStream(_CommandCase):
     def _invoke(self, output_format):
@@ -191,6 +294,9 @@ class TestCompetitionListFilesTokenStream(_CommandCase):
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
 
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
+
 
 class TestKernelsListFilesTokenStream(_CommandCase):
     def _invoke(self, output_format):
@@ -208,6 +314,9 @@ class TestKernelsListFilesTokenStream(_CommandCase):
 
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
+
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
 
 
 class TestModelListTokenStream(_CommandCase):
@@ -234,9 +343,13 @@ class TestModelListTokenStream(_CommandCase):
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
 
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
+
     def test_library_call_without_a_format_keeps_token_on_stdout(self):
         """Direct callers of the library method keep the pre-existing behavior."""
-        out, err = self._invoke(None)
+        with opted_in():
+            out, err = self._invoke(None)
         self.assertIn(TOKEN_LINE, out)
         self.assertEqual("", err)
 
@@ -259,6 +372,9 @@ class TestModelInstancesListTokenStream(_CommandCase):
 
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
+
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
 
 
 class TestCompetitionLeaderboardTokenStream(_CommandCase):
@@ -290,6 +406,9 @@ class TestCompetitionLeaderboardTokenStream(_CommandCase):
 
     def test_table(self):
         self.assert_table_keeps_token(self._invoke)
+
+    def test_default(self):
+        self.assert_default_keeps_token_on_stdout(self._invoke)
 
 
 if __name__ == "__main__":

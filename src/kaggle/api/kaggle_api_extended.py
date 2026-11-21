@@ -476,6 +476,11 @@ class OutputFormat(Enum):
         return self.value
 
 
+# Opt-in to reporting "Next Page Token = ..." on stderr instead of stdout for the
+# machine-readable formats, so that stdout stays parseable. Off by default to keep
+# existing output byte-for-byte compatible; see docs/output_format.md.
+PAGE_TOKEN_STDERR_ENV_VAR = "KAGGLE_PAGE_TOKEN_STDERR"
+
 DEFAULT_IGNORE_PATTERNS = [
     ".git/",
     "*/.git/",
@@ -2868,9 +2873,11 @@ class KaggleApi:
             page_token (Optional[str]): the page token for pagination
             public (bool): if True, return the public leaderboard instead of the
                 final one. Only differs once a competition has concluded.
-            csv_display (bool): if True, a pagination token is reported on stderr instead of stdout
-            output_format (Optional[str]): the output format; a pagination token is reported on
-                stderr for the machine-readable formats so that stdout stays parseable
+            csv_display (bool): the legacy CSV option; used only to resolve where a
+                pagination token is reported
+            output_format (Optional[str]): the output format; with KAGGLE_PAGE_TOKEN_STDERR set, a
+                pagination token is reported on stderr for the machine-readable formats so that
+                stdout stays parseable
 
         Returns:
             Union[listApiLeaderboardSubmission, None, None]:
@@ -7971,9 +7978,11 @@ class KaggleApi:
             owner (Optional[str]): The username or organization slug to which to filter the search.
             page_size (int): The page size to return (default is 20).
             page_token (Optional[str]): The page token for pagination.
-            csv_display (bool): If True, a pagination token is reported on stderr instead of stdout.
-            output_format (Optional[str]): The output format; a pagination token is reported on
-                stderr for the machine-readable formats so that stdout stays parseable.
+            csv_display (bool): The legacy CSV option; used only to resolve where a
+                pagination token is reported.
+            output_format (Optional[str]): The output format; with KAGGLE_PAGE_TOKEN_STDERR set, a
+                pagination token is reported on stderr for the machine-readable formats so that
+                stdout stays parseable.
 
         Returns:
             Union[List[ApiModel, None], None]: A list of ApiModel objects.
@@ -8561,8 +8570,9 @@ class KaggleApi:
             page_token (Union[str, None]): The token for pagination.
             page_size (int): The number of items per page.
             csv_display (bool): If True, print comma-separated values instead of a table.
-            output_format (Optional[str]): The output format; a pagination token is reported on
-                stderr for the machine-readable formats so that stdout stays parseable.
+            output_format (Optional[str]): The output format; with KAGGLE_PAGE_TOKEN_STDERR set, a
+                pagination token is reported on stderr for the machine-readable formats so that
+                stdout stays parseable.
 
         Returns:
             FileList: A FileList object.
@@ -8933,8 +8943,9 @@ class KaggleApi:
             page_token (Union[str, None]): The token for pagination.
             page_size (int): The number of items per page.
             csv_display (bool): If True, print comma-separated values instead of a table.
-            output_format (Optional[str]): The output format; a pagination token is reported on
-                stderr for the machine-readable formats so that stdout stays parseable.
+            output_format (Optional[str]): The output format; with KAGGLE_PAGE_TOKEN_STDERR set, a
+                pagination token is reported on stderr for the machine-readable formats so that
+                stdout stays parseable.
 
         Returns:
             Union[ApiListModelInstanceVersionFilesResponse, None]: An ApiListModelInstanceVersionFilesResponse object or None.
@@ -9269,13 +9280,21 @@ class KaggleApi:
         else:
             self.print_table(items, resolved_fields, resolved_labels)
 
-    def print_next_page_token(self, next_page_token, csv_display=False, output_format=None):
+    def print_next_page_token(
+        self,
+        next_page_token: Any,
+        csv_display: Optional[bool] = False,
+        output_format: Optional[str] = None,
+    ) -> None:
         """Reports a pagination token without corrupting machine-readable output.
 
-        For the human-readable table format the token keeps going to stdout, as
-        it always has. For the machine-readable formats (``csv`` and ``json``)
-        it goes to stderr instead, so that stdout stays a valid document that
-        callers can pipe straight into a parser.
+        By default the token goes to stdout for every format, exactly as it
+        always has, so that existing callers keep seeing byte-for-byte the same
+        output. Setting ``KAGGLE_PAGE_TOKEN_STDERR`` to ``1``, ``true`` or
+        ``yes`` opts in to reporting it on stderr for the machine-readable
+        formats (``csv`` and ``json``), so that stdout stays a valid document
+        that callers can pipe straight into a parser. The human-readable
+        ``table`` format always keeps the token on stdout.
 
         Args:
             next_page_token: The token to report; nothing is printed if falsy.
@@ -9285,10 +9304,30 @@ class KaggleApi:
         if not next_page_token:
             return
         message = "Next Page Token = {}".format(next_page_token)
-        if self._get_output_format(csv_display, output_format) == OutputFormat.TABLE:
-            print(message)
-        else:
+        if self._page_token_goes_to_stderr(csv_display, output_format):
             print(message, file=sys.stderr)
+        else:
+            print(message)
+
+    def _page_token_goes_to_stderr(self, csv_display: Optional[bool], output_format: Optional[str]) -> bool:
+        """Whether a pagination token belongs on stderr rather than stdout.
+
+        Only true for the machine-readable formats, and only when the caller has
+        opted in through ``KAGGLE_PAGE_TOKEN_STDERR``. Keeping stdout as the
+        default preserves backward compatibility for everyone who has not asked
+        for the new behaviour.
+
+        Args:
+            csv_display: If True, CSV is being printed (legacy option).
+            output_format: The format option value, e.g. "json(field1,field2)".
+
+        Returns:
+            bool: True if the token should be written to stderr.
+        """
+        if self._get_output_format(csv_display, output_format) == OutputFormat.TABLE:
+            return False
+        opt_in = (os.environ.get(PAGE_TOKEN_STDERR_ENV_VAR) or "false").lower()
+        return opt_in in ("1", "true", "yes")
 
     def string(self, item):
         return item if isinstance(item, str) else str(item)

@@ -85,11 +85,21 @@ In this case, `title` (which is a topic field) will be preserved in the topic ou
 When a paginated command has more results to show, it reports the token for the
 next page as a `Next Page Token = ...` line.
 
-Because `csv` and `json` are meant to be consumed by other programs, that line
-is written to **stderr** for those formats, so that stdout stays a single
-parseable document:
+By default that line goes to **stdout** for every format, which means stdout is
+not a single parseable document when more results exist:
 
 ```sh
+# fails: stdout starts with the token line, not with the JSON array
+kaggle datasets files zillow/zecon --page-size 1 --format json | jq '.[].name'
+```
+
+Set `KAGGLE_PAGE_TOKEN_STDERR` to `1` (or `true`/`yes`) to report the line on
+**stderr** for the machine-readable formats instead, so that stdout stays
+parseable:
+
+```sh
+export KAGGLE_PAGE_TOKEN_STDERR=1
+
 # stdout is valid JSON; the token goes to the terminal via stderr
 kaggle datasets files zillow/zecon --page-size 1 --format json | jq '.[].name'
 
@@ -97,9 +107,12 @@ kaggle datasets files zillow/zecon --page-size 1 --format json | jq '.[].name'
 kaggle datasets files zillow/zecon --page-size 1 --format json 2>/dev/null > files.json
 ```
 
-For the default `table` format the line stays on **stdout**, where it has always
-been, since that output is meant to be read by a person. The legacy `--csv`
-(`-v`) option behaves like `--format csv`.
+This applies to `csv` and `json`, including projections such as
+`json(name,size)`, and to the legacy `--csv` (`-v`) option, which behaves like
+`--format csv`. The default `table` format always keeps the line on **stdout**,
+where it has always been, since that output is meant to be read by a person.
+
+The variable is opt-in so that existing output stays byte-for-byte compatible.
 
 ### Mutual Exclusion
 
