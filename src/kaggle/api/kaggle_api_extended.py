@@ -11395,7 +11395,7 @@ class KaggleApi:
             # (a "latest" directory would silently go stale after the next push) and
             # so a missing task gets the same friendly error as the other commands.
             task_info = self._get_benchmark_task(task, kaggle, version=version)
-            resolved_version = task_info.slug.version_number or version
+            resolved_version = task_info.slug.version_number
             # Same "unset" fallback as `download`, so both share <output>/<task>/<version>/.
             target = os.path.join(
                 output, task, str(resolved_version or "unset"), "trajectories.zip" if no_extract else "trajectories"

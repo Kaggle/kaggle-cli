@@ -1612,7 +1612,6 @@ class TestTrace:
     def _setup(self, api, version_number=3, payload=None, error=None):
         task = _make_task(version_number=version_number)
         api._mock_benchmarks.get_benchmark_task.return_value = task
-        api._mock_benchmarks.download_benchmark_task_trajectories.return_value = MagicMock()
         data = _make_trajectories_zip() if payload is None else payload
 
         def fake_download(response, outfile, http_client, quiet=True):
