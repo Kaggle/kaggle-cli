@@ -1056,6 +1056,12 @@ def format_http_error(error: HTTPError) -> str:
     return f"{message}\n\n{hint}" if hint else message
 
 
+def _corrupt_zip_error(archive: str) -> ValueError:
+    return ValueError(
+        f"The file {archive} is corrupted or not a valid zip file. Please report this issue at {ISSUE_TRACKER_URL}"
+    )
+
+
 def _extract_and_remove_zip(archive: str, destination: str, unwrap_to: Optional[str] = None) -> None:
     """Extracts `archive` into `destination` and then deletes the archive.
 
@@ -1077,10 +1083,7 @@ def _extract_and_remove_zip(archive: str, destination: str, unwrap_to: Optional[
             else:
                 z.extractall(destination)
     except zipfile.BadZipFile:
-        raise ValueError(
-            f"The file {archive} is corrupted or not a valid zip file. "
-            f"Please report this issue at {ISSUE_TRACKER_URL}"
-        )
+        raise _corrupt_zip_error(archive)
     except FileNotFoundError:
         raise FileNotFoundError(f"The file {archive} was not found. Please report this issue at {ISSUE_TRACKER_URL}")
     except Exception as e:
@@ -10343,7 +10346,6 @@ class KaggleApi:
         s = str(s)
         s = s.replace("BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_", "")
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
-        s = s.replace("BENCHMARK_TASK_RUN_STATE_", "")
         return s
 
     @staticmethod
@@ -11375,8 +11377,6 @@ class KaggleApi:
                     f"Re-run with -f -s to fetch them."
                 )
 
-    _TRAJECTORIES_RUNS_FILE = "runs.json"
-
     def benchmarks_tasks_trace_cli(self, task, version=None, output=None, force=False, no_extract=False):
         """Download the agent trajectories of a benchmark task version.
 
@@ -11396,26 +11396,32 @@ class KaggleApi:
             # so a missing task gets the same friendly error as the other commands.
             task_info = self._get_benchmark_task(task, kaggle, version=version)
             resolved_version = task_info.slug.version_number or version
-            version_label = f"version {resolved_version}" if resolved_version else "latest version"
             # Same "unset" fallback as `download`, so both share <output>/<task>/<version>/.
-            target_dir = os.path.join(output, task, str(resolved_version or "unset"), "trajectories")
-            target = target_dir + ".zip" if no_extract else target_dir
-            display_target = target if no_extract else target_dir + os.sep
+            target = os.path.join(
+                output, task, str(resolved_version or "unset"), "trajectories.zip" if no_extract else "trajectories"
+            )
+            display_target = target if no_extract else target + os.sep
 
             if not force and self._trajectories_present(target, no_extract):
-                print(f"Trajectories for {task} ({version_label}) already downloaded: {display_target}")
+                label = self._version_label(resolved_version)
+                print(f"Trajectories for {task} ({label}) already downloaded: {display_target}")
                 print("Use -f/--force to re-download.")
             else:
-                self._download_trajectories(kaggle, task, resolved_version, version_label, target, no_extract)
+                self._download_trajectories(kaggle, task, resolved_version, target, no_extract)
                 print(f"Saved trajectories to {display_target}")
             self._print_trajectories_summary(self._read_trajectories_manifest(target, no_extract))
 
-    def _download_trajectories(self, kaggle, task, version, version_label, target, no_extract):
+    @staticmethod
+    def _version_label(version) -> str:
+        return f"version {version}" if version else "latest version"
+
+    def _download_trajectories(self, kaggle, task, version, target, no_extract):
         """Fetch the trajectories zip to *target*, extracting it unless *no_extract*.
 
         Downloads (and extracts) into a staging path, then swaps it in on success so a
         failed download doesn't destroy a previous good copy when using --force.
         """
+        version_label = self._version_label(version)
         request = ApiDownloadBenchmarkTaskTrajectoriesRequest()
         request.slug = self._make_task_slug(task, version)
         try:
@@ -11449,15 +11455,13 @@ class KaggleApi:
             self.download_file(response, staging_zip, kaggle.http_client(), quiet=False)
             if no_extract:
                 if not zipfile.is_zipfile(staging_zip):
-                    raise ValueError(
-                        f"The file {staging_zip} is corrupted or not a valid zip file. "
-                        f"Please report this issue at {ISSUE_TRACKER_URL}"
-                    )
+                    raise _corrupt_zip_error(staging_zip)
             else:
                 os.makedirs(staging, exist_ok=True)
                 _extract_and_remove_zip(staging_zip, staging)
         except BaseException:
-            self._remove_path(staging_zip, self._resume_marker_path(staging_zip), staging)
+            self._remove_path(staging_zip, staging)
+            self._clear_resume_marker(staging_zip)
             raise
         self._remove_path(target)
         os.rename(staging, target)
@@ -11477,15 +11481,15 @@ class KaggleApi:
             return os.path.isfile(target)
         return os.path.isdir(target) and bool(os.listdir(target))
 
-    @classmethod
-    def _read_trajectories_manifest(cls, target, no_extract):
+    @staticmethod
+    def _read_trajectories_manifest(target, no_extract):
         """Return the parsed ``runs.json`` list from an extracted dir or a zip, or None."""
         try:
             if no_extract:
                 with zipfile.ZipFile(target, "r") as zf:
-                    raw = zf.read(cls._TRAJECTORIES_RUNS_FILE)
+                    raw = zf.read("runs.json")
             else:
-                with open(os.path.join(target, cls._TRAJECTORIES_RUNS_FILE), "rb") as f:
+                with open(os.path.join(target, "runs.json"), "rb") as f:
                     raw = f.read()
             runs = json.loads(raw)
         except (OSError, KeyError, ValueError, zipfile.BadZipFile):
