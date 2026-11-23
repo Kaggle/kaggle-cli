@@ -280,6 +280,19 @@ def test_benchmarks_tasks_download_parser_succeeds(parser):
     assert kwargs["force"] is True
 
 
+def test_benchmarks_tasks_trace_parser_missing_task_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["benchmarks", "tasks", "trace"])
+
+
+def test_benchmarks_tasks_trace_parser_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        ["b", "t", "trace", "my-task", "-v", "4", "-o", "/tmp/out", "--force", "--no-extract"]
+    )
+    assert func.__name__ == "benchmarks_tasks_trace_cli"
+    assert kwargs == {"task": "my-task", "version": 4, "output": "/tmp/out", "force": True, "no_extract": True}
+
+
 def test_benchmarks_tasks_log_parser_missing_task_fails(parser):
     with pytest.raises(SystemExit):
         parser.dispatch(["benchmarks", "tasks", "log"])

@@ -73,6 +73,7 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiBenchmarkTaskSlug,
     ApiBatchScheduleBenchmarkTaskRunsRequest,
     ApiDownloadBenchmarkTaskRunOutputRequest,
+    ApiDownloadBenchmarkTaskTrajectoriesRequest,
     ApiPublishBenchmarkTaskRequest,
 )
 from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
@@ -10264,13 +10265,14 @@ class KaggleApi:
     # -- Static helpers --
 
     @staticmethod
-    def _make_task_slug(task: str) -> ApiBenchmarkTaskSlug:
+    def _make_task_slug(task: str, version: Optional[int] = None) -> ApiBenchmarkTaskSlug:
         """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string.
 
         Supports the ``owner/task`` format: when the string contains a ``/``,
         the part before it is used as ``owner_slug`` and the part after as
         ``task_slug``. Without a ``/`` only ``task_slug`` is set and the owner
-        defaults to the current user on the server.
+        defaults to the current user on the server. When ``version`` is None the
+        server uses the task's latest version.
         """
         slug = ApiBenchmarkTaskSlug()
         if "/" in task:
@@ -10279,6 +10281,8 @@ class KaggleApi:
             slug.task_slug = task_slug
         else:
             slug.task_slug = task
+        if version is not None:
+            slug.version_number = version
         return slug
 
     @staticmethod
@@ -10339,6 +10343,7 @@ class KaggleApi:
         s = str(s)
         s = s.replace("BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_", "")
         s = s.replace("BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_", "")
+        s = s.replace("BENCHMARK_TASK_RUN_STATE_", "")
         return s
 
     @staticmethod
@@ -10541,24 +10546,26 @@ class KaggleApi:
 
     # -- Instance helpers (API calls) --
 
-    def _get_benchmark_task(self, task: str, kaggle, allow_not_found=False):
+    def _get_benchmark_task(self, task: str, kaggle, allow_not_found=False, version: Optional[int] = None):
         """Get benchmark task details from the server.
 
         Args:
             task: A pre-normalized task slug string.
             allow_not_found: If True, returns None on 403/404 instead of raising.
                 If False (default), raises ValueError with a friendly message.
+            version: Task version number to fetch; the latest version when None.
         """
         request = ApiGetBenchmarkTaskRequest()
-        request.slug = self._make_task_slug(task)
+        request.slug = self._make_task_slug(task, version)
         try:
             return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task)(request)
         except HTTPError as e:
             if e.response.status_code in (403, 404):
                 if allow_not_found:
                     return None
+                label = f"'{task}'" if version is None else f"'{task}' version {version}"
                 raise ValueError(
-                    f"Task '{task}' not found. Verify the name or run 'kaggle benchmarks tasks list' to see available tasks."
+                    f"Task {label} not found. Verify the name or run 'kaggle benchmarks tasks list' to see available tasks."
                 ) from None
             raise
 
@@ -11367,6 +11374,142 @@ class KaggleApi:
                     f"\nTip: {cached_without_source} cached run(s) lack source notebooks. "
                     f"Re-run with -f -s to fetch them."
                 )
+
+    _TRAJECTORIES_RUNS_FILE = "runs.json"
+
+    def benchmarks_tasks_trace_cli(self, task, version=None, output=None, force=False, no_extract=False):
+        """Download the agent trajectories of a benchmark task version.
+
+        The server returns a zip holding each candidate model's latest-run trajectory
+        files (``{candidate}/{trial}/...``) plus a ``runs.json`` manifest. It is
+        written to ``{output}/{task}/{version}/trajectories/`` (extracted), or kept as
+        ``{output}/{task}/{version}/trajectories.zip`` with ``no_extract``.
+        """
+        if version is not None and version <= 0:
+            raise ValueError("--version must be a positive integer")
+        task = self._slugify_task(task)
+        output = output or "."
+
+        with self.build_kaggle_client() as kaggle:
+            # Resolve the version up front so the local path names a concrete version
+            # (a "latest" directory would silently go stale after the next push) and
+            # so a missing task gets the same friendly error as the other commands.
+            task_info = self._get_benchmark_task(task, kaggle, version=version)
+            resolved_version = task_info.slug.version_number or version
+            version_label = f"version {resolved_version}" if resolved_version else "latest version"
+            # Same "unset" fallback as `download`, so both share <output>/<task>/<version>/.
+            target_dir = os.path.join(output, task, str(resolved_version or "unset"), "trajectories")
+            target = target_dir + ".zip" if no_extract else target_dir
+            display_target = target if no_extract else target_dir + os.sep
+
+            if not force and self._trajectories_present(target, no_extract):
+                print(f"Trajectories for {task} ({version_label}) already downloaded: {display_target}")
+                print("Use -f/--force to re-download.")
+            else:
+                self._download_trajectories(kaggle, task, resolved_version, version_label, target, no_extract)
+                print(f"Saved trajectories to {display_target}")
+            self._print_trajectories_summary(self._read_trajectories_manifest(target, no_extract))
+
+    def _download_trajectories(self, kaggle, task, version, version_label, target, no_extract):
+        """Fetch the trajectories zip to *target*, extracting it unless *no_extract*.
+
+        Downloads (and extracts) into a staging path, then swaps it in on success so a
+        failed download doesn't destroy a previous good copy when using --force.
+        """
+        request = ApiDownloadBenchmarkTaskTrajectoriesRequest()
+        request.slug = self._make_task_slug(task, version)
+        try:
+            response = self.with_retry(
+                kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_trajectories
+            )(request)
+        except HTTPError as e:
+            status = e.response.status_code
+            detail = str(e).strip()
+            if status == 400:
+                # FAILED_PRECONDITION: no result has a trajectory, or they exceed the size limit.
+                raise ValueError(
+                    f"Cannot download trajectories for task '{task}' ({version_label}): {detail}"
+                ) from None
+            if status in (403, 404):
+                message = (
+                    f"Unable to download trajectories for task '{task}' ({version_label}) (HTTP {status}).\n"
+                    "  Trajectory downloads may not be enabled for your account yet, or you may not have\n"
+                    "  permission to download this task's results."
+                )
+                if detail:
+                    message += f"\n  Server message: {detail}"
+                raise ValueError(message) from None
+            raise
+
+        print(f"Downloading trajectories for {task} ({version_label})")
+        staging = target + ".download"
+        staging_zip = staging if no_extract else target + ".zip.download"
+        self._remove_path(staging)
+        try:
+            self.download_file(response, staging_zip, kaggle.http_client(), quiet=False)
+            if no_extract:
+                if not zipfile.is_zipfile(staging_zip):
+                    raise ValueError(
+                        f"The file {staging_zip} is corrupted or not a valid zip file. "
+                        f"Please report this issue at {ISSUE_TRACKER_URL}"
+                    )
+            else:
+                os.makedirs(staging, exist_ok=True)
+                _extract_and_remove_zip(staging_zip, staging)
+        except BaseException:
+            self._remove_path(staging_zip, self._resume_marker_path(staging_zip), staging)
+            raise
+        self._remove_path(target)
+        os.rename(staging, target)
+
+    @staticmethod
+    def _remove_path(*paths):
+        """Delete each of *paths* (file or directory) if it exists."""
+        for path in paths:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            elif os.path.exists(path):
+                os.remove(path)
+
+    @staticmethod
+    def _trajectories_present(target, no_extract) -> bool:
+        if no_extract:
+            return os.path.isfile(target)
+        return os.path.isdir(target) and bool(os.listdir(target))
+
+    @classmethod
+    def _read_trajectories_manifest(cls, target, no_extract):
+        """Return the parsed ``runs.json`` list from an extracted dir or a zip, or None."""
+        try:
+            if no_extract:
+                with zipfile.ZipFile(target, "r") as zf:
+                    raw = zf.read(cls._TRAJECTORIES_RUNS_FILE)
+            else:
+                with open(os.path.join(target, cls._TRAJECTORIES_RUNS_FILE), "rb") as f:
+                    raw = f.read()
+            runs = json.loads(raw)
+        except (OSError, KeyError, ValueError, zipfile.BadZipFile):
+            return None
+        return runs if isinstance(runs, list) else None
+
+    @classmethod
+    def _print_trajectories_summary(cls, runs):
+        """Print per-candidate trial counts and a total from a ``runs.json`` manifest."""
+        if runs is None:
+            print("No runs.json manifest found; unable to count trials.")
+            return
+        rows = [
+            (str(r.get("candidate") or ""), len(r.get("trials") or []), cls._format_state(r.get("state") or ""))
+            for r in runs
+            if isinstance(r, dict)
+        ]
+        if rows:
+            name_col = max(len("Model"), *(len(name) for name, _, _ in rows))
+            print(f"\n{'Model':<{name_col}}  {'Trials':>6}  State")
+            print(f"{'─' * name_col}  {'─' * 6}  {'─' * 10}")
+            for name, trials, state in rows:
+                print(f"{name:<{name_col}}  {trials:>6}  {state}")
+        print(f"\nDone: {sum(trials for _, trials, _ in rows)} trial(s) across {len(rows)} run(s).")
 
     @staticmethod
     def _format_size(n) -> str:

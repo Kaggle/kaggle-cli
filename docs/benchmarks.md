@@ -8,7 +8,7 @@ The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has the 
 *   **`init`** — Fetch credentials and default environment variables for local development.
 *   **`quota`** — Show your Model Proxy (AI inference) spend quota.
 *   **`leaderboard`** — Get benchmark leaderboard information.
-*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, log, models, delete, publish).
+*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, trace, log, models, delete, publish).
 *   **`topics`** — Browse discussion topics for a benchmark.
 
 ## `kaggle benchmarks auth`
@@ -185,7 +185,7 @@ Task arguments (`<TASK>`) support two formats:
 
 | Command Group | Supported Formats | Description |
 |---|---|---|
-| **View & Run** (`run`, `status`, `download`, `log`) | `my-task`, `owner/my-task` | Interact with your own tasks or public tasks from other users |
+| **View & Run** (`run`, `status`, `download`, `trace`, `log`) | `my-task`, `owner/my-task` | Interact with your own tasks or public tasks from other users |
 | **Publish** (`publish`) | `my-task`, `your-username/my-task` | Make your own task public (must be task owner) |
 | **Create** (`push`) | `my-task` only | Must match the `@task(name="...")` decorator in your Python source file |
 
@@ -467,6 +467,77 @@ Tip: 2 cached run(s) lack source notebooks. Re-run with -f -s to fetch them.
 ```
 
 Use `-f -s` together to force re-download and backfill the source notebooks into the cached runs.
+
+---
+
+### `kaggle benchmarks tasks trace`
+
+Downloads the agent trajectories of a task version's latest runs as a single archive.
+
+**Usage:**
+
+```bash
+kaggle benchmarks tasks trace <TASK> [options]
+```
+
+**Arguments:**
+
+*   `<TASK>`: Task name (slug, e.g. `my-task` or `owner/my-task`).
+
+**Options:**
+
+*   `-v, --version <VERSION>`: Task version number (defaults to the latest version).
+*   `-o, --output <DIRECTORY>`: Directory to download trajectories into (defaults to current working directory).
+*   `-f, --force`: Force re-download, replacing previously downloaded trajectories.
+*   `--no-extract`: Keep the downloaded `trajectories.zip` instead of extracting it.
+
+**Examples:**
+
+1.  Download the trajectories of the latest version of a task:
+
+    ```bash
+    kaggle b t trace my-task
+    ```
+
+2.  Download the trajectories of a specific version of another user's task into a custom directory:
+
+    ```bash
+    kaggle b t trace someuser/their-task -v 3 -o ./results
+    ```
+
+3.  Keep the archive as a zip instead of extracting it:
+
+    ```bash
+    kaggle b t trace my-task --no-extract
+    ```
+
+**Purpose:**
+
+Fetches one zip containing the trajectory files from each candidate model's latest run, plus a `runs.json` manifest that lists those runs (candidate, run ID, state, scores, and trial names). Only tasks whose runs record agent trajectories (such as Harbor tasks) have any to download. The archive is extracted under the task's version number. When `-v` is omitted, the CLI looks up the latest version and uses it for both the request and the path:
+
+```
+<output>/<task>/<version>/trajectories/
+   ├── runs.json
+   └── <model>/<trial>/...
+```
+
+With `--no-extract`, the archive is saved as `<output>/<task>/<version>/trajectories.zip` instead. After downloading, the CLI prints the number of trials per model, read from `runs.json`:
+
+```
+Downloading trajectories for my-task (version 3)
+Saved trajectories to ./my-task/3/trajectories/
+
+Model       Trials  State
+──────────  ──────  ──────────
+gemini-pro       2  Completed
+gpt-5            1  Errored
+
+Done: 3 trial(s) across 2 run(s).
+```
+
+If the trajectories (or, with `--no-extract`, the zip) are already on disk, nothing is downloaded unless `-f` / `--force` is used. A failed download or corrupt archive leaves any previous copy in place.
+
+The command fails with the server's explanation when none of the task's results have an agent trajectory, or when the trajectories add up to more than 1 GiB. A 403 or 404 response means trajectory downloads are not enabled for your account yet, or you don't have permission to download the task's results.
 
 ---
 

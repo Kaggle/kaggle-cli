@@ -20,6 +20,7 @@ kaggle benchmarks (alias: kaggle b)
 │   ├── list          — List your benchmark tasks
 │   ├── status        — Show task details and per-model run status
 │   ├── download      — Download completed run outputs
+│   ├── trace         — Download agent trajectories of the latest runs
 │   ├── log / logs    — View execution logs for runs
 │   ├── models        — List available benchmark models
 │   ├── delete        — Delete a task (not yet supported by server)
@@ -366,6 +367,53 @@ kaggle b t download my-task --include-source
 - If `-s` is passed but a cached run's directory lacks source notebooks (`__notebook__.ipynb` / `__notebook_source__.ipynb`), the cached row is left untouched and a tip is printed after the summary: `Tip: N cached run(s) lack source notebooks. Re-run with -f -s to fetch them.` — use `-f -s` together to backfill source notebooks into existing cached runs.
 - No downloadable runs (all still in progress): `No downloadable runs yet — N run(s) still in progress. Use 'kaggle b t status my-task' to check progress.`
 - No runs at all: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
+
+### `kaggle benchmarks tasks trace`
+
+Downloads the agent trajectories of a task version's latest runs (one run per model) as a single zip.
+
+**Usage:**
+
+```bash
+kaggle benchmarks tasks trace <TASK> [options]
+```
+
+**Arguments:**
+
+- `<TASK>` (positional, required): Task name/slug (`my-task` or `owner/my-task`).
+
+**Examples:**
+
+```bash
+# Download trajectories for the latest task version
+kaggle b t trace my-task
+
+# Download a specific version into a custom directory
+kaggle b t trace my-task -v 3 -o ./results
+
+# Keep the zip instead of extracting it
+kaggle b t trace my-task --no-extract
+```
+
+**Options:**
+- `-v, --version <VERSION>`: Task version number (default: latest version)
+- `-o, --output <DIRECTORY>`: Output directory (default: current directory)
+- `-f, --force`: Force re-download, replacing previously downloaded trajectories
+- `--no-extract`: Keep `trajectories.zip` instead of extracting it
+
+**Output directory structure:**
+```
+<output>/<task>/<version>/trajectories/       (or <output>/<task>/<version>/trajectories.zip with --no-extract)
+   ├── runs.json                             (candidate, runId, state, scores, trial names per run)
+   └── <model>/<trial>/...                   (trajectory files)
+```
+
+**Behavior details:**
+- Without `-v`, the latest version is looked up first and used for both the request and the directory name
+- Prints a `Model | Trials | State` table from `runs.json`, then `Done: N trial(s) across M run(s).`
+- Already-downloaded trajectories are skipped (use `--force` to re-download); a failed or corrupt download keeps the previous copy
+- Only tasks whose runs record agent trajectories (e.g. Harbor tasks) have any. The command fails with the server's message when no result has a trajectory or the trajectories total over 1 GiB
+- 403/404 from the trajectories endpoint: trajectory downloads are not enabled for the account yet, or the user lacks permission to download the task's results
 
 ### `kaggle benchmarks tasks log`
 
