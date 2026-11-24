@@ -24,7 +24,7 @@ keywords = ["Kaggle", "API"]
 requires-python = ">= 3.11"
 dependencies = [
     "bleach",
-    "kagglesdk >= 0.1.38, < 1.0", # sync with kagglehub
+    "kagglesdk >= 0.1.39, < 1.0", # sync with kagglehub
     "python-slugify",
     "requests",
     # requests sets no certifi floor; older bundles trust the compromised emSign/eMudhra roots (GHSA-6q48-6c7w-9gw2).

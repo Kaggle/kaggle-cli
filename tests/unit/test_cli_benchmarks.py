@@ -280,6 +280,19 @@ def test_benchmarks_tasks_download_parser_succeeds(parser):
     assert kwargs["force"] is True
 
 
+def test_benchmarks_tasks_trajectories_parser_missing_task_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["benchmarks", "tasks", "trajectories"])
+
+
+def test_benchmarks_tasks_trajectories_parser_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        ["b", "t", "trajectories", "my-task", "-v", "4", "-p", "/tmp/out", "--force", "--no-extract"]
+    )
+    assert func.__name__ == "benchmarks_tasks_trajectories_cli"
+    assert kwargs == {"task": "my-task", "version": 4, "output": "/tmp/out", "force": True, "no_extract": True}
+
+
 def test_benchmarks_tasks_log_parser_missing_task_fails(parser):
     with pytest.raises(SystemExit):
         parser.dispatch(["benchmarks", "tasks", "log"])
