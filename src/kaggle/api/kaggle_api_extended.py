@@ -5575,24 +5575,25 @@ class KaggleApi:
         Returns:
             (width, height), or None if the file isn't a PNG, JPEG or WebP image that can be read.
         """
+        size: Optional[Tuple[int, int]] = None
         try:
             with open(image_path, "rb") as f:
                 head = f.read(32)
                 if head.startswith(b"\x89PNG\r\n\x1a\n") and head[12:16] == b"IHDR":
                     width, height = struct.unpack(">II", head[16:24])
-                    return width, height
-                if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+                    if width <= 0x7FFFFFFF and height <= 0x7FFFFFFF:
+                        size = (width, height)
+                elif head[:4] == b"RIFF" and head[8:12] == b"WEBP":
                     chunk = head[12:16]
-                    if chunk == b"VP8 ":  # lossy
+                    if chunk == b"VP8 " and len(head) >= 30 and head[20] & 1 == 0 and head[23:26] == b"\x9d\x01\x2a":
                         width, height = struct.unpack("<HH", head[26:30])
-                        return width & 0x3FFF, height & 0x3FFF
-                    if chunk == b"VP8L" and len(head) >= 25:  # lossless
+                        size = (width & 0x3FFF, height & 0x3FFF)
+                    elif chunk == b"VP8L" and len(head) >= 25 and head[20] == 0x2F:  # lossless
                         bits = int.from_bytes(head[21:25], "little")
-                        return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
-                    if chunk == b"VP8X" and len(head) >= 30:  # extended
-                        return int.from_bytes(head[24:27], "little") + 1, int.from_bytes(head[27:30], "little") + 1
-                    return None
-                if head[:2] == b"\xff\xd8":  # JPEG: walk the segments up to the start-of-frame marker
+                        size = ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
+                    elif chunk == b"VP8X" and len(head) >= 30:  # extended
+                        size = (int.from_bytes(head[24:27], "little") + 1, int.from_bytes(head[27:30], "little") + 1)
+                elif head[:2] == b"\xff\xd8":  # JPEG: walk the segments up to the start-of-frame marker
                     f.seek(2)
                     while True:
                         byte = f.read(1)
@@ -5601,22 +5602,24 @@ class KaggleApi:
                         while byte == b"\xff":
                             byte = f.read(1)
                         if not byte:
-                            return None
+                            break
                         marker = byte[0]
-                        if marker == 0xDA:  # start of scan: a frame header must come before it
-                            return None
-                        if marker == 0x01 or 0xD0 <= marker <= 0xD9:  # markers without a length
+                        if marker in (0xD9, 0xDA):  # end of image or start of scan: a frame header must come first
+                            break
+                        if marker in (0x00, 0x01) or 0xD0 <= marker <= 0xD8:  # stuffed 0x00 or standalone markers
                             continue
                         (length,) = struct.unpack(">H", f.read(2))
                         if length < 2:  # the length counts its own 2 bytes, so this file is corrupt
-                            return None
+                            break
                         if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
-                            height, width = struct.unpack(">xHH", f.read(5))
-                            return width, height
+                            if length >= 7:
+                                height, width = struct.unpack(">xHH", f.read(5))
+                                size = (width, height)
+                            break
                         f.seek(length - 2, os.SEEK_CUR)
         except (OSError, struct.error):
             return None
-        return None
+        return size if size and size[0] > 0 and size[1] > 0 else None
 
     @staticmethod
     def _cover_crop_rectangles(size: Optional[Tuple[int, int]]) -> List[CroppedImageRectangle]:
@@ -5632,7 +5635,7 @@ class KaggleApi:
         Returns:
             The cover image and thumbnail crop rectangles, in that order.
         """
-        width, height = size if size and size[0] > 0 and size[1] > 0 else (560, 280)
+        width, height = size if size and size[0] >= 2 and size[1] >= 1 else (560, 280)
         header_width = min(width, 2 * height) // 2 * 2  # even, so the height is exactly half
         side = min(width, height)
         rects = []
