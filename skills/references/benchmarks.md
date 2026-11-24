@@ -20,7 +20,7 @@ kaggle benchmarks (alias: kaggle b)
 │   ├── list          — List your benchmark tasks
 │   ├── status        — Show task details and per-model run status
 │   ├── download      — Download completed run outputs
-│   ├── trace         — Download agent trajectories of the latest runs
+│   ├── trajectories  — Download agent trajectories of the latest runs
 │   ├── log / logs    — View execution logs for runs
 │   ├── models        — List available benchmark models
 │   ├── delete        — Delete a task (not yet supported by server)
@@ -368,14 +368,14 @@ kaggle b t download my-task --include-source
 - No downloadable runs (all still in progress): `No downloadable runs yet — N run(s) still in progress. Use 'kaggle b t status my-task' to check progress.`
 - No runs at all: `No runs found for task 'my-task'. Use 'kaggle b t run my-task' to start one.`
 
-### `kaggle benchmarks tasks trace`
+### `kaggle benchmarks tasks trajectories`
 
 Downloads the agent trajectories of a task version's latest runs (one run per model) as a single zip.
 
 **Usage:**
 
 ```bash
-kaggle benchmarks tasks trace <TASK> [options]
+kaggle benchmarks tasks trajectories <TASK> [options]
 ```
 
 **Arguments:**
@@ -386,18 +386,18 @@ kaggle benchmarks tasks trace <TASK> [options]
 
 ```bash
 # Download trajectories for the latest task version
-kaggle b t trace my-task
+kaggle b t trajectories my-task
 
 # Download a specific version into a custom directory
-kaggle b t trace my-task -v 3 -o ./results
+kaggle b t trajectories my-task -v 3 -p ./results
 
 # Keep the zip instead of extracting it
-kaggle b t trace my-task --no-extract
+kaggle b t trajectories my-task --no-extract
 ```
 
 **Options:**
 - `-v, --version <VERSION>`: Task version number (default: latest version)
-- `-o, --output <DIRECTORY>`: Output directory (default: current directory)
+- `-p, --path <DIRECTORY>`: Output directory (default: current directory); `-o, --output` also works
 - `-f, --force`: Force re-download, replacing previously downloaded trajectories
 - `--no-extract`: Keep `trajectories.zip` instead of extracting it
 

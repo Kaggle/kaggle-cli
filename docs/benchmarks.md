@@ -8,7 +8,7 @@ The top-level command is `kaggle benchmarks` (alias: `kaggle b`), which has the 
 *   **`init`** — Fetch credentials and default environment variables for local development.
 *   **`quota`** — Show your Model Proxy (AI inference) spend quota.
 *   **`leaderboard`** — Get benchmark leaderboard information.
-*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, trace, log, models, delete, publish).
+*   **`tasks`** (alias: `t`) — Manage benchmark tasks (push, run, list, status, download, trajectories, log, models, delete, publish).
 *   **`topics`** — Browse discussion topics for a benchmark.
 
 ## `kaggle benchmarks auth`
@@ -185,7 +185,7 @@ Task arguments (`<TASK>`) support two formats:
 
 | Command Group | Supported Formats | Description |
 |---|---|---|
-| **View & Run** (`run`, `status`, `download`, `trace`, `log`) | `my-task`, `owner/my-task` | Interact with your own tasks or public tasks from other users |
+| **View & Run** (`run`, `status`, `download`, `trajectories`, `log`) | `my-task`, `owner/my-task` | Interact with your own tasks or public tasks from other users |
 | **Publish** (`publish`) | `my-task`, `your-username/my-task` | Make your own task public (must be task owner) |
 | **Create** (`push`) | `my-task` only | Must match the `@task(name="...")` decorator in your Python source file |
 
@@ -470,14 +470,14 @@ Use `-f -s` together to force re-download and backfill the source notebooks into
 
 ---
 
-### `kaggle benchmarks tasks trace`
+### `kaggle benchmarks tasks trajectories`
 
 Downloads the agent trajectories of a task version's latest runs as a single archive.
 
 **Usage:**
 
 ```bash
-kaggle benchmarks tasks trace <TASK> [options]
+kaggle benchmarks tasks trajectories <TASK> [options]
 ```
 
 **Arguments:**
@@ -487,7 +487,7 @@ kaggle benchmarks tasks trace <TASK> [options]
 **Options:**
 
 *   `-v, --version <VERSION>`: Task version number (defaults to the latest version).
-*   `-o, --output <DIRECTORY>`: Directory to download trajectories into (defaults to current working directory).
+*   `-p, --path <DIRECTORY>`: Directory to download trajectories into (defaults to current working directory). `-o, --output` is accepted as an alias, matching `download`.
 *   `-f, --force`: Force re-download, replacing previously downloaded trajectories.
 *   `--no-extract`: Keep the downloaded `trajectories.zip` instead of extracting it.
 
@@ -496,19 +496,19 @@ kaggle benchmarks tasks trace <TASK> [options]
 1.  Download the trajectories of the latest version of a task:
 
     ```bash
-    kaggle b t trace my-task
+    kaggle b t trajectories my-task
     ```
 
 2.  Download the trajectories of a specific version of another user's task into a custom directory:
 
     ```bash
-    kaggle b t trace someuser/their-task -v 3 -o ./results
+    kaggle b t trajectories someuser/their-task -v 3 -p ./results
     ```
 
 3.  Keep the archive as a zip instead of extracting it:
 
     ```bash
-    kaggle b t trace my-task --no-extract
+    kaggle b t trajectories my-task --no-extract
     ```
 
 **Purpose:**

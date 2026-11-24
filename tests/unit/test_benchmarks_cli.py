@@ -6,7 +6,7 @@ Organized by command (matching the spec):
   TestList      – ``kaggle benchmarks tasks list [--name-regex] [--status]``
   TestStatus    – ``kaggle benchmarks tasks status <task> [-m ...]``
   TestDownload  – ``kaggle benchmarks tasks download <task> [-m ...] [-o ...] [-s]``
-  TestTrace     – ``kaggle benchmarks tasks trace <task> [-v ...] [-o ...] [-f] [--no-extract]``
+  TestTrajectories     – ``kaggle benchmarks tasks trajectories <task> [-v ...] [-p ...] [-f] [--no-extract]``
   TestLog       – ``kaggle benchmarks tasks log <task> [-m ...]``
   TestDelete    – ``kaggle benchmarks tasks delete <task> [-y]``
   TestCliArgParsing – argparse wiring for all subcommands
@@ -1578,7 +1578,7 @@ class TestDownload:
 
 
 # ============================================================
-# Trace
+# Trajectories
 # ============================================================
 
 TRAJECTORY_RUNS = [
@@ -1606,8 +1606,8 @@ def _http_error(status_code, message=""):
     return HTTPError(message, response=MagicMock(status_code=status_code))
 
 
-class TestTrace:
-    """``kaggle benchmarks tasks trace <task> [-v <version>] [-o <dir>] [-f] [--no-extract]``"""
+class TestTrajectories:
+    """``kaggle benchmarks tasks trajectories <task> [-v <version>] [-p <dir>] [-f] [--no-extract]``"""
 
     def _setup(self, api, version_number=3, payload=None, error=None):
         task = _make_task(version_number=version_number)
@@ -1628,7 +1628,7 @@ class TestTrace:
 
     def test_downloads_and_extracts_to_versioned_dir(self, api, capsys, tmp_path):
         self._setup(api)
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
 
         target = tmp_path / "my-task" / "3" / "trajectories"
         assert (target / "runs.json").is_file()
@@ -1646,7 +1646,7 @@ class TestTrace:
     def test_request_uses_resolved_latest_version(self, api, capsys, tmp_path):
         """Without -v the latest version is resolved first and pinned in the request."""
         self._setup(api, version_number=7)
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
 
         get_request = api._mock_benchmarks.get_benchmark_task.call_args[0][0]
         assert get_request.slug.task_slug == "my-task"
@@ -1658,7 +1658,7 @@ class TestTrace:
 
     def test_explicit_version_and_owner(self, api, capsys, tmp_path):
         self._setup(api, version_number=2)
-        api.benchmarks_tasks_trace_cli("Some_User/My Task", version=2, output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("Some_User/My Task", version=2, output=str(tmp_path))
 
         get_request = api._mock_benchmarks.get_benchmark_task.call_args[0][0]
         assert get_request.slug.version_number == 2
@@ -1671,7 +1671,7 @@ class TestTrace:
     def test_falls_back_to_unset_dir_when_version_unknown(self, api, capsys, tmp_path):
         """Matches `download`, which also uses "unset" when the server returns no version."""
         self._setup(api, version_number=None)
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
 
         assert self._request(api).slug.version_number == 0
         assert (tmp_path / "my-task" / "unset" / "trajectories" / "runs.json").is_file()
@@ -1680,12 +1680,12 @@ class TestTrace:
     def test_default_output_is_cwd(self, api, capsys, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         self._setup(api)
-        api.benchmarks_tasks_trace_cli("my-task")
+        api.benchmarks_tasks_trajectories_cli("my-task")
         assert (tmp_path / "my-task" / "3" / "trajectories" / "runs.json").is_file()
 
     def test_no_extract_keeps_zip(self, api, capsys, tmp_path):
         self._setup(api)
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path), no_extract=True)
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path), no_extract=True)
 
         version_root = tmp_path / "my-task" / "3"
         assert sorted(os.listdir(version_root)) == ["trajectories.zip"]
@@ -1700,7 +1700,7 @@ class TestTrace:
         (target / "runs.json").write_text(json.dumps(TRAJECTORY_RUNS[:1]))
         self._setup(api)
 
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
 
         api._mock_benchmarks.download_benchmark_task_trajectories.assert_not_called()
         api.download_file.assert_not_called()
@@ -1712,7 +1712,7 @@ class TestTrace:
     def test_empty_existing_dir_is_not_cached(self, api, capsys, tmp_path):
         (tmp_path / "my-task" / "3" / "trajectories").mkdir(parents=True)
         self._setup(api)
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
         api._mock_benchmarks.download_benchmark_task_trajectories.assert_called_once()
         assert (tmp_path / "my-task" / "3" / "trajectories" / "runs.json").is_file()
 
@@ -1722,7 +1722,7 @@ class TestTrace:
         (version_root / "trajectories.zip").write_bytes(_make_trajectories_zip())
         self._setup(api)
 
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path), no_extract=True)
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path), no_extract=True)
 
         api._mock_benchmarks.download_benchmark_task_trajectories.assert_not_called()
         assert "already downloaded" in capsys.readouterr().out
@@ -1733,7 +1733,7 @@ class TestTrace:
         (target / "stale.json").write_text("old")
         self._setup(api)
 
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path), force=True)
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path), force=True)
 
         api._mock_benchmarks.download_benchmark_task_trajectories.assert_called_once()
         assert not (target / "stale.json").exists()
@@ -1746,7 +1746,7 @@ class TestTrace:
         self._setup(api, payload=b"not a zip")
 
         with pytest.raises(ValueError, match="corrupted or not a valid zip"):
-            api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path), force=True)
+            api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path), force=True)
 
         # The previous good copy survives and no staging files are left behind.
         assert (target / "runs.json").read_text() == "[]"
@@ -1755,12 +1755,12 @@ class TestTrace:
     def test_download_failure_cleans_up_staging(self, api, capsys, tmp_path):
         self._setup(api, payload=b"partial", error=ValueError("Downloaded file size (7) does not match expected size"))
         with pytest.raises(ValueError, match="does not match"):
-            api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+            api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
         assert os.listdir(tmp_path / "my-task" / "3") == []
 
     def test_missing_manifest_still_succeeds(self, api, capsys, tmp_path):
         self._setup(api, payload=_make_trajectories_zip(runs=None, extra={"m/t/trajectory.json": "{}"}))
-        api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+        api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
         out = capsys.readouterr().out
         assert "No runs.json manifest found" in out
         assert (tmp_path / "my-task" / "3" / "trajectories" / "m" / "t" / "trajectory.json").is_file()
@@ -1769,18 +1769,18 @@ class TestTrace:
     def test_task_not_found(self, api, status_code):
         api._mock_benchmarks.get_benchmark_task.side_effect = _http_error(status_code)
         with pytest.raises(ValueError, match="Task 'no-such-task' not found"):
-            api.benchmarks_tasks_trace_cli("no-such-task")
+            api.benchmarks_tasks_trajectories_cli("no-such-task")
         api._mock_benchmarks.download_benchmark_task_trajectories.assert_not_called()
 
     def test_version_not_found(self, api):
         api._mock_benchmarks.get_benchmark_task.side_effect = _http_error(404)
         with pytest.raises(ValueError, match="Task 'my-task' version 9 not found"):
-            api.benchmarks_tasks_trace_cli("my-task", version=9)
+            api.benchmarks_tasks_trajectories_cli("my-task", version=9)
 
     @pytest.mark.parametrize("version", [0, -1])
     def test_rejects_non_positive_version(self, api, version):
         with pytest.raises(ValueError, match="--version must be a positive integer"):
-            api.benchmarks_tasks_trace_cli("my-task", version=version)
+            api.benchmarks_tasks_trajectories_cli("my-task", version=version)
         api._mock_benchmarks.get_benchmark_task.assert_not_called()
 
     @pytest.mark.parametrize(
@@ -1795,7 +1795,7 @@ class TestTrace:
         self._setup(api)
         api._mock_benchmarks.download_benchmark_task_trajectories.side_effect = _http_error(400, message)
         with pytest.raises(ValueError) as excinfo:
-            api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+            api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
         assert str(excinfo.value) == f"Cannot download trajectories for task 'my-task' (version 3): {message}"
         api.download_file.assert_not_called()
         assert not (tmp_path / "my-task").exists()
@@ -1807,7 +1807,7 @@ class TestTrace:
             status_code, "Permission denied"
         )
         with pytest.raises(ValueError) as excinfo:
-            api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+            api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
         msg = str(excinfo.value)
         assert f"(HTTP {status_code})" in msg
         assert "may not be enabled for your account" in msg
@@ -1819,7 +1819,7 @@ class TestTrace:
         api._mock_benchmarks.download_benchmark_task_trajectories.side_effect = error
         api.with_retry = lambda f: f  # skip retry backoff for the 5xx
         with pytest.raises(HTTPError) as excinfo:
-            api.benchmarks_tasks_trace_cli("my-task", output=str(tmp_path))
+            api.benchmarks_tasks_trajectories_cli("my-task", output=str(tmp_path))
         assert excinfo.value is error
 
 
@@ -2405,19 +2405,21 @@ class TestCliArgParsing:
                 "benchmarks tasks download my-task -s -m gemini-3",
                 {"model": ["gemini-3"], "include_source": True},
             ),
-            # trace
+            # trajectories
             (
-                "benchmarks tasks trace my-task",
+                "benchmarks tasks trajectories my-task",
                 {"task": "my-task", "version": None, "output": None, "force": False, "no_extract": False},
             ),
             (
-                "b t trace owner/my-task -v 3 -o ./out -f --no-extract",
+                "b t trajectories owner/my-task -v 3 -p ./out -f --no-extract",
                 {"task": "owner/my-task", "version": 3, "output": "./out", "force": True, "no_extract": True},
             ),
             (
-                "benchmarks tasks trace my-task --version 2 --output ./out --force",
+                "benchmarks tasks trajectories my-task --version 2 --path ./out --force",
                 {"version": 2, "output": "./out", "force": True, "no_extract": False},
             ),
+            ("benchmarks tasks trajectories my-task -o ./out", {"output": "./out"}),
+            ("benchmarks tasks trajectories my-task --output ./out", {"output": "./out"}),
             # log
             (
                 "benchmarks tasks log my-task",
@@ -2493,9 +2495,9 @@ class TestCliArgParsing:
             "benchmarks tasks status my-task -m",  # -m requires at least one arg
             "benchmarks tasks download my-task -m",  # -m requires at least one arg
             "benchmarks tasks log my-task -m",  # -m requires at least one arg
-            "benchmarks tasks trace",  # missing task
-            "benchmarks tasks trace my-task -v abc",  # version must be an int
-            "benchmarks tasks trace my-task -m gemini-3",  # no model filter
+            "benchmarks tasks trajectories",  # missing task
+            "benchmarks tasks trajectories my-task -v abc",  # version must be an int
+            "benchmarks tasks trajectories my-task -m gemini-3",  # no model filter
         ],
     )
     def test_parse_error(self, cmd):

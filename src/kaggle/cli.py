@@ -2291,19 +2291,26 @@ def parse_benchmark_tasks(subparsers) -> None:
     parser_download._action_groups.append(parser_download_optional)
     parser_download.set_defaults(func=api.benchmarks_tasks_download_cli)
 
-    # trace
-    parser_trace = subparsers_tasks.add_parser(
-        "trace", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_trace
+    # trajectories
+    parser_trajectories = subparsers_tasks.add_parser(
+        "trajectories", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_trajectories
     )
-    parser_trace_optional = parser_trace._action_groups.pop()
-    parser_trace_optional.add_argument("task", help=Help.param_benchmarks_task)
-    parser_trace_optional.add_argument(
+    parser_trajectories_optional = parser_trajectories._action_groups.pop()
+    parser_trajectories_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_trajectories_optional.add_argument(
         "-v", "--version", dest="version", type=int, required=False, help=Help.param_benchmarks_task_version
     )
-    parser_trace_optional.add_argument(
-        "-o", "--output", dest="output", required=False, help=Help.param_benchmarks_output
+    parser_trajectories_optional.add_argument(
+        "-p",
+        "--path",
+        "-o",
+        "--output",
+        dest="output",
+        metavar="PATH",
+        required=False,
+        help=Help.param_benchmarks_trajectories_path,
     )
-    parser_trace_optional.add_argument(
+    parser_trajectories_optional.add_argument(
         "-f",
         "--force",
         dest="force",
@@ -2311,15 +2318,15 @@ def parse_benchmark_tasks(subparsers) -> None:
         required=False,
         help=Help.param_benchmarks_force,
     )
-    parser_trace_optional.add_argument(
+    parser_trajectories_optional.add_argument(
         "--no-extract",
         dest="no_extract",
         action="store_true",
         required=False,
-        help=Help.param_benchmarks_trace_no_extract,
+        help=Help.param_benchmarks_trajectories_no_extract,
     )
-    parser_trace._action_groups.append(parser_trace_optional)
-    parser_trace.set_defaults(func=api.benchmarks_tasks_trace_cli)
+    parser_trajectories._action_groups.append(parser_trajectories_optional)
+    parser_trajectories.set_defaults(func=api.benchmarks_tasks_trajectories_cli)
 
     # log / logs
     parser_log = subparsers_tasks.add_parser(
@@ -2670,7 +2677,7 @@ class Help(object):
         "list",
         "status",
         "download",
-        "trace",
+        "trajectories",
         "log",
         "logs",
         "models",
@@ -2860,7 +2867,7 @@ options a specific command accepts."""
     command_benchmarks_tasks_status = "Show task details and per-model run status"
 
     command_benchmarks_tasks_download = "Download output files for completed runs"
-    command_benchmarks_tasks_trace = "Download the agent trajectories of a task's latest runs"
+    command_benchmarks_tasks_trajectories = "Download the agent trajectories of a task's latest runs"
     command_benchmarks_tasks_log = "Get execution logs for a benchmark task run"
     command_benchmarks_tasks_models = "List available benchmark models"
     command_benchmarks_tasks_delete = "Remove a task"
@@ -3169,7 +3176,8 @@ options a specific command accepts."""
     param_benchmarks_force = "Force re-download, replacing existing output directories."
     param_benchmarks_include_source = "Also download the kernel session's source notebooks."
     param_benchmarks_task_version = "Task version number (defaults to the latest version)"
-    param_benchmarks_trace_no_extract = (
+    param_benchmarks_trajectories_path = "Directory to download trajectories into (default: current directory)"
+    param_benchmarks_trajectories_no_extract = (
         "Keep the downloaded trajectories.zip instead of extracting it into the trajectories/ directory."
     )
     param_benchmarks_kaggle_dataset = (

@@ -11377,7 +11377,7 @@ class KaggleApi:
                     f"Re-run with -f -s to fetch them."
                 )
 
-    def benchmarks_tasks_trace_cli(self, task, version=None, output=None, force=False, no_extract=False):
+    def benchmarks_tasks_trajectories_cli(self, task, version=None, output=None, force=False, no_extract=False):
         """Download the agent trajectories of a benchmark task version.
 
         The server returns a zip holding each candidate model's latest-run trajectory
