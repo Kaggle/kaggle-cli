@@ -10943,8 +10943,11 @@ class KaggleApi:
         if not file.endswith(".py"):
             raise ValueError(f"File '{file}' must be a Python (.py) file.")
 
-        with open(file, encoding="utf-8") as f:
-            content = f.read()
+        try:
+            with open(file, encoding="utf-8-sig") as f:
+                content = f.read()
+        except UnicodeDecodeError as e:
+            raise ValueError(f"{file} is not UTF-8 encoded, please re-save it as UTF-8") from e
         self._validate_task_in_file(task, file, content)
 
         task_slug = slugify(task)

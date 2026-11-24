@@ -189,11 +189,12 @@ def test_metadata_in_another_encoding_says_how_to_fix_it(api, tmp_path):
     assert str(meta_file) in str(raised.value)
 
 
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
 @pytest.mark.parametrize("text", TEXTS)
-def test_benchmarks_push_reads_task_file_as_utf8(api, tmp_path, text):
+def test_benchmarks_push_reads_task_file_as_utf8(api, tmp_path, text, encoding):
     content = f'@task(name="my-task")\ndef evaluate():\n    return "{text}"\n'
     task_file = tmp_path / "task.py"
-    task_file.write_text(content, encoding="utf-8")
+    task_file.write_text(content, encoding=encoding)
     benchmarks = _client(api).benchmarks.benchmark_tasks_api_client
     benchmarks.get_benchmark_task.side_effect = HTTPError(response=MagicMock(status_code=404))
     created = benchmarks.create_benchmark_task.return_value
@@ -206,6 +207,16 @@ def test_benchmarks_push_reads_task_file_as_utf8(api, tmp_path, text):
         api.benchmarks_tasks_push_cli("my-task", str(task_file))
 
     assert jupytext.reads.call_args[0][0] == content
+
+
+def test_benchmarks_task_file_in_another_encoding_says_how_to_fix_it(api, tmp_path):
+    task_file = tmp_path / "task.py"
+    task_file.write_text(f'@task(name="my-task")\ndef evaluate():\n    return "{GARBLED}"\n', encoding="cp1252")
+
+    with pytest.raises(ValueError, match="is not UTF-8 encoded, please re-save it as UTF-8") as raised:
+        api.benchmarks_tasks_push_cli("my-task", str(task_file))
+
+    assert str(task_file) in str(raised.value)
 
 
 def test_benchmarks_reference_is_written_as_utf8(api, tmp_path):

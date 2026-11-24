@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Read metadata files (`dataset-metadata.json`, `kernel-metadata.json`, `model-metadata.json`, ...) and `kaggle benchmarks tasks push` task files as UTF-8 on every platform, with or without a BOM. On Windows they were read in the ANSI code page, so non-ASCII text was garbled or the command failed with `UnicodeDecodeError`. A file in another encoding now raises "<file> is not UTF-8 encoded, please re-save it as UTF-8"
 * Fix every `kaggle` command failing with `ModuleNotFoundError: No module named 'six'` when installed alongside `python-dateutil` 4.0.0 or newer. `kaggle.models.upload_file` imported `six` without declaring it, and only got it through `python-dateutil`, which dropped `six` in 4.0.0
 * Show every column in `kaggle benchmarks leaderboard` for Game Arena leaderboards (`kaggle/game-arena`, `kaggle/chess-text`, `kaggle/poker-heads-up`, ...). Their columns share an empty task slug, so all but the last collapsed into one and the headline score was dropped from `--show` and `--download`
 * Validate bare slugs in `kaggle kernels delete` and require an explicit owner when no username is configured, before confirmation or API access
