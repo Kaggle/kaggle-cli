@@ -32,6 +32,7 @@ from pathlib import Path
 import re  # Needed by mypy.
 import shutil
 import stat
+import struct
 import sys
 import tarfile
 import tempfile
@@ -5570,25 +5571,95 @@ class KaggleApi:
             if not upload_file:
                 raise ValueError("Error uploading image file: %s" % image_full_path)
 
-            header_image_rect = CroppedImageRectangle()
-            header_image_rect.title = "cover image"
-            header_image_rect.top = 0
-            header_image_rect.left = 0
-            header_image_rect.width = 560
-            header_image_rect.height = 280
-
-            thumbnail_rect = CroppedImageRectangle()
-            thumbnail_rect.title = "thumbnail"
-            thumbnail_rect.top = 0
-            thumbnail_rect.left = 140
-            thumbnail_rect.width = 280
-            thumbnail_rect.height = 280
-
             cropped_image_upload = CroppedImageUpload()
             cropped_image_upload.token = upload_file.token
-            cropped_image_upload.crop_rectangles = [header_image_rect, thumbnail_rect]
+            cropped_image_upload.crop_rectangles = self._cover_crop_rectangles(self._image_dimensions(image_full_path))
 
             return cropped_image_upload
+
+    @staticmethod
+    def _image_dimensions(image_path: str) -> Optional[Tuple[int, int]]:
+        """Reads (width, height) from the header of a PNG, JPEG or WebP file.
+
+        Args:
+            image_path: The path to the image file.
+
+        Returns:
+            (width, height), or None if the file isn't a PNG, JPEG or WebP image that can be read.
+        """
+        try:
+            with open(image_path, "rb") as f:
+                head = f.read(32)
+                if head.startswith(b"\x89PNG\r\n\x1a\n") and head[12:16] == b"IHDR":
+                    width, height = struct.unpack(">II", head[16:24])
+                    return width, height
+                if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+                    chunk = head[12:16]
+                    if chunk == b"VP8 ":  # lossy
+                        width, height = struct.unpack("<HH", head[26:30])
+                        return width & 0x3FFF, height & 0x3FFF
+                    if chunk == b"VP8L" and len(head) >= 25:  # lossless
+                        bits = int.from_bytes(head[21:25], "little")
+                        return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+                    if chunk == b"VP8X" and len(head) >= 30:  # extended
+                        return int.from_bytes(head[24:27], "little") + 1, int.from_bytes(head[27:30], "little") + 1
+                    return None
+                if head[:2] == b"\xff\xd8":  # JPEG: walk the segments up to the start-of-frame marker
+                    f.seek(2)
+                    while True:
+                        byte = f.read(1)
+                        while byte and byte != b"\xff":
+                            byte = f.read(1)
+                        while byte == b"\xff":
+                            byte = f.read(1)
+                        if not byte:
+                            return None
+                        marker = byte[0]
+                        if marker == 0xDA:  # start of scan: a frame header must come before it
+                            return None
+                        if marker == 0x01 or 0xD0 <= marker <= 0xD9:  # markers without a length
+                            continue
+                        (length,) = struct.unpack(">H", f.read(2))
+                        if length < 2:  # the length counts its own 2 bytes, so this file is corrupt
+                            return None
+                        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                            height, width = struct.unpack(">xHH", f.read(5))
+                            return width, height
+                        f.seek(length - 2, os.SEEK_CUR)
+        except (OSError, struct.error):
+            return None
+        return None
+
+    @staticmethod
+    def _cover_crop_rectangles(size: Optional[Tuple[int, int]]) -> List[CroppedImageRectangle]:
+        """Returns the cover image (2:1) and thumbnail (1:1) crops for a dataset image.
+
+        Each crop is the largest rectangle of its aspect ratio that fits in the image, centered. For a 560x280
+        image that is the whole image and its centered 280x280 square, which are also the crops used when the
+        image size can't be read.
+
+        Args:
+            size: (width, height) of the image, or None if unknown.
+
+        Returns:
+            The cover image and thumbnail crop rectangles, in that order.
+        """
+        width, height = size if size and size[0] > 0 and size[1] > 0 else (560, 280)
+        header_width = min(width, 2 * height) // 2 * 2  # even, so the height is exactly half
+        side = min(width, height)
+        rects = []
+        for title, rect_width, rect_height in (
+            ("cover image", header_width, header_width // 2),
+            ("thumbnail", side, side),
+        ):
+            rect = CroppedImageRectangle()
+            rect.title = title
+            rect.left = (width - rect_width) // 2
+            rect.top = (height - rect_height) // 2
+            rect.width = rect_width
+            rect.height = rect_height
+            rects.append(rect)
+        return rects
 
     @staticmethod
     def _new_license(name):
