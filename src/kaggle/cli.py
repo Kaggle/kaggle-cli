@@ -2308,7 +2308,7 @@ def parse_benchmark_tasks(subparsers) -> None:
         dest="output",
         metavar="PATH",
         required=False,
-        help=Help.param_benchmarks_trajectories_path,
+        help=Help.param_benchmarks_output,
     )
     parser_trajectories_optional.add_argument(
         "-f",
@@ -3176,7 +3176,6 @@ options a specific command accepts."""
     param_benchmarks_force = "Force re-download, replacing existing output directories."
     param_benchmarks_include_source = "Also download the kernel session's source notebooks."
     param_benchmarks_task_version = "Task version number (defaults to the latest version)"
-    param_benchmarks_trajectories_path = "Directory to download trajectories into (default: current directory)"
     param_benchmarks_trajectories_no_extract = (
         "Keep the downloaded trajectories.zip instead of extracting it into the trajectories/ directory."
     )
