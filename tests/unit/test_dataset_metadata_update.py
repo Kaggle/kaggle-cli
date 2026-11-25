@@ -315,6 +315,12 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
             [("cover image", 0, 0, 560, 280), ("thumbnail", 140, 0, 280, 280)],
         )
 
+    def test_metadata_update_with_one_pixel_wide_image_uses_documented_crops(self):
+        self.assertEqual(
+            self._crops_for_uploaded_image(_png(1, 1)),
+            [("cover image", 0, 0, 560, 280), ("thumbnail", 140, 0, 280, 280)],
+        )
+
     def test_cover_crop_rectangles_are_centered_and_fit_the_image(self):
         def crops(size):
             return [(r.left, r.top, r.width, r.height) for r in KaggleApi._cover_crop_rectangles(size)]
@@ -322,6 +328,9 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         self.assertEqual(crops((1000, 800)), [(0, 150, 1000, 500), (100, 0, 800, 800)])  # taller than 2:1
         self.assertEqual(crops((2000, 500)), [(500, 0, 1000, 500), (750, 0, 500, 500)])  # wider than 2:1
         self.assertEqual(crops((999, 700)), [(0, 100, 998, 499), (149, 0, 700, 700)])  # odd width stays exactly 2:1
+        self.assertEqual(crops((2, 1)), [(0, 0, 2, 1), (0, 0, 1, 1)])  # smallest valid 2:1 image
+        self.assertEqual(crops((1, 500)), [(0, 0, 560, 280), (140, 0, 280, 280)])  # too narrow for a positive 2:1 crop
+        self.assertEqual(crops((0, 280)), [(0, 0, 560, 280), (140, 0, 280, 280)])
         self.assertEqual(crops(None), [(0, 0, 560, 280), (140, 0, 280, 280)])
 
     def test_image_dimensions_reads_png_jpeg_and_webp_headers(self):
@@ -332,6 +341,7 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
         cases = {
             "a.png": _png(731, 365),
             "b.jpg": b"\xff\xd8" + jfif + dht + progressive_frame + b"\xff\xd9",
+            "stuffed.jpg": b"\xff\xd8" + jfif + b"\xff\x00" + progressive_frame + b"\xff\xd9",
             "c.webp": riff
             + b"VP8 "
             + struct.pack("<I", 20)
@@ -352,11 +362,44 @@ class TestDatasetMetadataUpdate(unittest.TestCase):
             self.assertEqual(KaggleApi._image_dimensions(path), (731, 365), name)
 
         corrupt = {
+            "zero_width.png": b"\x89PNG\r\n\x1a\n"
+            + struct.pack(">I", 13)
+            + b"IHDR"
+            + struct.pack(">IIBBBBB", 0, 365, 8, 2, 0, 0, 0),
+            "overflow_width.png": b"\x89PNG\r\n\x1a\n"
+            + struct.pack(">I", 13)
+            + b"IHDR"
+            + struct.pack(">IIBBBBB", 0x80000000, 365, 8, 2, 0, 0, 0),
             "truncated.jpg": b"\xff\xd8\xff\xe0\x00",
             # a segment length below 2 (it counts its own two bytes)
             "short_length.jpg": b"\xff\xd8\xff\xe0\x00\x01" + progressive_frame,
-            # start of scan before any frame header: stop there instead of scanning the compressed data
+            # an SOF segment too short (< 7 bytes) to hold precision, height and width
+            "short_sof.jpg": b"\xff\xd8\xff\xc0\x00\x06\x08\x01\x6d\x02" + progressive_frame,
+            # end of image or start of scan before any frame header: stop instead of scanning trailing data
+            "eoi_first.jpg": b"\xff\xd8" + jfif + b"\xff\xd9" + progressive_frame,
             "scan_first.jpg": b"\xff\xd8" + jfif + b"\xff\xda" + struct.pack(">H", 8) + b"\x00" * 6 + progressive_frame,
+            # DNL-deferred height (Y=0 in SOF) has no usable height in the frame header
+            "dnl_zero_height.jpg": b"\xff\xd8\xff\xc0" + struct.pack(">HBHH", 11, 8, 0, 731) + b"\x00" * 3,
+            "bad_vp8_sync.webp": riff
+            + b"VP8 "
+            + struct.pack("<I", 20)
+            + b"\x00\x00\x00\x00\x00\x00"
+            + struct.pack("<HH", 731, 365),
+            "interframe_vp8.webp": riff
+            + b"VP8 "
+            + struct.pack("<I", 20)
+            + b"\x01\x00\x00\x9d\x01\x2a"
+            + struct.pack("<HH", 731, 365),
+            "zero_vp8.webp": riff
+            + b"VP8 "
+            + struct.pack("<I", 20)
+            + b"\x00\x00\x00\x9d\x01\x2a"
+            + struct.pack("<HH", 0, 365),
+            "bad_vp8l_sig.webp": riff
+            + b"VP8L"
+            + struct.pack("<I", 20)
+            + b"\x00"
+            + struct.pack("<I", 730 | (364 << 14)),
             "truncated_vp8l.webp": riff + b"VP8L" + struct.pack("<I", 20) + b"\x2f",
             "truncated_vp8x.webp": riff + b"VP8X" + struct.pack("<I", 10) + b"\x10\x00",
         }
