@@ -550,6 +550,7 @@ def parse_competitions(subparsers) -> None:
         "pages",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_competitions_pages,
+        description="pages <competition> is shorthand for pages list <competition>.",
         parents=[shared_competition_pages_list],
     )
     subparsers_competitions_pages = parser_competitions_pages.add_subparsers(
