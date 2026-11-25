@@ -32,6 +32,35 @@ from kaggle.api.kaggle_api_extended import ISSUE_TRACKER_URL, format_http_error,
 ApiException = IOError
 
 
+class _DefaultListSubParsersAction(argparse._SubParsersAction):
+    """Subparsers action for `competitions pages` that defaults to `list`.
+
+    `pages` accepts an optional competition positional (e.g. `pages titanic`)
+    as well as the {list,create,update,delete} subcommands. argparse cannot
+    carry both a positional and subparsers on the same parser -- it hands the
+    first token to the subparsers action, so `pages titanic` (and even
+    `pages list titanic`) used to fail with "invalid choice". Here the
+    competition positional lives on the `list` subparser instead, and when the
+    first token is not a known subcommand it is treated as `list <token>`.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not values or values[0] not in self._name_parser_map:
+            values = ["list", *values]
+        # Options accepted on the `pages` parser itself (e.g. `--content` given
+        # before the competition) are reset to their defaults when argparse
+        # parses the subcommand in a throwaway namespace and copies every key
+        # back. Preserve any value already set on the parent that the chosen
+        # subcommand leaves at its default.
+        preserved = dict(vars(namespace))
+        super().__call__(parser, namespace, values, option_string)
+        chosen = self._name_parser_map[values[0]]
+        for action in chosen._actions:
+            dest = action.dest
+            if dest in preserved and getattr(namespace, dest, action.default) == action.default:
+                setattr(namespace, dest, preserved[dest])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, epilog=Help.examples)
 
@@ -496,8 +525,10 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_episode_logs.set_defaults(func=api.competition_episode_agent_logs_cli)
 
     # Competitions pages (group: list / create)
+    # Shared *options* only. The `competition` positional is NOT added here: on
+    # the `pages` parser it would collide with the {list,create,...} subcommand
+    # token, so it lives on the `list` subparser instead (see below).
     shared_competition_pages_list = argparse.ArgumentParser(add_help=False)
-    shared_competition_pages_list.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
     shared_competition_pages_list.add_argument(
         "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
     )
@@ -519,13 +550,20 @@ def parse_competitions(subparsers) -> None:
         "pages",
         formatter_class=argparse.RawTextHelpFormatter,
         help=Help.command_competitions_pages,
+        description="pages <competition> is shorthand for pages list <competition>.",
         parents=[shared_competition_pages_list],
     )
-    subparsers_competitions_pages = parser_competitions_pages.add_subparsers(title="commands", dest="command")
-    subparsers_competitions_pages.choices = Help.entity_pages_choices
+    subparsers_competitions_pages = parser_competitions_pages.add_subparsers(
+        title="commands",
+        dest="command",
+        action=_DefaultListSubParsersAction,
+        metavar="{" + ",".join(Help.entity_pages_choices) + "}",
+    )
 
-    # Default action when no subcommand is given: list
-    parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
+    # Default action when no subcommand is given: list. `competition` is defined
+    # as a positional on the `list` subparser; set it here so it is present when
+    # `pages` or `pages -c <comp>` is used without an explicit subcommand.
+    parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli, competition=None)
 
     # Competitions pages list (explicit)
     parser_competitions_pages_list = subparsers_competitions_pages.add_parser(
@@ -534,6 +572,7 @@ def parse_competitions(subparsers) -> None:
         help=Help.command_competitions_pages,
         parents=[shared_competition_pages_list],
     )
+    parser_competitions_pages_list.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
     parser_competitions_pages_list.set_defaults(func=api.competition_list_pages_cli)
 
     # Competitions pages create
@@ -672,6 +711,12 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_pages_delete._action_groups.append(parser_competitions_pages_delete_optional)
     parser_competitions_pages_delete.set_defaults(func=api.competition_delete_page_cli)
+
+    # All `pages` subcommands are now registered. Unbind the choices mapping so
+    # argparse's early choice check does not reject a bare `pages <competition>`;
+    # _DefaultListSubParsersAction still routes real subcommands via its
+    # _name_parser_map and sends anything else to `list`.
+    subparsers_competitions_pages.choices = None
 
     # Competitions hosts (list hosts for a competition)
     parser_competitions_hosts = subparsers_competitions.add_parser(
