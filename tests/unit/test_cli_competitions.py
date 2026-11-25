@@ -383,6 +383,82 @@ def test_competitions_pages_delete_succeeds(parser):
     assert kwargs["quiet"] is True
 
 
+def test_competitions_pages_bare_competition_positional_succeeds(parser):
+    # `pages <competition>` with no subcommand must default to `list`.
+    # Previously this failed with "invalid choice: '<competition>'" because the
+    # competition positional collided with the {list,create,...} subcommands.
+    func, kwargs = parser.dispatch(["competitions", "pages", "my-comp"])
+    assert func.__name__ == "competition_list_pages_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs.get("competition_opt") is None
+    assert kwargs["content"] is False
+    assert kwargs["page_name"] is None
+
+
+def test_competitions_pages_bare_competition_with_option_succeeds(parser):
+    # An option before the bare competition must still route to `list`.
+    func, kwargs = parser.dispatch(["competitions", "pages", "--content", "--page-name", "rules", "my-comp"])
+    assert func.__name__ == "competition_list_pages_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["content"] is True
+    assert kwargs["page_name"] == "rules"
+
+
+def test_competitions_pages_no_args_defaults_to_list(parser):
+    func, kwargs = parser.dispatch(["competitions", "pages"])
+    assert func.__name__ == "competition_list_pages_cli"
+    assert kwargs.get("competition") is None
+    assert kwargs.get("competition_opt") is None
+
+
+def test_competitions_pages_list_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "pages", "list", "my-comp", "--content"])
+    assert func.__name__ == "competition_list_pages_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs.get("competition_opt") is None
+    assert kwargs["content"] is True
+
+
+def test_competitions_pages_create_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        [
+            "competitions",
+            "pages",
+            "create",
+            "my-comp",
+            "--page-name",
+            "rules",
+            "-f",
+            "rules.html",
+        ]
+    )
+    assert func.__name__ == "competition_create_page_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs.get("competition_opt") is None
+    assert kwargs["page_name"] == "rules"
+    assert kwargs["file_path"] == "rules.html"
+
+
+def test_competitions_pages_update_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(
+        ["competitions", "pages", "update", "my-comp", "--page-name", "rules", "-f", "new.html"]
+    )
+    assert func.__name__ == "competition_update_page_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs.get("competition_opt") is None
+    assert kwargs["page_name"] == "rules"
+    assert kwargs["file_path"] == "new.html"
+
+
+def test_competitions_pages_delete_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "pages", "delete", "my-comp", "--page-name", "rules", "--yes"])
+    assert func.__name__ == "competition_delete_page_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs.get("competition_opt") is None
+    assert kwargs["page_name"] == "rules"
+    assert kwargs["no_confirm"] is True
+
+
 def test_competitions_hosts_dash_c_succeeds(parser):
     func, kwargs = parser.dispatch(["competitions", "hosts", "-c", "my-comp"])
     assert func.__name__ == "competition_list_hosts_cli"
