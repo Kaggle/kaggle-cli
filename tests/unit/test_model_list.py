@@ -11,7 +11,9 @@ from kagglesdk.models.types.model_api_service import (
     ApiListModelsRequest,
     ApiListModelInstanceVersionFilesRequest,
     ApiListModelInstanceVersionFilesResponse,
+    ApiListModelInstanceVersionsResponse,
 )
+from kagglesdk.models.types.model_types import ModelInstanceVersion, ModelInstanceVersionList
 
 
 class TestModelList(unittest.TestCase):
@@ -184,6 +186,70 @@ class TestModelList(unittest.TestCase):
 
         self.assertIsNone(result)
         self.assertIn("No files found", f.getvalue())
+
+    # model_instance_versions_list tests
+    @staticmethod
+    def _version(slug, number, framework=ModelFramework.MODEL_FRAMEWORK_TRANSFORMERS):
+        version = ModelInstanceVersion()
+        version.variation_slug = slug
+        version.version_number = number
+        version.framework = framework
+        return version
+
+    @staticmethod
+    def _versions_page(versions, next_page_token=""):
+        response = ApiListModelInstanceVersionsResponse()
+        response.version_list = ModelInstanceVersionList()
+        response.version_list.versions = versions
+        response.next_page_token = next_page_token
+        return response
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_versions_list_keeps_only_requested_instance(self, mock_client):
+        mock_kaggle = MagicMock()
+        list_versions = mock_kaggle.models.model_api_client.list_model_instance_versions
+        list_versions.side_effect = [
+            self._versions_page(
+                [self._version("14b-base", 1), self._version("8b-base", 2)],
+                next_page_token="page-2",
+            ),
+            self._versions_page(
+                [
+                    self._version("8b-base", 1),
+                    self._version("8b-base", 1, ModelFramework.MODEL_FRAMEWORK_PY_TORCH),
+                ]
+            ),
+        ]
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = self.api.model_instance_versions_list("owner/model/transformers/8b-base")
+
+        versions = result.version_list.versions
+        self.assertEqual([v.version_number for v in versions], [2, 1])
+        self.assertTrue(all(v.variation_slug == "8b-base" for v in versions))
+        self.assertTrue(all(v.framework == ModelFramework.MODEL_FRAMEWORK_TRANSFORMERS for v in versions))
+        self.assertEqual(result.next_page_token, "")
+        self.assertEqual(list_versions.call_count, 2)
+        self.assertEqual(list_versions.call_args_list[1][0][0].page_token, "page-2")
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_versions_list_cli_no_matching_versions(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.models.model_api_client.list_model_instance_versions.side_effect = [
+            self._versions_page([self._version("14b-base", 1)])
+        ]
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        import io
+        from contextlib import redirect_stdout
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.api.model_instance_versions_list_cli("owner/model/transformers/8b-base")
+
+        self.assertIn("No versions found", f.getvalue())
 
 
 if __name__ == "__main__":
