@@ -3,6 +3,7 @@ Changelog
 
 ### Next
 
+* Fix `kaggle models instances versions list` (and `model_instance_versions_list`) returning the versions of every instance of the model. The server ignores the requested instance and framework, so the CLI now reads every page and keeps only the versions of the requested instance. All matching versions are returned at once, so no next page token is printed
 * Read metadata files (`dataset-metadata.json`, `kernel-metadata.json`, `model-metadata.json`, ...) and `kaggle benchmarks tasks push` task files as UTF-8 on every platform, with or without a BOM. On Windows they were read in the ANSI code page, so non-ASCII text was garbled or the command failed with `UnicodeDecodeError`. A file in another encoding now raises "<file> is not UTF-8 encoded, please re-save it as UTF-8"
 * Fit the dataset cover image and thumbnail crops to the image in `kaggle datasets metadata --update`. They were always the top-left 560x280 pixels and a 280x280 square at x=140, so a larger image showed only its top-left corner. Each crop is now the largest centered rectangle of its ratio, which is unchanged for a 560x280 image
 * Fix every `kaggle` command failing with `ModuleNotFoundError: No module named 'six'` when installed alongside `python-dateutil` 4.0.0 or newer. `kaggle.models.upload_file` imported `six` without declaring it, and only got it through `python-dateutil`, which dropped `six` in 4.0.0

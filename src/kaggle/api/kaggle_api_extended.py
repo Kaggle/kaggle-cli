@@ -255,7 +255,7 @@ from kagglesdk.models.types.model_proxy_api_service import (
     ApiCreateDefaultModelProxyTokenRequest,
     ApiGetModelProxyQuotasRequest,
 )
-from kagglesdk.models.types.model_types import Owner
+from kagglesdk.models.types.model_types import ModelInstanceVersionList, Owner
 from kagglesdk.search.types.search_api_service import (
     ApiListType,
     ListEntitiesDocument,
@@ -9195,15 +9195,55 @@ class KaggleApi:
     def model_instance_versions_list(
         self, model_instance, page_size=20, page_token=None
     ) -> ApiListModelInstanceVersionsResponse:
+        """Lists the versions of a single model instance.
+
+        The ListModelInstanceVersions endpoint currently ignores the requested
+        instance and framework and returns the versions of every instance of the
+        model (https://github.com/Kaggle/kaggle-cli/issues/1229). Until that is
+        fixed on the server, read every page and keep only the versions that
+        belong to the requested instance. Once the server filters correctly this
+        has no effect.
+
+        Args:
+            model_instance: The string identifier of the model instance,
+                in the format [owner]/[model-name]/[framework]/[instance-slug].
+            page_size: The number of versions to request per call. At least 200
+                are requested, since every page is read.
+            page_token: The page token to start reading from.
+
+        Returns:
+            ApiListModelInstanceVersionsResponse: All matching versions, with no
+            next page token.
+        """
         owner_slug, model_slug, framework, instance_slug = self.split_model_instance_string(model_instance)
+        framework_enum = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_UNSPECIFIED, framework)
+        matches = []
+        seen_tokens = set()
         with self.build_kaggle_client() as kaggle:
-            request = ApiListModelInstanceVersionsRequest()
-            request.owner_slug = owner_slug
-            request.model_slug = model_slug
-            request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_UNSPECIFIED, framework)
-            request.instance_slug = instance_slug
-            self._set_paging(request, page_size, page_token)
-            return kaggle.models.model_api_client.list_model_instance_versions(request)
+            while True:
+                request = ApiListModelInstanceVersionsRequest()
+                request.owner_slug = owner_slug
+                request.model_slug = model_slug
+                request.framework = framework_enum
+                request.instance_slug = instance_slug
+                # Every page is read, so ask for large pages to keep the number of requests down.
+                self._set_paging(request, max(page_size or 0, 200), page_token)                
+                response = kaggle.models.model_api_client.list_model_instance_versions(request)
+                if response.version_list:
+                    matches.extend(
+                        v
+                        for v in response.version_list.versions
+                        if v.variation_slug == instance_slug and v.framework == framework_enum
+                    )
+                page_token = response.next_page_token
+                if not page_token or page_token in seen_tokens:
+                    break
+                seen_tokens.add(page_token)
+
+        result = ApiListModelInstanceVersionsResponse()
+        result.version_list = ModelInstanceVersionList()
+        result.version_list.versions = matches
+        return result
 
     def model_instance_versions_list_cli(
         self, model_instance, csv_display=False, page_size=20, page_token=None, output_format=None
@@ -9220,10 +9260,10 @@ class KaggleApi:
         response = self.model_instance_versions_list(model_instance, page_size, page_token)
         if response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
-        versions = response.version_list
+        versions = response.version_list.versions if response.version_list else []
         if versions:
             self.print_results(
-                versions.versions,
+                versions,
                 self.model_instance_version_fields,
                 self.model_instance_version_labels,
                 csv_display=csv_display,
