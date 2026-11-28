@@ -231,6 +231,7 @@ class TestModelList(unittest.TestCase):
         self.assertTrue(all(v.framework == ModelFramework.MODEL_FRAMEWORK_TRANSFORMERS for v in versions))
         self.assertEqual(result.next_page_token, "")
         self.assertEqual(list_versions.call_count, 2)
+        self.assertEqual(list_versions.call_args_list[0][0][0].page_size, 200)
         self.assertEqual(list_versions.call_args_list[1][0][0].page_token, "page-2")
 
     @patch.object(KaggleApi, "build_kaggle_client")

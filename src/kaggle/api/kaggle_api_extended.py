@@ -9207,7 +9207,8 @@ class KaggleApi:
         Args:
             model_instance: The string identifier of the model instance,
                 in the format [owner]/[model-name]/[framework]/[instance-slug].
-            page_size: The number of versions to request per page.
+            page_size: The number of versions to request per call. At least 200
+                are requested, since every page is read.
             page_token: The page token to start reading from.
 
         Returns:
@@ -9225,7 +9226,8 @@ class KaggleApi:
                 request.model_slug = model_slug
                 request.framework = framework_enum
                 request.instance_slug = instance_slug
-                self._set_paging(request, page_size, page_token)
+                # Every page is read, so ask for large pages to keep the number of requests down.
+                self._set_paging(request, max(page_size or 0, 200), page_token)                
                 response = kaggle.models.model_api_client.list_model_instance_versions(request)
                 if response.version_list:
                     matches.extend(
